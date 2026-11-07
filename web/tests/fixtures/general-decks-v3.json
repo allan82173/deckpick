@@ -1,0 +1,391 @@
+[
+  {
+    "id": "market-v3",
+    "category": "시장 진입",
+    "input": {
+      "topic": "가상 기업 A의 서울 반려동물 방문 돌봄 진입",
+      "purpose": "먼저 검증할 고객·채널과 우선순위를 뒤집을 조건을 판단하는 중간발표. 공개 맥락: 대한민국 서울, 반려동물 방문 돌봄, 2025~2026년 공개 자료",
+      "audience": "검토팀",
+      "deckType": "consulting",
+      "designSystemId": "navy",
+      "slideCount": 7,
+      "publicSearchTopic": "대한민국 서울, 반려동물 방문 돌봄, 2025~2026년 공개 자료",
+      "appendSources": true,
+      "internalReview": true
+    },
+    "attachment": "가상 평가 과제이며 기업·조직·서비스 이름만 가상이다. 공개 맥락은 실제다. 실제 인터뷰·성과·매출은 없다. 가정 계산은 가정과 산식을 표시한다. 비공개 내부 표식 PRIVATE_FIXTURE_MARKET는 검색에 넣지 않는다.",
+    "expectedFacts": [
+      {
+        "id": "market-F1",
+        "claim": "2025년 반려동물 양육현황조사의 양육 가구 비율은 29.2%다. 전국 조사이며 서울 비율이 아니다.",
+        "url": "https://www.mafra.go.kr/bbs/home/792/594753/download.do",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "29.2"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "29.2"
+          ]
+        ]
+      },
+      {
+        "id": "market-F2",
+        "claim": "2025년 양육현황조사는 3,000가구 방문 면접 방식으로 실시됐다.",
+        "url": "https://www.mafra.go.kr/bbs/home/792/594753/download.do",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "3,000",
+          "방문"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "3,000"
+          ],
+          [
+            "방문"
+          ]
+        ]
+      },
+      {
+        "id": "market-F3",
+        "claim": "2025년 반려동물 1마리당 월평균 양육비는 약 12만 1천 원이다. 돌봄 지출이 아닌 전체 양육비다.",
+        "url": "https://www.mafra.go.kr/bbs/home/792/594753/download.do",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "12만",
+          "1천"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "12만"
+          ],
+          [
+            "1천"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "workflow-v3",
+    "category": "내부 업무",
+    "input": {
+      "topic": "가상 조직 B의 영국 디지털 서비스 문의 인계 개선",
+      "purpose": "문의 분류·인계 개선안과 가정 기반 처리 시간, 실행 합의를 제안하는 최종발표. 공개 맥락: 영국, 정부 디지털 서비스 고객지원, GOV.UK Service Manual 2016년 안내",
+      "audience": "검토팀",
+      "deckType": "consulting",
+      "designSystemId": "navy",
+      "slideCount": 7,
+      "publicSearchTopic": "영국, 정부 디지털 서비스 고객지원, GOV.UK Service Manual 2016년 안내",
+      "appendSources": true,
+      "internalReview": true
+    },
+    "attachment": "가상 평가 과제이며 기업·조직·서비스 이름만 가상이다. 공개 맥락은 실제다. 실제 인터뷰·성과·매출은 없다. 가정 계산은 가정과 산식을 표시한다. 비공개 내부 표식 PRIVATE_FIXTURE_WORKFLOW는 검색에 넣지 않는다.",
+    "expectedFacts": [
+      {
+        "id": "workflow-F1",
+        "claim": "GOV.UK 지침은 예상 문의량을 채널별·문의 유형별로 나눠 추정하도록 안내한다.",
+        "url": "https://www.gov.uk/service-manual/helping-people-to-use-your-service/set-up-and-manage-user-support",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "채널",
+          "유형"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "채널",
+            "channel"
+          ],
+          [
+            "유형",
+            "types"
+          ]
+        ]
+      },
+      {
+        "id": "workflow-F2",
+        "claim": "GOV.UK 지침은 지원 채널과 피드백을 처리할 내부 팀별 하위 그룹 구성을 최소 요건으로 제시한다.",
+        "url": "https://www.gov.uk/service-manual/helping-people-to-use-your-service/set-up-and-manage-user-support",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "채널",
+          "팀"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "채널",
+            "channel"
+          ],
+          [
+            "팀",
+            "team"
+          ]
+        ]
+      },
+      {
+        "id": "workflow-F3",
+        "claim": "GOV.UK 지침은 채널별 평균 처리 시간 AHT와 과거 데이터를 인력·서비스 수준 계획에 사용한다.",
+        "url": "https://www.gov.uk/service-manual/helping-people-to-use-your-service/set-up-and-manage-user-support",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "AHT"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "AHT",
+            "average handling time"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "academic-v3",
+    "category": "학술 요약",
+    "input": {
+      "topic": "가상 연구팀 C의 대학생 인출 연습·재학습 비교",
+      "purpose": "원 연구의 설계·반복 인출의 판단 범위·일반화 한계를 설명하는 리서치 발표. 공개 맥락: 미국 워싱턴대학교 연구, 외국어 단어 기억, 2008년 Science 논문",
+      "audience": "검토팀",
+      "deckType": "consulting",
+      "designSystemId": "navy",
+      "slideCount": 7,
+      "publicSearchTopic": "미국 워싱턴대학교 연구, 외국어 단어 기억, 2008년 Science 논문",
+      "appendSources": true,
+      "internalReview": true
+    },
+    "attachment": "가상 평가 과제이며 기업·조직·서비스 이름만 가상이다. 공개 맥락은 실제다. 실제 인터뷰·성과·매출은 없다. 가정 계산은 가정과 산식을 표시한다. 비공개 내부 표식 PRIVATE_FIXTURE_ACADEMIC는 검색에 넣지 않는다.",
+    "expectedFacts": [
+      {
+        "id": "academic-F1",
+        "claim": "Roediger와 Karpicke 연구는 Science 2008년 2월 15일자에 발표됐다.",
+        "url": "https://source.washu.edu/2008/03/practicing-information-retrieval-is-key-to-memory-retention-2/",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "2008",
+          "Science"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "2008"
+          ],
+          [
+            "Science"
+          ]
+        ]
+      },
+      {
+        "id": "academic-F2",
+        "claim": "연구 참가자는 컴퓨터 플래시카드와 유사한 절차로 외국어 단어 뜻을 처음 회상할 때까지 학습했다.",
+        "url": "https://source.washu.edu/2008/03/practicing-information-retrieval-is-key-to-memory-retention-2/",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "단어",
+          "회상"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "단어",
+            "word"
+          ],
+          [
+            "회상",
+            "recall"
+          ]
+        ]
+      },
+      {
+        "id": "academic-F3",
+        "claim": "첫 회상 이후 반복 학습보다 반복 인출이 장기 파지에 중요했다는 연구자 설명이 있다. 복잡한 교과 전체의 효과로 일반화할 수 없다.",
+        "url": "https://source.washu.edu/2008/03/practicing-information-retrieval-is-key-to-memory-retention-2/",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "반복",
+          "인출"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "반복",
+            "Repeated"
+          ],
+          [
+            "인출",
+            "retrieval"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "product-v3",
+    "category": "제품 피치",
+    "input": {
+      "topic": "가상 서비스 D의 서울도서관 대출 관리 보조 앱",
+      "purpose": "문제·기존 대안·첫 제품 범위와 가정 기반 시간 절감·검증 조건을 보여 주는 목업 제품 피치. 공개 맥락: 대한민국 서울도서관, 일반회원 도서 대출, 2025년 서비스 안내",
+      "audience": "검토팀",
+      "deckType": "consulting",
+      "designSystemId": "navy",
+      "slideCount": 7,
+      "publicSearchTopic": "대한민국 서울도서관, 일반회원 도서 대출, 2025년 서비스 안내",
+      "appendSources": true,
+      "internalReview": true
+    },
+    "attachment": "가상 평가 과제이며 기업·조직·서비스 이름만 가상이다. 공개 맥락은 실제다. 실제 인터뷰·성과·매출은 없다. 가정 계산은 가정과 산식을 표시한다. 비공개 내부 표식 PRIVATE_FIXTURE_PRODUCT는 검색에 넣지 않는다.",
+    "expectedFacts": [
+      {
+        "id": "product-F1",
+        "claim": "2025년 서울시 안내에 따르면 일반회원은 도서 최대 7권을 대출할 수 있다.",
+        "url": "https://mediahub.seoul.go.kr/archives/2014963",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "7권"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "7권"
+          ]
+        ]
+      },
+      {
+        "id": "product-F2",
+        "claim": "서울시 안내의 일반회원 도서 대출기간은 15일이다.",
+        "url": "https://mediahub.seoul.go.kr/archives/2014963",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "15일"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "15일"
+          ]
+        ]
+      },
+      {
+        "id": "product-F3",
+        "claim": "일반회원은 대출기간을 1회 7일 연장할 수 있다.",
+        "url": "https://mediahub.seoul.go.kr/archives/2014963",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "1회",
+          "7일"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "1회"
+          ],
+          [
+            "7일"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "policy-v3",
+    "category": "정책 공공",
+    "input": {
+      "topic": "가상 정책팀 E의 파리 공공자전거 정보 접근성 검토",
+      "purpose": "지역·대상별 접근성 대안을 비교하고 부작용·가정 시나리오를 밝히는 중간발표. 공개 맥락: 프랑스 파리와 근교, Vélib, Île-de-France Mobilités 2026년 안내",
+      "audience": "검토팀",
+      "deckType": "consulting",
+      "designSystemId": "navy",
+      "slideCount": 7,
+      "publicSearchTopic": "프랑스 파리와 근교, Vélib, Île-de-France Mobilités 2026년 안내",
+      "appendSources": true,
+      "internalReview": true
+    },
+    "attachment": "가상 평가 과제이며 기업·조직·서비스 이름만 가상이다. 공개 맥락은 실제다. 실제 인터뷰·성과·매출은 없다. 가정 계산은 가정과 산식을 표시한다. 비공개 내부 표식 PRIVATE_FIXTURE_POLICY는 검색에 넣지 않는다.",
+    "expectedFacts": [
+      {
+        "id": "policy-F1",
+        "claim": "2026년 교통기관 안내는 파리와 일부 근교에 약 1,800개 Vélib 정거장이 있다고 설명한다.",
+        "url": "https://www.iledefrance-mobilites.fr/le-reseau/services-de-mobilite/velo/decouvrir-velos-libre-service",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "1,800"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "1,800",
+            "1 800",
+            "1800"
+          ]
+        ]
+      },
+      {
+        "id": "policy-F2",
+        "claim": "교통기관의 주변 검색은 자전거의 실시간 이용 가능 정보를 제공한다.",
+        "url": "https://www.iledefrance-mobilites.fr/le-reseau/services-de-mobilite/velo/decouvrir-velos-libre-service",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "실시간",
+          "자전거"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "실시간",
+            "temps réel",
+            "real time"
+          ],
+          [
+            "자전거",
+            "vélos",
+            "bikes"
+          ]
+        ]
+      },
+      {
+        "id": "policy-F3",
+        "claim": "같은 주변 검색은 반납할 수 있는 빈 거치 공간 수를 안내한다.",
+        "url": "https://www.iledefrance-mobilites.fr/le-reseau/services-de-mobilite/velo/decouvrir-velos-libre-service",
+        "checkedAt": "2026-11-07",
+        "requiredKeywords": [
+          "반납",
+          "공간"
+        ],
+        "humanReview": "미검토",
+        "preparedBy": "AI · 공식 원문 확인",
+        "keywordGroups": [
+          [
+            "반납",
+            "déposer",
+            "return"
+          ],
+          [
+            "공간",
+            "places",
+            "spaces"
+          ]
+        ]
+      }
+    ]
+  }
+]

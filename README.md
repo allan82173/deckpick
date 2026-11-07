@@ -1,4 +1,4 @@
-이 비공개 저장소는 공유용 소스 패키지를 보관합니다. **deckpick-source.zip**을 내려받아 압축을 풀고 아래 실행 순서를 따라 주세요. GitHub의 Code → Download ZIP으로 받았다면, 안의 **deckpick-source.zip**도 한 번 압축을 풀어 주세요.
+이 비공개 저장소는 DeckPick 소스를 그대로 보관합니다. 앱은 `web/`, 작업 지침은 `AGENTS.md`, 설계·진행 기록은 `docs/`에 있습니다. 같은 내용을 한 번에 받을 수 있도록 **deckpick-source.zip**도 함께 갱신합니다.
 
 # DeckPick
 

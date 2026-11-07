@@ -1,0 +1,2 @@
+export const exampleStages=[{id:"input",label:"자료·대화"},{id:"outline",label:"목차 조정"},{id:"draft",label:"전체 초안·수정"}] as const;
+export function ExampleNav({active}:{active?:string}){return <nav aria-label="예시 이용 단계">{exampleStages.map((stage,i)=><a href={`/example/${stage.id}`} key={stage.id} className={`step${active===stage.id?" active":""}`} aria-current={active===stage.id?"page":undefined}><span>{i+1}</span>{stage.label}</a>)}<span className="step" aria-disabled="true"><span>4</span>내려받기</span></nav>;}

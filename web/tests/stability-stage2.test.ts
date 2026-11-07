@@ -1,0 +1,48 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { deduplicateEvidence,deduplicateDecisions,evidenceExcerpt,topQuestionEvidence,slideEvidence,sourceFactsForPrompt } from "../src/lib/evidence-selection";
+import type { Evidence,ResearchRecord } from "../src/lib/evidence-model";
+import { taskAnalysisSchema } from "../src/lib/task-model";
+import { mapConcurrent,providerSlot } from "../src/lib/concurrency";
+import { GENERATION_CONFIG } from "../src/lib/generation-config";
+import { generateCandidates,slideConversation } from "../src/lib/ai";
+import { withExecution } from "../src/lib/execution-scope";
+import { forest } from "../src/lib/design";
+import { demoCandidates } from "../src/lib/demo";
+import type { DeckInput } from "../src/lib/model";
+const row=(i:number,extra:Partial<Evidence>={}):Evidence=>({id:String(i),claim:`공개 주장 ${i}`,kind:"공개 사실",url:`https://example.org/${i}`,title:`공식 자료 ${i}`,locator:"본문",checkedAt:"today",questionIds:["Q1"],contextMatch:"비교 참고",originalVerified:false,...extra});
+test("question scope ranks matching verified sources, caps public rows and retains all distinct internal rows",()=>{
+ const analysis=taskAnalysisSchema.parse({questions:["Q1","Q2"].map(id=>({id,question:"선택",publicQuestion:"선택",judgmentForm:"선택",needsPublicEvidence:true})),publicContext:[],privateConditions:[],internalPremises:[],stage:"중간",language:"ko",slideCount:5,requiredSections:[],checklist:[{id:"count",requirement:"5장"}],terminology:[],notationRules:[],fingerprint:"test"});
+ const evidence=[...Array.from({length:12},(_,i)=>row(i)),row(20,{contextMatch:"일치",originalVerified:true}),...Array.from({length:11},(_,i)=>row(30+i,{kind:"내부 전제",url:"",locator:`내부 ${i}`}))];
+ const selected=topQuestionEvidence({analysis,evidence,searchStatus:"searched",query:"",notice:""});assert.equal(selected.filter(e=>e.kind==="공개 사실").length,GENERATION_CONFIG.efficiency.evidencePerQuestion);assert.equal(selected.filter(e=>e.kind==="내부 전제").length,11);assert.equal(selected[11].id,"20");assert.equal(deduplicateDecisions([{text:"동일 결정"},{text:"동일  결정"}]).length,1);
+});
+test("URL grouping retains verified and unconfirmed claims and alias references",()=>{
+ const rows=deduplicateEvidence([row(1,{url:"https://example.org/source?utm_source=x",originalVerified:true,originalText:"확인한 원문",contextMatch:"일치"}),row(2,{url:"https://example.org/source",claim:"별도 미확인 주장",originalText:"",verificationStatus:"원문 미확인"})]);
+ assert.equal(rows.length,1);assert.equal(rows[0].relatedFacts?.[0].claim,"별도 미확인 주장");assert.equal(rows[0].relatedFacts?.[0].originalText,"");assert.equal(slideEvidence(rows,["2"]).length,1);assert.ok(!JSON.stringify(sourceFactsForPrompt(rows)).includes("확인한 원문"));
+});
+test("excerpt includes tail keywords and adjacent paragraphs without altering full source",()=>{
+ const full="일반 설명입니다.\n\n".repeat(6000)+"직전 문단.\n\n서울 점심 구독의 핵심 조건입니다.\n\n다음 문단입니다.";
+ const excerpt=evidenceExcerpt(full,"서울 점심 구독");assert.ok(full.length>60000);assert.ok(excerpt.length<=GENERATION_CONFIG.efficiency.excerptCharactersPerPage);assert.match(excerpt,/서울 점심 구독/);assert.match(excerpt,/직전 문단/);assert.match(excerpt,/다음 문단/);assert.ok(full.includes("일반 설명입니다."));
+});
+test("bounded workers preserve successes around failures, provider calls never exceed three",async()=>{
+ let active=0,peak=0;const results=await mapConcurrent(Array.from({length:9},(_,i)=>i),async i=>{active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,5));active--;if(i===3)throw Error("forced");return i;});assert.equal(peak,3);assert.equal(results.filter(r=>r.status==="fulfilled").length,8);
+ active=0;peak=0;await Promise.all(Array.from({length:8},()=>providerSlot(async()=>{active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,5));active--;},new AbortController().signal)));assert.equal(peak,3);
+ const controller=new AbortController();const stopped=providerSlot(()=>new Promise(()=>{}),controller.signal);controller.abort();await assert.rejects(stopped,/aborted/);await providerSlot(async()=>true,new AbortController().signal);
+});
+test("candidate wire payload contains only referenced public evidence, full deduplicated internal rows and decisions",async()=>{
+ const input:DeckInput={topic:"합성 테스트",purpose:"전달 범위 검증",slideCount:5,deckType:"consulting",designSystemId:"ict-forest"};const item={index:0,section:"표지",message:input.topic,contentHint:"",role:"사실 제시" as const,evidenceRefs:["1"]};
+ const record:ResearchRecord={evidence:[row(1),row(2,{claim:"UNRELATED_PUBLIC_SENTINEL"}),row(3,{kind:"내부 전제",url:"",locator:"자료 1쪽",claim:"내부 조건 3"})],confirmedDecisions:[{id:"d1",text:"확정한 결정",locator:"대화",confirmedAt:"today"}],searchStatus:"searched",query:"",notice:""};
+ const reply=(value:unknown)=>Response.json({output:[{content:[{type:"output_text",text:JSON.stringify(value)}]}]});
+ const original=fetch;const payloads:string[]=[];globalThis.fetch=async(_,init)=>{const body=JSON.parse(String(init?.body));payloads.push(String(body.input));const properties=body.text.format.schema.properties;if(properties.slides){const urls=properties.slides.items.properties.sourceUrls;assert.equal(urls.maxItems,0);}if(properties.warnings)return reply({warnings:["텍스트끼리 겹침 · 테스트"]});const p=JSON.parse(String(body.input));return reply({slides:p.slotPlan.map((slot:{layoutId:string})=>({layoutId:slot.layoutId,section:item.section,headline:item.message,dataJson:JSON.stringify(p.layoutExamples[slot.layoutId]),sourceUrls:[],notes:""}))});};
+ try{const {result,execution}=await withExecution(()=>generateCandidates({provider:"openai",key:"test-only",model:"gpt-6-luna"},input,item,[],"",[],true,[item],"",0,[],[],undefined,record.evidence,[],{record,qualityRetries:2}));assert.ok(result.length);assert.ok(result[0].quality?.warnings.includes("텍스트끼리 겹침 · 테스트"));assert.equal(payloads.filter(p=>p.includes("slotPlan")).length,1);const candidate=payloads.find(p=>p.includes("slotPlan"))!;assert.ok(!candidate.includes("UNRELATED_PUBLIC_SENTINEL"));assert.match(candidate,/내부 조건 3/);assert.match(candidate,/확정한 결정/);assert.equal(execution.evidenceScopes?.[0].sentRows,1);assert.equal(execution.evidenceScopes?.[0].availableRows,3);assert.equal(execution.evidenceScopes?.[0].attachmentRows,1);}finally{globalThis.fetch=original;}
+});
+
+
+test("slide chat scopes public evidence to the current page and retains internal conditions",async()=>{
+ const input:DeckInput={topic:"대화 합성 과제",purpose:"장별 대화",slideCount:5,deckType:"consulting",designSystemId:"ict-forest"};const slide={...demoCandidates(input,{index:0,section:"표지",message:input.topic,contentHint:""})[0],evidenceRefs:["1"]};const record:ResearchRecord={evidence:[row(1),row(2,{claim:"CHAT_UNRELATED_SENTINEL"}),row(3,{kind:"내부 전제",url:"",locator:"자료",claim:"대화 내부 조건"})],searchStatus:"searched",query:"",notice:""};let payload="";const original=fetch;globalThis.fetch=async(_,init)=>{payload=String(JSON.parse(String(init?.body)).input);return Response.json({output:[{content:[{type:"output_text",text:JSON.stringify({reply:"확인했습니다",changes:[]})}]}]});};try{await slideConversation({provider:"openai",key:"test-only",model:"gpt-6-luna"},input,slide,forest,0,[],[],"",[],record);assert.ok(!payload.includes("CHAT_UNRELATED_SENTINEL"));assert.match(payload,/대화 내부 조건/);assert.match(payload,/공개 주장 1/);}finally{globalThis.fetch=original;}
+});
+
+
+test("candidate source URLs are exact native choices including encoded URLs",async()=>{
+ const input:DeckInput={topic:"출처 선택",purpose:"긴 URL 보존",slideCount:5,deckType:"consulting",designSystemId:"ict-forest"};const item={index:0,section:"표지",message:input.topic,contentHint:"",role:"사실 제시" as const,evidenceRefs:["1"]};const url="https://example.org/report?enc=abc%3D%3D";const record:ResearchRecord={evidence:[row(1,{url})],searchStatus:"searched",query:"",notice:""};const original=fetch;let seen=false;globalThis.fetch=async(_,init)=>{const b=JSON.parse(String(init?.body));if(b.text.format.schema.properties.warnings)return Response.json({output:[{content:[{type:"output_text",text:JSON.stringify({warnings:[]})}]}]});const urls=b.text.format.schema.properties.slides.items.properties.sourceUrls;assert.deepEqual(urls.items.enum??[urls.items.const],[url]);seen=true;const p=JSON.parse(b.input);return Response.json({output:[{content:[{type:"output_text",text:JSON.stringify({slides:p.slotPlan.map((slot:{layoutId:string})=>({layoutId:slot.layoutId,section:item.section,headline:item.message,dataJson:JSON.stringify(p.layoutExamples[slot.layoutId]),sourceUrls:[url],notes:""}))})}]}]});};try{const slides=await generateCandidates({provider:"openai",key:"test-only",model:"gpt-6-luna"},input,item,[{title:"공식 자료",url}],"",[],true,[item],"",0,[],[],undefined,record.evidence,[],{record,qualityRetries:0});assert.ok(seen);assert.equal(slides[0].sources[0].url,url);}finally{globalThis.fetch=original;}
+});

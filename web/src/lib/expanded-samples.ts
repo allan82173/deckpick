@@ -1,0 +1,32 @@
+import { type ExpandedKind, expandedKind } from "./expanded-layouts";
+import { sampleScreen } from "./sample-screen";
+export function expandedSample(id:string,variant=0):Record<string,unknown>|undefined {
+ const kind=expandedKind(id);if(!kind)return;
+ const a=variant?"업무":"시장",tag="가설",takeaway="합성 예시의 가정이며 실제 조사·성과가 아닙니다.",common={tag,takeaway};
+ const short=(s:string)=>`${a} ${s}`;
+ switch(kind){
+ case "evaluation-matrix":return {...common,criteria:["적합성","접근성","비용"],rows:Array.from({length:variant?6:4},(_,i)=>({name:`대안 ${i+1}`,subtitle:short("후보"),grades:i%2?["부분","높음","낮음"]:["높음","부분","낮음"],judgment:i?"조건부 검토":"우선 검증"})),highlight:0};
+ case "cross-matrix":return {...common,columns:["현재","대안","조건"],rows:["수요","접점","운영","비용"].slice(0,variant?4:3).map(label=>({label,cells:[short("조건 구분"),short("가설 비교"),"전제가 바뀌면 재검토"],note:"판단 범위 확인"})),highlights:[{row:0,col:1}]};
+ case "judgment-reversal":return {...common,priorities:Array.from({length:variant?3:2},(_,i)=>({name:`대안 ${i+1}`,why:short("접근이 쉬운 후보"),reversal:"적격 반응이 낮으면 순서 변경",method:"같은 기간·기준으로 반응 비교"}))};
+ case "question-summary":return {...common,answers:["누구에게","어떤 방식으로","언제 바꿀까"].map(question=>({question,answer:short("우선 후보부터 검증"),evidence:"합성 내부 전제에 따른 잠정 답",tag:"가설"})),agreement:"오늘은 검증 순서와 변경 조건을 합의합니다."};
+ case "validation-plan":return {...common,rows:Array.from({length:variant?5:3},(_,i)=>({question:`가설 ${i+1}은 성립하는가?`,method:short("동일 조건 비교"),sample:"가상 대상 20명",change:"반응이 낮으면 대안을 변경"}))};
+ case "evidence-scope":return {...common,rows:Array.from({length:variant?14:5},(_,i)=>({code:`S${i+1}`,material:short(`가상 자료 ${i+1}`),supports:"조건·범위 비교",limits:"효과 확정 불가"}))};
+ case "survey-findings":return {...common,sampleSize:variant?80:120,period:"2026-10-01 ~ 2026-10-10 (합성)",evidenceId:"synthetic-1",responses:[{label:short("항목 A"),percent:45},{label:short("항목 B"),percent:35},{label:short("항목 C"),percent:20}],quotes:[{text:short("과정에서 반복 확인이 필요했다는 가상 인용"),speaker:"가상 응답자 A · 신규"},{text:"조건을 미리 알면 판단하기 쉽다는 가상 인용",speaker:"가상 응답자 B · 경험자"}]};
+ case "multi-bar":return {...common,categories:["1기","2기","3기","4기"],series:[{name:short("대안 A"),values:[20,30,25,40]},{name:short("대안 B"),values:[15,22,32,28]}],unit:"건 · 합성",mode:variant?"누적":"그룹",interpretation:"같은 분모·기간의 가상 수치를 비교한 예시"};
+ case "line-chart":return {...common,categories:["1월","2월","3월","4월"],series:[{name:short("A"),values:variant?[-5,0,8,12]:[10,14,13,20]},{name:short("B"),values:[8,12,11,15]}],unit:"건 · 합성",interpretation:"기간 변화만 보여 주는 합성 예시"};
+ case "waterfall":return {...common,start:{label:"시작",value:100},changes:[{label:"증가 A",value:25},{label:"감소 B",value:-18},{label:"증가 C",value:12}],endLabel:"끝값",unit:"단위 · 합성",interpretation:short("증감은 코드로 합산한 예시")};
+ case "composition-donut":return {...common,items:[{label:short("A"),value:45},{label:short("B"),value:30},{label:short("C"),value:25}],unit:"건 · 합성",focusIndex:0};
+ case "horizontal-formula":return {...common,tag:"계산",items:[{label:short("A"),value:30,basis:"가정 10회 × 3분"},{label:short("B"),value:45,basis:"가정 15회 × 3분"},{label:short("C"),value:60,basis:"가정 20회 × 3분"}],unit:"분 · 예시",assumption:"회당 3분 절감 가정",formula:"횟수 × 회당 절감 시간",interpretation:"실적이 아닌 가정 기반 결과"};
+ case "calculation-flow":return {...common,tag:"계산",assumptions:[{label:"횟수",value:variant?"20회":"10회"},{label:"회당 시간",value:"3분"}],formula:variant?"20회 × 3분":"10회 × 3분",result:variant?"60":"30",unit:"분 · 계산 예시",limitation:"가정의 출처는 합성 예시이며 실제 성과와 다릅니다."};
+ case "date-timeline":return {...common,rows:["조사","설계","검증"].map((label,i)=>({label,periods:[{start:`2027-0${variant?3:1}-0${i*2+1}`,end:`2027-0${variant?3:1}-${String(12+i*3).padStart(2,"0")}`,label:short(label),tone:i%2?"연함":"진함"}]})),milestones:[{date:`2027-0${variant?3:1}-18`,label:"가상 검토일"}],highlight:{start:`2027-0${variant?3:1}-10`,end:`2027-0${variant?3:1}-14`,label:"검토 구간"}};
+ case "scenario-gantt":return {...common,tag:"계산",start:"2027-01-01",end:"2027-01-31",scenarios:["기준","대안 A","대안 B"].slice(0,variant?3:2).map((name,i)=>({name,periods:[{start:"2027-01-01",end:`2027-01-${10+i*2}`,label:"구간 A",tone:"진함"},{start:"2027-01-21",end:"2027-01-28",label:"구간 B",tone:"연함"}],resultDescription:"종료일 포함 계산 예시"})),formula:"활용 일수 = 기간별 날짜 수 합, 빈 일수 = 전체 − 활용"};
+ case "vertical-events":return {...common,events:["조사","설계","시범","점검"].map((title,i)=>({date:`2027-01-${String(i*5+1).padStart(2,"0")}`,title:short(title),description:"같은 기준으로 근거와 결과를 기록하는 예시"})),deliverables:[short("조건 정의"),short("비교 기록"),short("변경 결정")]};
+ case "journey-lanes":{const stages=["발견","비교","선택","이용"];return {...common,stages,lanes:Array.from({length:variant?3:2},(_,i)=>({name:`고객군 ${i+1}`,cells:stages.map(()=>({action:short("조건을 비교"),touchpoint:"가상 접점",friction:"정보 확인 필요",tag:"가설"}))})),exitPoints:stages.map(()=>"조건 불일치 시 이탈")};}
+ case "business-structure":return {...common,actors:["고객","플랫폼","공급자",...(variant?["운영자"]:[])].map(name=>({name,responsibility:[short("책임 범위"),"확인·인계 범위"]})),transactions:variant?["요청","배정","수행"]:["요청","제공"]};
+ case "metrics-panel":return {...common,metrics:[{label:short("처리량"),value:"120건",meaning:"같은 기간·분모의 합성 지표"},{label:short("소요 시간"),value:"30분",meaning:"같은 조건에서의 가정값"},{label:short("완료율"),value:"80%",meaning:"가상 분모 100건 중 80건"}],panelTitle:"이 숫자로 말할 수 없는 것",panel:["인과관계를 확정하지 못함","비교 조건이 다르면 환산 불가","실제 성과·효과가 아님"]};
+ case "agreement-next":return {...common,agreements:[short("우선 검증할 후보"),"같은 비교 기준","조건에 따른 변경"],steps:[{date:"1주차",action:"조건과 대상 정의"},{date:"2주차",action:"동일 기준 시범 비교"},{date:"3주차",action:"판단 변경 여부 합의"}]};
+ case "section-divider":return {...common,number:variant?"03":"02",name:variant?"대안 비교":"현재 근거",sections:["문제 정의","현재 근거","대안 비교","다음 단계"],description:short("이 절에서 판단할 질문과 범위")};
+ case "persona-cards":return {...common,basis:"가상",evidenceIds:[],personas:Array.from({length:variant?3:2},(_,i)=>({name:`가상 인물 ${i+1}`,attributes:short("초기 사용자"),goal:"조건을 빠르게 비교하고 싶다",pain:"정보가 흩어져 반복 확인한다",quote:"한 곳에서 판단 기준을 보고 싶다"}))};
+ case "screenshot-notes":return {...common,imageSrc:sampleScreen,imageAlt:"직접 만든 가상 화면",imageWidth:900,imageHeight:520,annotations:[{x:.1,y:.3,title:"탐색 목록",description:short("현재 위치를 확인하는 영역")},{x:.6,y:.25,title:"주요 현황",description:"근거와 상태를 요약한 영역"},{x:.65,y:.7,title:"상세 결과",description:"변경할 판단을 확인하는 영역"}]};
+ }
+}

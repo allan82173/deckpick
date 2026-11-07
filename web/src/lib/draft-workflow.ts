@@ -1,0 +1,38 @@
+import { slideSchema, type Deck, type SlideSpec } from "./model";
+import { candidateSignature } from "./candidate-plan";
+export function draftSlide(deck:Deck,index:number):SlideSpec|undefined {
+  return deck.edited[index] ?? deck.candidates[index]?.[deck.picked[index]] ?? deck.candidates[index]?.[0];
+}
+export function initializeDraftSelections(deck:Deck):Deck {
+  const picked={...deck.picked},candidates={...deck.candidates};let changed=false;
+  deck.outline.forEach((_,i)=>{
+    if(picked[i]!==undefined&&candidates[i]?.[picked[i]])return;
+    if(candidates[i]?.length){picked[i]=0;changed=true;}
+    else if(deck.edited[i]){candidates[i]=[deck.edited[i]];picked[i]=0;changed=true;}
+  });
+  return changed?{...deck,picked,candidates}:deck;
+}
+export function applyPrimaryDraft(deck:Deck,index:number,slide:SlideSpec):Deck {
+  if(draftSlide(deck,index))return initializeDraftSelections(deck);
+  slideSchema.parse(slide);
+  return {...deck,candidates:{...deck.candidates,[index]:[slide]},picked:{...deck.picked,[index]:0}};
+}
+export function appendDraftAlternative(deck:Deck,index:number,slide:SlideSpec):Deck {
+  const candidates=deck.candidates[index]??[];
+  if(candidates.length>=3)return deck;
+  slideSchema.parse(slide);
+  if(candidates.some(s=>candidateSignature(s)===candidateSignature(slide)||(!slide.layoutId.endsWith("cover")&&s.layoutId===slide.layoutId)))throw Error("기존 초안과 다른 후보가 필요합니다.");
+  return {...deck,candidates:{...deck.candidates,[index]:[...candidates,slide]}};
+}
+export function draftProgress(deck:Deck){
+  const ready=deck.outline.filter((_,i)=>slideSchema.safeParse(draftSlide(deck,i)).success).length;
+  return {ready,total:deck.outline.length,complete:deck.outline.length>0&&ready===deck.outline.length};
+}
+export function sameDraftContext(a:Deck,b:Deck){return a.id===b.id&&JSON.stringify(a.outline)===JSON.stringify(b.outline);}
+export function selectDraftAlternative(deck:Deck,index:number,slot:number):Deck{
+  const options=deck.candidates[index];if(!options?.[slot]||deck.picked[index]===slot)return deck;
+  const previous=deck.picked[index]??0;
+  const updated=options.map((slide,i)=>i===previous&&deck.edited[index]?deck.edited[index]:slide);
+  const edited={...deck.edited};delete edited[index];
+  return {...deck,candidates:{...deck.candidates,[index]:updated},picked:{...deck.picked,[index]:slot},edited};
+}

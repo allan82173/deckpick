@@ -1,0 +1,14 @@
+import type { DeckInput } from "../src/lib/model";
+import { demoOutline } from "../src/lib/demo";
+export function pipelineFixture(body: Record<string, unknown>, input: DeckInput, claim = "첨부 자료의 검토 대상입니다.", publicEvidence = false) {
+  const properties = (body.text as any)?.format?.schema?.properties ?? {};
+  if(properties.attachmentRows){const inputText=Array.isArray(body.input)?(body.input[0] as any).content.find((c:any)=>c.type==="input_text")?.text:body.input;const context=JSON.parse(String(inputText));return {attachmentRows:[{content:String(context.sources[0].text).slice(0,1600),type:"내부 전제",locator:context.sources[0].locator}].map(r=>({...r,type:"내부 전제"}))};}
+  if(properties.localQuery)return {localQuery:"공식 공개 자료 조사 "+String(body.input).length,englishQuery:"official public evidence "+String(body.input).length};
+  if(properties.warnings)return {warnings:[]};
+  const questions = ["Q1", "Q2"].map(id => ({ id, question: "현재 선택은 무엇인가요?", publicQuestion: "공개 대안 비교", judgmentForm: "선택", needsPublicEvidence: publicEvidence }));
+  if (properties.publicContext) return { questions, publicContext: [{ dimension: "지역", value: "한국" }], privateConditions: [{ value: "MGRV 5실 200만원", reason: "내부 조건" }], internalPremises: [claim], stage: "중간발표", language: "ko", slideCount: input.slideCount, requiredSections: [], checklist: [{ id: "count", requirement: `${input.slideCount}장` }], terminology: [], notationRules: [] };
+  if (properties.questions) return { questions: questions.map(q => ({ questionId: q.id, evidenceNeeded: "대안의 공식 조건", preferredMaterials: ["기관·기업 공식 안내"], localQuery: "한국 공개 대안 비교", englishQuery: "Korea public alternatives" })) };
+  if (properties.rows) return { rows: [{ claim, title: "research-test.md", locator: "1행", url: "", kind: "내부 전제", originalText: claim, publishedAt: "", materialType: "내부 자료", contextMatch: "일치", contextReason: "제공된 내부 조건", questionIds: ["Q1", "Q2"] }] };
+  if (properties.decisions) return { decisions: questions.map(q => ({ questionId: q.id, candidates: ["A", "B"].map(name => ({ name, rationale: claim, evidenceRefs: ["1"] })), criteria: ["비용", "효과"], selected: "A 우선", judgment: "[추론] A가 현재 조건에 적합합니다.", strength: "추론", evidenceRefs: ["1"], reversalConditions: ["비용이 가정의 두 배이면 B로 전환"], limitations: ["실적 미확인"] })) };
+  return { reply: "첨부 근거를 반영했습니다.", outlineDraft: demoOutline(input).map((item, index) => ({ ...item, section: index === 0 ? "표지" : index === input.slideCount - 1 ? (input.appendSources ? "출처" : input.deckType === "consulting" ? "결론" : "CTA") : item.section, message: index ? "첨부 근거가 판단 범위를 제한합니다." : item.message, role: "흐름", evidenceRefs: index ? ["1"] : [], claimType: "추론", calculation: null, argument: { questionId: "Q1", judgment: "조건부 선택", support: [{ text: claim, evidenceRefs: ["1"] }], reversalCondition: "비용이 두 배면 변경", limitation: "실적 미확인", transition: "다음 판단", visualIntent: "흐름으로 연결", preferredLayouts: [] } })) };
+}
