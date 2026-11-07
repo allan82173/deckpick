@@ -37,6 +37,8 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
      }
      for(const source of state.sources){assertBudget();if(state.pages.some(p=>p.url===source.url))continue;if(state.pages.length>=GENERATION_CONFIG.research.originalsPerQuestion)break;const pending=readOnce(source.url);if(!pending)break;const page=await pending;assertBudget();state.pages.push(page);}
      let emptyAfterRetry=false;
+     // Every round re-sends all sources and opened pages: later-round sources usually have no page budget left,
+     // so the earlier originals are what keeps new claims verifiable (delta-only extraction lowered verified claims 19→6).
      if(state.sources.length){
       const wire=factsWire.extend({rows:z.array(fact.extend({url:z.enum(state.sources.map(s=>s.url) as [string,...string[]]),questionIds:z.array(z.literal(question.questionId)).max(4),contextChecks:z.array(contextCheckSchema).max(16)})).max(50)});
       let accepted=0;
@@ -60,8 +62,10 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
      }
      const matched=deduplicateEvidence(state.evidence).filter(e=>verifiedQuestionEvidence(e,question.questionId)).length;
      state.rounds.push({questionId:question.questionId,round:round+1,queries:usedQueries,matchedEvidence:matched});
-     if(matched>=GENERATION_CONFIG.research.matchingEvidencePerQuestion||emptyAfterRetry)break;
-     if(round+1<GENERATION_CONFIG.research.roundsPerQuestion){const nextQuery=await structured(c,z.object({localQuery:z.string(),englishQuery:z.string()}),"앞선 공개 조사 결과와 부족한 근거를 보고 과제 언어·영어 후속 검색어를 만듭니다. 공개 맥락만 쓰고 이전 검색어를 반복하지 않습니다.",JSON.stringify({publicContext:analysis.publicContext,questionId:question.questionId,evidenceNeeded:question.evidenceNeeded,previousQueries:state.queries,sources:state.sources,summary:summary.slice(-GENERATION_CONFIG.research.summaryCharactersPerRound)}),undefined,[],"planResearch");next=[nextQuery.localQuery,nextQuery.englishQuery];}
+     const usable=deduplicateEvidence(state.evidence).filter(e=>[{...e,questionIds:e.primaryQuestionIds??e.questionIds},...(e.relatedFacts??[])].some(f=>f.questionIds?.includes(question.questionId)&&f.originalVerified&&(f.contextMatch==="일치"||f.contextMatch==="부분 일치"))).length;
+     // Stop early on enough exact-context evidence, or on enough verified partial-context evidence. Gaps are still judged on exact matches only.
+     if(matched>=GENERATION_CONFIG.research.matchingEvidencePerQuestion||usable>=GENERATION_CONFIG.research.partialStopEvidence||emptyAfterRetry)break;
+     if(round+1<GENERATION_CONFIG.research.roundsPerQuestion){const nextQuery=await structured(c,z.object({localQuery:z.string(),englishQuery:z.string()}),"앞선 공개 조사 결과와 부족한 근거를 보고 과제 언어·영어 후속 검색어를 만듭니다. 공개 맥락만 쓰고 이전 검색어를 반복하지 않습니다.",JSON.stringify({publicContext:analysis.publicContext,questionId:question.questionId,evidenceNeeded:question.evidenceNeeded,previousQueries:state.queries,sources:state.sources,summary:summary.slice(-GENERATION_CONFIG.research.summaryCharactersPerRound)}),undefined,[],"planResearch");next=[nextQuery.localQuery,nextQuery.englishQuery].slice(0,GENERATION_CONFIG.research.followupQueries);}
     }
    });}catch(error){if(!(error instanceof Error&&"status" in error&&error.status===504))throw error;state.complete=false;state.warnings.push({questionId:question.questionId,url:"",reason:"질문 조사 시간 제한 · 완료한 근거만 보존하고 부족한 질문으로 넘겼습니다."});}
    return structuredClone(state);

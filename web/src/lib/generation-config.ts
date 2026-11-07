@@ -5,22 +5,26 @@ const medium = { effort: "medium" as Effort, maxOutputTokens: 16000 };
 const low = { effort: "low" as Effort, maxOutputTokens: 10000 };
 /** All generation budgets live here. This module is safe to import in the UI. */
 export const GENERATION_CONFIG = {
-  version: "2026-11-07-stability-v3-revised",
+  version: "2026-11-07-stability-v3-full-extraction",
+  /** Checkpoint compatibility key. Bump only when a saved stage result can no longer be reused (schema or stage meaning changed), not for every budget/version change. */
+  checkpointVersion: "2026-11-07-stability-v3-revised",
   stages: {
     interpretTask: { ...high }, judgment: { ...high }, story: { ...high }, assessDeck: { ...high },
     planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium }, candidates: { ...medium },
     formatRepair: { ...low }, headlineRepair: { ...low }, slideChat: { ...low }, keyCheck: { ...low, maxOutputTokens: 32 }, visualReview: { ...medium },
   } satisfies Record<GenerationStage, { effort: Effort; maxOutputTokens: number }>,
   outputLimitLadder: [10000, 16000, 24000, 32000],
-  outputLimitRetries: 1, formatAttempts: 3, qualityRetries: 2, providerTimeoutMs: 75000,
+  outputLimitRetries: 1, formatAttempts: 3, calculationRepairAttempts: 2, qualityRetries: 2, providerTimeoutMs: 75000,
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
     deadlines: { researchQuestion: 240000, storyline: 240000, candidate: 180000, review: 240000 } },
   efficiency:{concurrency:3,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:5000,adjacentParagraphs:1,paragraphChunkCharacters:900},
-  benchmark: { maxDurationMs: 900000, minimumTimeReduction: .40, maxInputRatioToBaseline: 1/3, externalRunRetries: 1 },
+  benchmark: { minimumVerifiedClaimRatio: .8, maxDurationMs: 900000, minimumTimeReduction: .40, maxInputRatioToBaseline: 1/3, externalRunRetries: 1 },
   measurement: { encoding:"o200k_base", imageInputFallbackTokens:3000 },
-  research: { roundsPerQuestion: 2, originalsPerQuestion: 3, originalsPerDeck: 12, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
+  research: { roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, originalsPerDeck: 12, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
   attachments: { chunkCharacters: 12000, rowsPerChunk: 80, extractVersion: "3", imagesPerExtraction: 4, contextTokens: 2400, researchTokens: 7200 },
   candidates: { maximum: 3 },
+  /** Deck review: start another repair round only if this much of the review budget remains (repairs run in parallel, then one re-assessment). */
+  review: { roundReserveMs: 120000, repairConcurrency: 3 },
   visual: { enabled: true, width: 1280, minFontPt: 10, overlapAreaFraction: .15, toleranceInches: .025, bodyTop: 1.7, bodyBottom: 6.3, emptyBottomFraction: .30, defaultMinimumFill: .18,
     minimumFill: { "comparison-table": .20, calendar: .16, quadrants: .17, "contract-bars": .14, "formula-cards": .22, "evidence-table": .17, journey: .17, "cause-chain": .18, "system-flow": .17, swimlane: .16 } as Record<string,number> },
   rendererRepair: {layouts:["c-argument-board","c-metrics-panel","c-comparison-table"] as string[],top:1.95,bottom:6.85,padding:.10,gap:.08,safety:.035,bodyPt:12,minBodyPt:11,denseBodyPt:10,denseGap:.04,metricValuePt:18,minMetricValuePt:14},

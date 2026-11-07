@@ -5,7 +5,9 @@ import { canvasHeadline } from "./canvas-edits";
 import { makeScene } from "./scene";
 import { inspectSlide, textArtifacts, MAX_QUALITY_RETRIES,isRendererWarning } from "./slide-quality";
 import type { Deck, SlideSpec } from "./model";
-import { withBudget } from "./run-budget";
+import { withBudget, remainingBudgetMs } from "./run-budget";
+import { mapConcurrent } from "./concurrency";
+import { GENERATION_CONFIG } from "./generation-config";
 import { checkpoint } from "./run-checkpoints";
 import { topQuestionEvidence,sourceFactsForPrompt,deduplicateDecisions } from "./evidence-selection";
 import { recordEvidenceScope } from "./execution-scope";
@@ -52,31 +54,34 @@ export async function reviewAndRepairDeck(c: Connection, initial: Deck) {
   const inspect=()=>checkpoint("deck-review",{model:c.model,input:deck.input,outline:deck.outline,candidates:deck.candidates,picked:deck.picked,edited:deck.edited,record:deck.researchRecord},()=>assessDeck(c,deck));
   let review = await inspect();
   for (let round = 0; round < MAX_QUALITY_RETRIES && review.issues.length; round++) {
-    const indices = [...new Set(review.issues.filter(issue=>!isRendererWarning(issue.reason)).map(issue => issue.index))];
-    let changed = false;
-    for (const index of indices) {
-      const current = draftSlide(deck, index);
-      if (!current || deck.edited[index] || (current.quality?.attempts ?? 0) >= MAX_QUALITY_RETRIES) continue;
+    // Do not start a repair round that cannot finish with its re-assessment; the last completed review then still describes the current slides.
+    if (remainingBudgetMs() < GENERATION_CONFIG.review.roundReserveMs) { review = { ...review, summary: `${review.summary} · 남은 검토 시간이 부족해 추가 수정 라운드를 생략하고 남은 지적은 경고로 표시했습니다.`.slice(0, 500) }; break; }
+    const indices = [...new Set(review.issues.filter(issue=>!isRendererWarning(issue.reason)).map(issue => issue.index))].filter(index => { const current = draftSlide(deck, index); return !!current && !deck.edited[index] && (current.quality?.attempts ?? 0) < MAX_QUALITY_RETRIES; });
+    const snapshot = deck;
+    const outcomes = await mapConcurrent(indices, async index => {
+      const current = draftSlide(snapshot, index)!;
       const issues = review.issues.filter(issue => issue.index === index&&!isRendererWarning(issue.reason));
-      const changeLayout = index !== 0 && deck.outline[index].section !== "목차" && issues.some(issue => /채움|넘침|넘칩|반복|문구 길이/.test(issue.reason));
-      try {
-        const [slide] = await generateCandidates(c, deck.input, deck.outline[index], deck.research,
-          `전체 논리 검토 수정 사유 ${JSON.stringify(issues)}\n현재 장 ${JSON.stringify(current.data)}\n사용자 요구와 용어를 보존하고 이 장만 수정합니다.`,
-          changeLayout ? [current.layoutId] : [], true, deck.outline, "", round, [], [], undefined, deck.researchRecord?.evidence,
-          deck.outline.slice(0, index).map((_, page) => draftSlide(deck, page)?.layoutId ?? ""),
-          { record: deck.researchRecord, qualityRetries: 0 });
-        slide.quality = { ...slide.quality, warnings: slide.quality?.warnings ?? [], fillRatio: slide.quality?.fillRatio ?? 0, attempts: (current.quality?.attempts ?? 0) + 1 };
-        const slot = deck.picked[index] ?? 0;
-        const candidates = [...(deck.candidates[index] ?? [])]; candidates[slot] = slide;
-        deck = { ...deck, candidates: { ...deck.candidates, [index]: candidates } };
-        const original = replacements.find(value => value.index === index)?.before ?? current;
-        const replacementIndex = replacements.findIndex(value => value.index === index);
-        const replacement = { index, before: original, slide };
-        if (replacementIndex === -1) replacements.push(replacement); else replacements[replacementIndex] = replacement;
-        changed = true;
-      } catch (error) {
-        if (error instanceof AIError && [401, 429, 504].includes(error.status)) throw error;
-      }
+      const changeLayout = index !== 0 && snapshot.outline[index].section !== "목차" && issues.some(issue => /채움|넘침|넘칩|반복|문구 길이/.test(issue.reason));
+      const [slide] = await generateCandidates(c, snapshot.input, snapshot.outline[index], snapshot.research,
+        `전체 논리 검토 수정 사유 ${JSON.stringify(issues)}\n현재 장 ${JSON.stringify(current.data)}\n사용자 요구와 용어를 보존하고 이 장만 수정합니다.`,
+        changeLayout ? [current.layoutId] : [], true, snapshot.outline, "", round, [], [], undefined, snapshot.researchRecord?.evidence,
+        snapshot.outline.slice(0, index).map((_, page) => draftSlide(snapshot, page)?.layoutId ?? ""),
+        { record: snapshot.researchRecord, qualityRetries: 0 });
+      slide.quality = { ...slide.quality, warnings: slide.quality?.warnings ?? [], fillRatio: slide.quality?.fillRatio ?? 0, attempts: (current.quality?.attempts ?? 0) + 1 };
+      return { index, current, slide };
+    }, GENERATION_CONFIG.review.repairConcurrency);
+    let changed = false;
+    for (const outcome of outcomes) {
+      if (outcome.status === "rejected") { const error = outcome.reason; if (error instanceof AIError && [401, 429, 504].includes(error.status)) throw error; if (error instanceof Error && "status" in error && error.status === 504) throw error; continue; }
+      const { index, current, slide } = outcome.value;
+      const slot = deck.picked[index] ?? 0;
+      const candidates = [...(deck.candidates[index] ?? [])]; candidates[slot] = slide;
+      deck = { ...deck, candidates: { ...deck.candidates, [index]: candidates } };
+      const original = replacements.find(value => value.index === index)?.before ?? current;
+      const replacementIndex = replacements.findIndex(value => value.index === index);
+      const replacement = { index, before: original, slide };
+      if (replacementIndex === -1) replacements.push(replacement); else replacements[replacementIndex] = replacement;
+      changed = true;
     }
     if (!changed) break;
     review = { ...await inspect(), rounds: round + 1 };

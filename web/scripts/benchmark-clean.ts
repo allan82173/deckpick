@@ -1,5 +1,5 @@
 import { readFile,mkdir,writeFile } from "node:fs/promises";
-import {benchmarkGates} from "../src/lib/benchmark-gates";
+import {benchmarkGates,claimVerification} from "../src/lib/benchmark-gates";
 import { inputUsage } from "../src/lib/usage-estimate";
 import { comparableEvidenceCounts } from "../src/lib/context-match";
 import { createHash } from "node:crypto";
@@ -31,8 +31,8 @@ async function main(){
  const hashes:Record<string,string>={};async function hashFiles(dir:string){for(const file of await readdir(dir,{withFileTypes:true})){const p=dir+"/"+file.name;if(file.isDirectory())await hashFiles(p);else if(file.name.endsWith(".ts"))hashes[p]=createHash("sha256").update(await readFile(p)).digest("hex");}}await hashFiles("src/lib");hashes["scripts/benchmark-clean.ts"]=createHash("sha256").update(await readFile("scripts/benchmark-clean.ts")).digest("hex");
  const fingerprint=createHash("sha256").update(JSON.stringify({hashes,input:fixture.input,attachment:fixture.attachment,model:c.model,config:GENERATION_CONFIG})).digest("hex");
  const repeat=process.argv[2]?JSON.parse(await readFile(process.argv[2],"utf8")):undefined;
- if(repeat&&(!repeat.canRepeat||repeat.attemptNumber!==1||repeat.fingerprint!==fingerprint))throw Error("외부 일시 오류 1회에만 같은 코드·조건으로 다시 실행할 수 있습니다.");
- const attemptNumber=repeat?2:1;
+ if(repeat&&(!repeat.canRepeat||repeat.attemptNumber>GENERATION_CONFIG.benchmark.externalRunRetries||repeat.fingerprint!==fingerprint))throw Error("외부 일시 오류 1회에만 같은 코드·조건으로 다시 실행할 수 있습니다.");
+ const attemptNumber=repeat?repeat.attemptNumber+1:1;
  const offline=JSON.parse(await readFile("output/stability-stage3/offline-context.json","utf8"));
  const id="clean-"+randomUUID(),directory="output/stability-clean/"+id;await mkdir(directory,{recursive:true});
  const started=performance.now();let phase="prepare",failure="",failureCategory="";
@@ -52,7 +52,7 @@ async function main(){
    });const errors=outcomes.filter(o=>o.status==="rejected");if(errors.length){failureCategory=errors.every(o=>o.status==="rejected"&&o.reason?.failureCategory==="transient")?"transient":"validation";throw Error(errors.map(o=>o.status==="rejected"?(o.reason instanceof Error?o.reason.message:String(o.reason)):"").join(" / "));}
    phase="review";await progress(phase);const reviewed=await reviewAndRepairDeck(c,deck);for(const replacement of reviewed.replacements)deck.candidates[replacement.index][0]=replacement.slide;deck.review=reviewed.review;
    if(reviewed.review.status==="incomplete"){failure="덱 검토 미완료";failureCategory="deadline";}
-  }catch(error){failure=error instanceof Error?error.message:"알 수 없는 실패";if(!failureCategory)failureCategory=error instanceof Error&&"failureCategory" in error?String(error.failureCategory):"validation-or-deadline";}
+  }catch(error){failure=error instanceof Error?error.message:"알 수 없는 실패";if(!failureCategory)failureCategory=error instanceof Error&&"failureCategory" in error?String(error.failureCategory??"validation-or-deadline"):"validation-or-deadline";}
   deck.generation=await runState(failure?(deck.review?.status==="incomplete"?"incomplete":"failed"):"complete",failure||undefined);
  }),{fresh:true});
  deck.execution=measured.execution;const durationMs=Math.round(performance.now()-started);
@@ -61,7 +61,7 @@ async function main(){
  const maximumInput=baseline.metrics.inputTokens*GENERATION_CONFIG.benchmark.maxInputRatioToBaseline;
  const reduction=1-durationMs/baseline.durationMs;
  const evidenceComparison={baselineRecorded:offline.original,baselineReclassified:offline.reclassified,current:comparableEvidenceCounts(deck.researchRecord?.evidence??[])};
- const metrics={id,attemptNumber,fingerprint,repeatOf:repeat?.id,canRepeat:!!failure&&failureCategory==="transient"&&attemptNumber===1,failureCategory,usage,evidenceComparison,model:c.model,completed:!failure,phase,failure,durationMs,calls:calls.length,inputTokens,outputTokens,missingUsageCalls,baseline:{durationMs:baseline.durationMs,inputTokens:baseline.metrics.inputTokens,calls:baseline.calls.length},target:{maxDurationMs:GENERATION_CONFIG.benchmark.maxDurationMs,maxInputTokens:maximumInput},gates:benchmarkGates(durationMs,{durationMs:baseline.durationMs,inputTokens:baseline.metrics.inputTokens},usage,!failure),evidenceCounts:deck.researchRecord?.evidenceCounts,evidenceScopeComparison:deck.execution.evidenceScopes?.filter(s=>s.stage==="candidates").map(s=>({slide:s.slideIndex===undefined?null:s.slideIndex+1,before:s.availableRows,after:s.sentRows,attachments:s.attachmentRows,refs:s.evidenceIds})),report:report.paths,attempt,paidRuns:1,costNotice:"금액은 응답에 없어 확정하지 않습니다. 미반환 입력은 요청 길이 추정치를 포함해 판정하며 실제 과금·도구 내부 문맥과 다를 수 있습니다.",deck};
+ const metrics={id,attemptNumber,fingerprint,repeatOf:repeat?.id,canRepeat:!!failure&&failureCategory==="transient"&&attemptNumber<=GENERATION_CONFIG.benchmark.externalRunRetries,failureCategory,usage,evidenceComparison,model:c.model,completed:!failure,phase,failure,durationMs,calls:calls.length,inputTokens,outputTokens,missingUsageCalls,baseline:{durationMs:baseline.durationMs,inputTokens:baseline.metrics.inputTokens,calls:baseline.calls.length},target:{maxDurationMs:GENERATION_CONFIG.benchmark.maxDurationMs,maxInputTokens:maximumInput},verification:claimVerification(deck.researchRecord?.evidence??[]),gates:benchmarkGates(durationMs,{durationMs:baseline.durationMs,inputTokens:baseline.metrics.inputTokens},usage,!failure,claimVerification(deck.researchRecord?.evidence??[])),evidenceCounts:deck.researchRecord?.evidenceCounts,evidenceScopeComparison:deck.execution.evidenceScopes?.filter(s=>s.stage==="candidates").map(s=>({slide:s.slideIndex===undefined?null:s.slideIndex+1,before:s.availableRows,after:s.sentRows,attachments:s.attachmentRows,refs:s.evidenceIds})),report:report.paths,attempt,paidRuns:1,costNotice:"금액은 응답에 없어 확정하지 않습니다. 미반환 입력은 요청 길이 추정치를 포함해 판정하며 실제 과금·도구 내부 문맥과 다를 수 있습니다.",deck};
  await writeFile(directory+"/result.json",JSON.stringify(metrics,null,2),{mode:0o600});
  await writeFile(directory+"/measurement.md",`# 3차 개선 2단계 · 최소 유료 측정\n\n실행: ${id}\n\n상태: ${failure?"미통과 — "+failure:"완료"}\n\n|항목|이전 C|이번|\n|---|---:|---:|\n|경과 분|${(baseline.durationMs/60000).toFixed(2)}|${(durationMs/60000).toFixed(2)}|\n|호출|${baseline.calls.length}|${calls.length}|\n|확인된 입력 토큰|${baseline.metrics.inputTokens}|${inputTokens}|\n|사용량 미반환 호출|기존 기록 참조|${missingUsageCalls}|\n\n완료 기준: ${JSON.stringify(metrics.gates)}\n\n같은 입력과 기존 비교의 제한 근거 진행 정책을 썼습니다. 조사 결과는 고정하지 않았으므로 품질 또는 effort의 인과 효과를 주장하지 않습니다. 실패나 미완료를 성공으로 바꾸지 않았습니다.\n\n## 장별 공개 근거 전달 범위\n\n${JSON.stringify(metrics.evidenceScopeComparison,null,2)}\n\n${metrics.costNotice}\n`);
  await writeFile(directory+"/conditions.json",JSON.stringify({fingerprint,hashes,config:GENERATION_CONFIG,model:c.model,input:fixture.input},null,2));

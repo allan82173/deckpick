@@ -15,7 +15,7 @@ export async function withRunContext<T>(id:string,fn:()=>Promise<T>,options:{fre
 }
 function stripCredentials(value:unknown):unknown{if(Array.isArray(value))return value.map(stripCredentials);if(value&&typeof value==="object")return Object.fromEntries(Object.entries(value).filter(([key])=>!/^(?:apiKey|authorization|password|secret|credentials)$/i.test(key)).map(([key,v])=>[key,stripCredentials(v)]));return value;}
 export async function checkpoint<T>(stage:string,input:unknown,fn:()=>Promise<T>,reusable:(result:T)=>boolean=()=>true):Promise<T>{
- const run=scope.getStore();if(!run)return fn();assertBudget();const file=path.join(run.directory,hash({version:GENERATION_CONFIG.version,stage,input})+".checkpoint.json");
+ const run=scope.getStore();if(!run)return fn();assertBudget();const file=path.join(run.directory,hash({version:GENERATION_CONFIG.checkpointVersion,stage,input})+".checkpoint.json");
  try{const saved=JSON.parse(await readFile(file,"utf8"));if(saved.status==="complete")return saved.result as T;}catch{}
  const at=()=>new Date().toISOString();
  try{const result=await fn();assertBudget();const data={stage,status:reusable(result)?"complete":"incomplete",updatedAt:at(),result:stripCredentials(result)};const temporary=file+"."+randomUUID()+".tmp";await writeFile(temporary,JSON.stringify(data),{mode:0o600});await rename(temporary,file);await appendFile(path.join(run.directory,"events.jsonl"),JSON.stringify({stage,status:data.status,at:at()})+"\n",{mode:0o600});return result;}

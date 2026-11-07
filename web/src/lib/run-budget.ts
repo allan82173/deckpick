@@ -4,6 +4,7 @@ import { GENERATION_CONFIG } from "./generation-config";
 type BudgetName=keyof typeof GENERATION_CONFIG.reliability.deadlines;
 const scope=new AsyncLocalStorage<{signal:AbortSignal;deadline:number}>();
 export class BudgetTimeout extends Error {status=504;constructor(public stage:string){super(`${stage} 단계 시간 제한을 초과했습니다. 중간 저장 지점에서 이어서 생성할 수 있습니다.`);}}
+export function remainingBudgetMs(){const store=scope.getStore();return store?store.deadline-Date.now():Infinity;}
 export function assertBudget(){if(scope.getStore()?.signal.aborted)throw new BudgetTimeout("현재");}
 export function providerSignal(){assertBudget();const signal=AbortSignal.timeout(GENERATION_CONFIG.providerTimeoutMs);return scope.getStore()?AbortSignal.any([signal,scope.getStore()!.signal]):signal;}
 export async function retryDelay(attempt:number){assertBudget();await delay(GENERATION_CONFIG.reliability.backoffMs*2**attempt,undefined,{signal:scope.getStore()?.signal});assertBudget();}

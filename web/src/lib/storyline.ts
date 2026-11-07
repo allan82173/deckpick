@@ -5,9 +5,10 @@ import { outlineItemSchema, type DeckInput, type ChatMessage, type OutlineItem }
 import { decisionSchema, argumentSchema, calculationSchema } from "./task-model";
 import { slideRoles, type ResearchRecord } from "./evidence-model";
 import { isPlanHeadline, roleLayouts } from "./slide-quality";
-import { calculateScenario } from "./scenario-calculation";
+import { repairStoryCalculations, calculationRepairSchema, calculationRepairPrompt, calculationError, normalizeCalculation } from "./calculation-repair";
 import type { VisionImage } from "./vision";
 import { withBudget } from "./run-budget";
+import { GENERATION_CONFIG } from "./generation-config";
 import { checkpoint } from "./run-checkpoints";
 import { topQuestionEvidence,sourceFactsForPrompt,deduplicateDecisions } from "./evidence-selection";
 import { recordEvidenceScope } from "./execution-scope";
@@ -56,12 +57,16 @@ async function createStorylineBody(c: Connection, input: DeckInput, messages: Ch
         if ([...item.evidenceRefs, ...item.argument.support.flatMap(support => support.evidenceRefs)].some(id => !record.evidence.some(row => row.id === id))) throw Error("없는 근거 ID입니다.");
         if (index && !["목차", "출처"].includes(item.section) && item.role !== "합의 사항" && record.evidence.length && !item.evidenceRefs.length) throw Error("본문 장은 근거 ID를 참조해야 합니다.");
         if ((item.role === "계산" || item.claimType === "계산") && !item.calculation) throw Error("계산 장에는 검증할 가정 변수와 산식 단계를 calculation에 적어 주세요.");
-        if (item.calculation) {
-          try{calculateScenario(item.calculation);}catch(error){throw Error(`${index+1}장 calculation: ${error instanceof Error?error.message:"계산 검증 실패"}`);}
-          for (const variable of item.calculation.assumptions) if (variable.origin === "근거" && !variable.evidenceRefs.some(id => record.evidence.some(row => row.id === id))) throw Error("계산 근거 변수의 ID를 연결하거나 가정으로 표시하세요.");
-        }
+        // Calculation operands are checked per slide after generation (calculation-repair.ts) so one bad operand does not regenerate the whole storyline.
       }
     }, images, "story"));
+  const evidenceIds = new Set(record.evidence.map(row => row.id));
+  const calculationResult = await checkpoint("storyline-calculations",{model:c.model,outline:result.outlineDraft.map(item=>item.calculation)},()=>repairStoryCalculations(result.outlineDraft, evidenceIds, (index, item, calculation, error) =>
+    structured(c, calculationRepairSchema, calculationRepairPrompt,
+      JSON.stringify({ slide: index + 1, message: item.message, argument: item.argument, calculation, error, allowedEvidenceIds: [...new Set([...item.evidenceRefs, ...item.argument.support.flatMap(support => support.evidenceRefs)])].filter(id => evidenceIds.has(id)) }),
+      value => { const message = calculationError(normalizeCalculation(value.calculation, evidenceIds).calculation, evidenceIds); if (message) throw Error(`${index + 1}장 calculation: ${message}`); },
+      [], "formatRepair", { formatAttempts: GENERATION_CONFIG.calculationRepairAttempts }).then(value => value.calculation)));
+  result.outlineDraft = calculationResult.items;
   const plannedHeadlines = result.outlineDraft.map((item, index) => ({ item, index })).filter(({ item, index }) => index > 0 && !(input.appendSources && index === input.slideCount - 1) && isPlanHeadline(item.message));
   if (plannedHeadlines.length) {
     const repaired = await structured(c, z.object({ headlines: z.array(z.object({ index: z.number().int(), text: z.string().min(1).max(75) })).min(1).max(30) }),
@@ -72,5 +77,5 @@ async function createStorylineBody(c: Connection, input: DeckInput, messages: Ch
     for (const replacement of repaired.headlines) result.outlineDraft[replacement.index].message = replacement.text;
   }
   const researchRecord = { ...record, decisions: decisions.decisions, requiresReview: false };
-  return { ...result, outlineDraft: result.outlineDraft.map((item, index) => ({ ...item, index, message: (index === 0 || (input.appendSources && index === input.slideCount - 1)) && isPlanHeadline(item.message) ? (index === 0 ? input.topic.slice(0, 75) : "이 발표에 사용한 근거와 판단 범위") : item.message, section: index === 0 ? "표지" : index === input.slideCount - 1 ? (input.appendSources ? "출처" : input.deckType === "consulting" ? "결론" : "CTA") : item.section })), researchRecord };
+  return { ...result, calculationIssues: calculationResult.issues, outlineDraft: result.outlineDraft.map((item, index) => ({ ...item, index, message: (index === 0 || (input.appendSources && index === input.slideCount - 1)) && isPlanHeadline(item.message) ? (index === 0 ? input.topic.slice(0, 75) : "이 발표에 사용한 근거와 판단 범위") : item.message, section: index === 0 ? "표지" : index === input.slideCount - 1 ? (input.appendSources ? "출처" : input.deckType === "consulting" ? "결론" : "CTA") : item.section })), researchRecord };
 }
