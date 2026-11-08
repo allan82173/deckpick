@@ -555,6 +555,7 @@ async function generateCandidateBatch(
       confirmedDecisions: confirmed,
       sharedJudgments: generation?.record?.decisions?.filter(d=>d.questionId===item.argument?.questionId),
       acceptedLimitations: generation?.record?.gaps,
+      evidenceCoverage: generation?.record?.coverage?.filter(c=>!item.argument?.questionId||c.questionId===item.argument.questionId),
       claimDesign: item.argument,
       calculation: item.calculation,
       uploadedImages: images.filter(image => image.id).map(({ id, name, width, height }) => ({ src: `/api/attachments/${id}`, name, width, height })),

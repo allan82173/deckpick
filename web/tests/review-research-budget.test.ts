@@ -27,7 +27,9 @@ test("enough verified partial-context evidence ends the question after one round
   try {
     const result = await runResearch(c, input, base(), "", [], [], { search: async () => { searches++; return { text: originalText, sources: urls.map(url => ({ title: "공식 자료", url })) }; }, readPage });
     assert.equal(searches, 2); assert.equal(followups, 0); assert.equal(result.researchRecord.searchRounds!.length, 1);
-    assert.equal(result.researchRecord.gaps?.length, 1, "gaps still require exact-context evidence");
+    assert.equal(result.researchRecord.gaps?.length, 0, "verified partial-context sources clear the gate with scope disclosed");
+    assert.equal(result.researchRecord.requiresReview,false);
+    assert.equal(result.researchRecord.coverage?.[0].status,"substituted");
   } finally { globalThis.fetch = native; }
 });
 

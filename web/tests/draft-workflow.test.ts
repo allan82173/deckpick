@@ -1,8 +1,11 @@
+import {createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
+import {DraftCandidateSidebar} from "../src/components/draft-candidate-sidebar";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {mkdir,writeFile} from "node:fs/promises";
 import JSZip from "jszip";
-import {draftSlide,initializeDraftSelections,applyPrimaryDraft,appendDraftAlternative,draftProgress,sameDraftContext,selectDraftAlternative} from "../src/lib/draft-workflow";
+import {draftSlide,applyDraftCandidates,draftNeedsCandidates,initializeDraftSelections,applyPrimaryDraft,appendDraftAlternative,draftProgress,sameDraftContext,selectDraftAlternative} from "../src/lib/draft-workflow";
 import {demoOutline,demoCandidates} from "../src/lib/demo";
 import {forest} from "../src/lib/design";
 import {exportDeck} from "../src/lib/export";
@@ -39,4 +42,20 @@ test("the automatic primary selection exports a full editable deck before review
   let d=fixture();for(let i=0;i<d.outline.length;i++)d=applyPrimaryDraft(d,i,demoCandidates(d.input,d.outline[i],[],i===0?1:0,1)[0]);
   const pptx=await exportDeck(d,false);const bytes=await pptx.write({outputType:"nodebuffer"}) as Buffer;const zip=await JSZip.loadAsync(bytes);const pages=Object.keys(zip.files).filter(p=>/^ppt\/slides\/slide\d+\.xml$/.test(p));assert.equal(pages.length,6);for(const page of pages)assert.ok((await zip.file(page)!.async("string")).includes("<a:t>"));
   await mkdir("output",{recursive:true});await writeFile("output/full-draft-workflow-validation.pptx",bytes);
+});
+
+test("initial candidate batch is available without a load click and preserves existing manual edits",()=>{
+ const d=fixture(),options=demoCandidates(d.input,d.outline[0]);
+ assert.equal(options.length,3);
+ const initial=applyDraftCandidates(d,0,options);assert.equal(initial.candidates[0].length,3);assert.equal(initial.picked[0],0);assert.equal(draftNeedsCandidates(initial,0),false);
+ const legacy={...d,candidates:{0:[options[0]]},picked:{0:0},edited:{0:{...options[0],headline:"직접 편집 유지"}}};
+ assert.equal(draftNeedsCandidates(legacy,0),true);
+ const filled=applyDraftCandidates(legacy,0,options);assert.equal(filled.candidates[0].length,3);assert.equal(filled.edited[0].headline,"직접 편집 유지");assert.equal(filled.picked[0],0);assert.equal(d.candidates[0],undefined);
+});
+
+test("initial sidebar renders three populated candidates without asking to load them",()=>{
+ const d=fixture();const deck=applyDraftCandidates(d,0,demoCandidates(d.input,d.outline[0]));
+ const html=renderToStaticMarkup(createElement(DraftCandidateSidebar,{deck,index:0,busy:false,disabled:false,onLoad:()=>{},onSelect:()=>{},onCompare:()=>{}}));
+ assert.equal((html.match(/aria-label="1번 장 후보 /g)??[]).length,3);
+ assert.doesNotMatch(html,/초안과 함께 준비할 후보입니다/);
 });

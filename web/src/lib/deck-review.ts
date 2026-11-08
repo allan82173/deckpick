@@ -3,7 +3,7 @@ import { reviewSchema, type DeckReview } from "./task-model";
 import { draftSlide } from "./draft-workflow";
 import { canvasHeadline } from "./canvas-edits";
 import { makeScene } from "./scene";
-import { inspectSlide, textArtifacts, MAX_QUALITY_RETRIES,isRendererWarning } from "./slide-quality";
+import { inspectSlide, textArtifacts, MAX_QUALITY_RETRIES,isRendererWarning, excessHedgeIndices, HEDGE_HEADLINE_LIMIT } from "./slide-quality";
 import type { Deck, SlideSpec } from "./model";
 import { withBudget, remainingBudgetMs } from "./run-budget";
 import { mapConcurrent } from "./concurrency";
@@ -44,6 +44,11 @@ export async function assessDeck(c: Connection, deck: Deck): Promise<DeckReview>
     }
     previousLayouts.push(slide.layoutId);
   });
+  // 덱 단위 규칙: 판단 보류형 키메시지는 상한까지만 둔다(뒤쪽 한계·다음 단계 장을 남기고 앞쪽부터 수정).
+  for (const index of excessHedgeIndices(pages.filter(page => page.index > 0).map(page => ({ index: page.index, text: page.headline })))) {
+    const reason = `판단 보류형 키메시지가 덱 상한(${HEDGE_HEADLINE_LIMIT}장)을 넘습니다.`;
+    if (!issues.some(issue => issue.index === index && issue.reason === reason)) issues.push({ index, category: "구성", reason, repair: "근거 강도(추론·가설)를 낮춘 잠정 판단과 판단을 바꿀 조건을 담은 한 문장으로 키메시지를 바꾸세요." });
+  }
   return { ...result,status:"complete", issues: issues.slice(0, 80), rounds: 0, reviewedAt: new Date().toISOString() };
 }
 

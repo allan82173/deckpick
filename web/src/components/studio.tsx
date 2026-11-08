@@ -1,4 +1,7 @@
 "use client";
+import {applyResearchCoverage} from "@/lib/research-coverage";
+import {ResearchScopeNotice} from "./research-scope-notice";
+import {RequestProgress} from "./request-progress";
 import {readApiResponse} from "@/lib/api-stream";
 import {DeckSessionControls} from "./deck-session-controls";
 import {hasDeckContext,appendSessionMessages} from "@/lib/deck-session";
@@ -70,7 +73,7 @@ import { CoverEditor } from "./cover-editor";
 import { LayoutLibrary } from "./layout-library";
 import {SlideChatPanel} from "./slide-chat-panel";
 import { FullDraftReview } from "./full-draft-review";
-import { draftSlide,initializeDraftSelections,applyPrimaryDraft,appendDraftAlternative,sameDraftContext } from "@/lib/draft-workflow";
+import { draftSlide,initializeDraftSelections,applyDraftCandidates,draftNeedsCandidates,appendDraftAlternative,sameDraftContext } from "@/lib/draft-workflow";
 import {insertDraftPage,pageNeighborContext,type InsertPageInput} from "@/lib/insert-page";
 
 type Stage = "home" | "new" | "outline" | "pick" | "final";
@@ -601,8 +604,12 @@ function Setup({ onError }: { onError: (s: string) => void }) {
           </button>
         </section>
       </div>
+      {step==="chat"&&<>
+      <RequestProgress deckId={deck.id} busy={busy}/>
+      <ResearchScopeNotice record={deck.researchRecord}/>
       <ResearchGate context="setup" mode="generate" busy={busy} onBusy={setBusy} onAttach={() => setStep("chat")} onError={onError}/>
-      {deck.generation?.status==="failed"&&!deck.demo&&<div className="notice warning" role="status">마지막 저장 단계: {deck.generation.lastCompletedStage??"시작 전"}. 완료한 단계는 재사용합니다. <button className="button" disabled={busy} onClick={()=>void generate()}>이어서 생성</button></div>}
+      {deck.generation?.status==="failed"&&!deck.demo&&<div className="notice warning" role="status">{busy?"저장된 작업을 확인하고 이어서 생성 중입니다.":`마지막 저장 단계: ${deck.generation.lastCompletedStage??"시작 전"}. 완료한 단계는 재사용합니다.`} <button className="button" disabled={busy} onClick={()=>void generate()}>{busy?"진행 중…":"이어서 생성"}</button></div>}
+      </>}
       <div className="setup-conversation-page" hidden={step !== "chat"}>
         <ChatPanel key={deck.id} context="setup" onError={onError} />
           <button
@@ -631,6 +638,10 @@ async function requestAPI(
   credentials: { provider: string; key: string; model: string },
 ): Promise<Record<string, unknown>> {
   const executionDeckId=activeRunDeck();
+  const startedAt=Date.now();
+  const progress=(active:boolean)=>window.dispatchEvent(new CustomEvent("deckpick-request-progress",{detail:{deckId:executionDeckId,action,active,startedAt,contactAt:Date.now()}}));
+  progress(true);
+  try {
   const networkFailed=(error:unknown)=>{if(executionDeckId)window.dispatchEvent(new CustomEvent("deckpick-generation",{detail:{deckId:executionDeckId,input:JSON.stringify(payload.input),generation:{runId:executionDeckId,status:"failed",completedStages:[],updatedAt:new Date().toISOString(),error:"연결이 끊겼습니다. 이어서 생성할 수 있습니다."}}}));throw error instanceof TypeError&&/fetch|network/i.test(error.message)?new Error("서버와 연결이 끊겼습니다. 서버가 실행 중인지 확인한 뒤 저장된 단계에서 이어서 생성해 주세요."):error;};
   const transportResponse = await fetch("/api/" + action, {
     method: "POST",
@@ -646,7 +657,7 @@ async function requestAPI(
       model: credentials.model,
     }),
   }).catch(networkFailed);
-  const response = await readApiResponse(transportResponse).catch(networkFailed);
+  const response = await readApiResponse(transportResponse,()=>progress(true)).catch(networkFailed);
   const result: unknown = await response.json().catch(networkFailed);
   if (typeof result !== "object" || result === null)
     throw Error("응답을 읽을 수 없습니다.");
@@ -658,6 +669,7 @@ async function requestAPI(
       typeof data.error === "string" ? data.error : "AI 요청에 실패했습니다.",
     );
   return data;
+  } finally { progress(false); }
 }
 async function callAPI(action: string, payload: Record<string, unknown>, credentials: { provider: string; key: string; model: string }, onResearch?: (record: z.infer<typeof researchRecordSchema>, sources: Source[]) => void): Promise<Record<string, unknown>> {
   const origin=activeRunDeck();
@@ -678,8 +690,11 @@ function ResearchGate({ context, mode, busy = false, onBusy, onAttach, onError }
   const { deck, setDeck, credentials } = useStudio();
   const router = useRouter();
   const [working, setWorking] = useState(false);
-  const record = deck?.researchRecord;
-  if (!deck || !record?.requiresReview) return null;
+  const record = deck?.researchRecord?applyResearchCoverage(deck.researchRecord):undefined;
+  const legacyReview=!!deck?.researchRecord?.requiresReview;
+  const gateRef=useRef<HTMLElement>(null);
+  useEffect(()=>{if(record?.requiresReview)gateRef.current?.scrollIntoView({behavior:"smooth",block:"center"});},[record?.requiresReview]);
+  if (!deck || !record || (!record.requiresReview&&!legacyReview)) return null;
   async function proceed(additionalResearch: boolean) {
     if (working || busy || !deck) return;
     const snapshot = deck;
@@ -703,11 +718,11 @@ function ResearchGate({ context, mode, busy = false, onBusy, onAttach, onError }
     } catch (error) { onError(errorMessage(error)); }
     finally { setWorking(false); onBusy?.(false); }
   }
-  return <section className="research-gate" role="status"><h3>초안을 만들기 전에 근거 범위를 확인해 주세요.</h3>
+  return <section ref={gateRef} className="research-gate" role="status"><h3>{record.requiresReview?"사용할 공개 자료의 범위를 선택해 주세요.":"확인된 공개 자료로 초안을 계속할 수 있습니다."}</h3>
     <p>{record.notice}</p><ul>{record.gaps?.map(gap => <li key={gap.questionId}><strong>{gap.question}</strong><br />{gap.missing}</li>)}</ul>
     <div className="research-gate-actions"><button className="button" disabled={working || busy} onClick={() => void proceed(true)}>추가 조사</button>
       {onAttach && <button className="button" disabled={working || busy} onClick={onAttach}>자료 첨부로 보완</button>}
-      <button className="button primary" disabled={working || busy} onClick={() => void proceed(false)}>{working ? "진행 중" : "한계를 표시하고 초안 만들기"}</button></div>
+      <button className="button primary" disabled={working || busy} onClick={() => void proceed(false)}>{working ? "진행 중" : "현재 자료 범위로 초안 만들기"}</button></div>
   </section>;
 }
 
@@ -1431,13 +1446,27 @@ function Picker({ onError }: { onError: (s: string) => void }) {
       });
     }catch(e){throw Error(errorMessage(e));}
   }
-  async function requestPrimary(snapshot:Deck,index:number):Promise<SlideSpec>{
-    const round=index===0?1:0;
-    if(snapshot.demo)return demoCandidates(snapshot.input,snapshot.outline[index],[],round,1)[0];
-    const neighbors=pageNeighborContext(snapshot,index);
-    const sources=[...new Map([...snapshot.research,...(draftSlide(snapshot,index-1)?.sources??[]),...(draftSlide(snapshot,index+1)?.sources??[])].map(s=>[s.url,s])).values()].slice(0,30);
-    const r=await callAPI("candidates/regenerate",{input:snapshot.input,item:snapshot.outline[index],outline:snapshot.outline,sources,researchRecord:snapshot.researchRecord,previousLayouts:snapshot.outline.slice(0,index).map((item,i)=>draftSlide(snapshot,i)?.layoutId??candidatePlan(snapshot.input,item)[0]).filter(Boolean),...slideAttachmentOptions(snapshot,index),rotation:round,instruction:"이 장의 첫 완성 초안입니다. 키메시지와 추가 내용을 제공된 근거로 채우고 앞뒤 장 사이의 논리를 연결하세요. 키메시지가 질문이나 메모라면 검증할 질문·가설로 구체화하세요. 구성을 사용자에게 먼저 고르게 하지 마세요. 참고 예시 문구·합성 수치를 실제 근거처럼 복사하지 마세요. 미확인 실적을 만들지 말고, 필요한 경우 [가정] 변수·산식을 밝힌 [계산] 예시나 [가설]로 현재 판단과 반전 조건을 적으세요. 이미 만든 다른 장표는 수정하지 않습니다. 앞뒤 장의 현재 내용: "+JSON.stringify(neighbors).slice(0,3600)},credentialsRef.current);
-    return z.array(slideSchema).length(1).parse(r.candidates)[0];
+  async function requestInitialCandidates(snapshot:Deck,index:number):Promise<SlideSpec[]>{
+    const item=snapshot.outline[index],primary=draftSlide(snapshot,index);
+    const existing=snapshot.candidates[index]??(primary?[primary]:[]);
+    const target=candidatePlan(snapshot.input,item).length;
+    if(existing.length>=target)return existing;
+    const sources=[...new Map([...snapshot.research,...(primary?.sources??[])].map(s=>[s.url,s])).values()];
+    const base={input:snapshot.input,item,outline:snapshot.outline,sources,researchRecord:snapshot.researchRecord,previousLayouts:snapshot.outline.slice(0,index).map((item,i)=>draftSlide(snapshot,i)?.layoutId??candidatePlan(snapshot.input,item)[0]).filter(Boolean),...slideAttachmentOptions(snapshot,index)};
+    if(!existing.length){
+      if(snapshot.demo)return demoCandidates(snapshot.input,item,[],0,target);
+      const r=await callAPI("candidates",{...base,instruction:"첫 완성 초안과 장별 후보를 함께 만듭니다. 후보별 핵심 메시지와 근거는 유지하고, 장 역할에 적합한 서로 다른 표현 구조를 사용하세요. 사실·추론·가정을 구분하며 없는 수치를 만들지 마세요. 앞뒤 장의 내용: "+JSON.stringify(pageNeighborContext(snapshot,index)).slice(0,3600)},credentialsRef.current);
+      return z.array(slideSchema).min(1).max(3).parse(r.candidates);
+    }
+    const seen=[...existing];
+    for(let slot=seen.length;slot<target;slot++){
+      if(cancel.current)break;
+      const exclude=seen.filter(s=>!s.layoutId.endsWith("cover")).map(s=>s.layoutId);
+      const instruction="현재 초안과 직접 편집을 보존하고 다른 표현 후보를 만듭니다. 핵심 메시지와 근거는 유지하세요. 현재 초안: "+JSON.stringify({headline:primary?.headline,data:primary?.data,canvasEdits:primary?.canvasEdits}).slice(0,4000);
+      const candidate=snapshot.demo?demoCandidates(snapshot.input,item,exclude,slot,1,seen.map(candidateSignature))[0]:z.array(slideSchema).length(1).parse((await callAPI("candidates/regenerate",{...base,exclude,rotation:slot,previousSignatures:seen.map(candidateSignature),instruction},credentialsRef.current)).candidates)[0];
+      seen.push(candidate);
+    }
+    return seen;
   }
   async function insertAndGenerate(at:number,input:InsertPageInput){
     const snapshot=deckRef.current;if(!snapshot||generationLock.current)throw Error("진행 중인 작업이 끝난 뒤 추가해 주세요.");
@@ -1445,8 +1474,8 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     generationLock.current=true;setRunning(true);setBusy(at);setFailed(null);onError("");setCurrent(at);
     setDeck(previous=>{if(!previous||!sameDraftContext(previous,snapshot))return previous;const next=insertDraftPage(previous,at,input);deckRef.current=next;return next;});
     try{
-      const slide=await requestPrimary(inserted,at);
-      if(!cancel.current)setDeck(previous=>{if(!previous||!sameDraftContext(previous,inserted))return previous;const next=applyPrimaryDraft(previous,at,slide);deckRef.current=next;return next;});
+      const options=await requestInitialCandidates(inserted,at);
+      if(!cancel.current)setDeck(previous=>{if(!previous||!sameDraftContext(previous,inserted))return previous;const next=applyDraftCandidates(previous,at,options);deckRef.current=next;return next;});
     }catch(e){if(!cancel.current){setFailed({index:at,kind:"draft"});onError("페이지 위치와 키메시지는 저장했습니다. "+errorMessage(e));}}
     finally{generationLock.current=false;if(!cancel.current){setRunning(false);setBusy(null);}}
   }
@@ -1487,14 +1516,14 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     setDeck(d=>{if(!d||!sameDraftContext(d,snapshot))return d;const next=initializeDraftSelections(d);deckRef.current=next;return next;});
     let activeIndex=0;
     try{
-      const missing=snapshot.outline.map((_,i)=>i).filter(i=>!draftSlide(deckRef.current??snapshot,i));
+      const missing=snapshot.outline.map((_,i)=>i).filter(i=>draftNeedsCandidates(deckRef.current??snapshot,i));
       const results=await mapConcurrent(missing,async i=>{
         if(cancel.current)return;
         setBusy(i);
         const working=deckRef.current&&sameDraftContext(deckRef.current,snapshot)?deckRef.current:snapshot;
-        const slide=await requestPrimary(working,i);
+        const options=await requestInitialCandidates(working,i);
         if(cancel.current)return;
-        setDeck(previous=>{if(!previous||!sameDraftContext(previous,snapshot))return previous;const next=applyPrimaryDraft(previous,i,slide);deckRef.current=next;return next;});
+        setDeck(previous=>{if(!previous||!sameDraftContext(previous,snapshot))return previous;const next=applyDraftCandidates(previous,i,options);deckRef.current=next;return next;});
       });
       const failure=results.findIndex(r=>r.status==="rejected");if(failure>=0){activeIndex=missing[failure];const result=results[failure];if(result.status==="rejected")throw result.reason;}
       if (!cancel.current && deckRef.current) {
@@ -1536,7 +1565,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     if(deckRef.current?.generation?.completedStages.some(stage=>stage.startsWith("candidate:"))&&deckRef.current.outline.some((_,i)=>!draftSlide(deckRef.current!,i)))return;
     const timer=window.setTimeout(()=>void buildDraft(),0);
     return()=>{window.clearTimeout(timer);cancel.current=true;};
-  },[]); // One primary per missing page; alternatives are requested only when reviewed.
+  },[]); // Prepare the full draft and suitable alternatives together on first entry.
   if (!deck) return null;
   const selected = deck.picked[current],
     candidates = deck.candidates[current],

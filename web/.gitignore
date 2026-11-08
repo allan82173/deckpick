@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.vercel/
+.env*
+!.env.example
+*.tsbuildinfo
+output/
+.key-setup/
+
+.vercel
+.env*
+
+.attachments/
+.generation-runs/

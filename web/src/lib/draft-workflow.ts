@@ -1,5 +1,5 @@
 import { slideSchema, type Deck, type SlideSpec } from "./model";
-import { candidateSignature } from "./candidate-plan";
+import { candidatePlan,candidateSignature } from "./candidate-plan";
 export function draftSlide(deck:Deck,index:number):SlideSpec|undefined {
   return deck.edited[index] ?? deck.candidates[index]?.[deck.picked[index]] ?? deck.candidates[index]?.[0];
 }
@@ -35,4 +35,19 @@ export function selectDraftAlternative(deck:Deck,index:number,slot:number):Deck{
   const updated=options.map((slide,i)=>i===previous&&deck.edited[index]?deck.edited[index]:slide);
   const edited={...deck.edited};delete edited[index];
   return {...deck,candidates:{...deck.candidates,[index]:updated},picked:{...deck.picked,[index]:slot},edited};
+}
+
+/** Initial full drafts include every suitable candidate (up to three), retaining manual work. */
+export function draftNeedsCandidates(deck:Deck,index:number){
+ let target=3;try{target=candidatePlan(deck.input,deck.outline[index]).length;}catch{target=1;}
+ return !draftSlide(deck,index)||(deck.candidates[index]?.length??0)<target;
+}
+export function applyDraftCandidates(deck:Deck,index:number,incoming:SlideSpec[]):Deck{
+ if(!incoming.length)throw Error("생성된 후보가 없습니다.");
+ incoming.forEach(s=>slideSchema.parse(s));
+ const normalized=initializeDraftSelections(deck);
+ if(!draftSlide(normalized,index))return {...normalized,candidates:{...normalized.candidates,[index]:incoming.slice(0,3)},picked:{...normalized.picked,[index]:0}};
+ let next=normalized;
+ for(const slide of incoming){const existing=next.candidates[index]??[];if(existing.length>=3)break;if(existing.some(s=>candidateSignature(s)===candidateSignature(slide)||(!slide.layoutId.endsWith("cover")&&s.layoutId===slide.layoutId)))continue;next=appendDraftAlternative(next,index,slide);}
+ return next;
 }

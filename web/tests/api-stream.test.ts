@@ -31,3 +31,9 @@ test("premature disconnect is a failure, never an empty success",async()=>{
  await assert.rejects(()=>readApiResponse(new Response('{"type":"heartbeat"}\n',{headers:{"Content-Type":"application/x-ndjson"}})),/연결이 끊겼습니다/);
  const json=Response.json({ok:true});assert.equal(await readApiResponse(json),json);
 });
+
+test("heartbeat notifies progress while waiting without spawning work",async()=>{
+ let heartbeats=0;
+ const final=await readApiResponse(streamApiResponse(async()=>Response.json({ok:true}),10),()=>heartbeats++);
+ assert.ok(heartbeats>=1);assert.equal((await final.json()).ok,true);
+});

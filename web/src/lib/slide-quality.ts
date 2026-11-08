@@ -33,6 +33,26 @@ export const MIN_BODY_FILL: Record<LayoutId, number> = Object.fromEntries(
 ) as Record<LayoutId, number>;
 export const MAX_QUALITY_RETRIES = GENERATION_CONFIG.qualityRetries;
 export function isRendererWarning(warning:string){return /텍스트.*넘|한 줄 텍스트|텍스트끼리|라벨.*겹|본문 하단|본문 글자 크기|본문 채움|겹침|넘침|잘림|글꼴 대체|폰트|글자.*(?:작|크기)|여백.*(?:과도|크)/.test(warning);}
+/** 유보형 키메시지(판단 보류) — 덱당 상한을 넘으면 잠정 판단 형태로 고친다. */
+export const HEDGE_HEADLINE_LIMIT = 2;
+export function isHedgeHeadline(text: string): boolean {
+  return /(판단할 수 없|판단하기 어렵|단정할 수 없|단정하기 어렵|확인되지 않|확인할 수 없|알 수 없|불분명|미확인|근거가 부족|자료가 부족|추가 (?:조사|확인|검증)(?:이|가)? 필요|확인이 필요|검증이 필요)/.test(text.replace(/\*\*/g, ""));
+}
+/** 상한을 넘는 유보형 장의 인덱스. 한계·다음 단계가 놓이는 뒤쪽 장을 남기고 앞쪽부터 고친다. */
+export function excessHedgeIndices(pages: { index: number; text: string }[], limit = HEDGE_HEADLINE_LIMIT): number[] {
+  const hedges = pages.filter(page => isHedgeHeadline(page.text)).map(page => page.index).sort((a, b) => a - b);
+  return hedges.slice(0, Math.max(0, hedges.length - limit));
+}
+/** 컨설팅 덱(6장 이상)은 표지·목차 다음 첫 본문 장을 결론 요약(판단·우선순위)으로 둔다. */
+export const ANSWER_FIRST_ROLES = ["판단", "우선순위"] as const;
+export function answerFirstIndex(outline: { section?: string }[]): number {
+  return outline[1]?.section === "목차" ? 2 : 1;
+}
+export function answerFirstError(type: DeckInput["deckType"], outline: { section?: string; role?: string | null }[]): string | null {
+  if (type !== "consulting" || outline.length < 6) return null;
+  const index = answerFirstIndex(outline), role = outline[index]?.role;
+  return role && (ANSWER_FIRST_ROLES as readonly string[]).includes(role) ? null : `${index + 1}장(표지·목차 다음 첫 본문)은 덱 전체 결론 요약으로 두고 role을 판단 또는 우선순위로 지정해 주세요.`;
+}
 export function isPlanHeadline(text: string): boolean {
   return /(?:하겠습니다|해보겠습니다|보겠습니다|확인합니다|검토합니다|살핍니다|살펴봅니다|분석합니다|비교합니다|정리합니다|판단합니다|점검합니다|검증합니다|제안합니다|제시합니다)[.!。\s]*$/.test(text.replace(/\*\*/g, ""));
 }

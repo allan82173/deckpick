@@ -1,3 +1,5 @@
+import {applyResearchCoverage} from "@/lib/research-coverage";
+import {requestSchema} from "@/lib/api-request";
 import {streamApiResponse} from "@/lib/api-stream";
 import { withExecution } from "@/lib/execution-scope";
 import { withRunContext,runState } from "@/lib/run-checkpoints";
@@ -33,33 +35,7 @@ import {
 } from "@/lib/model";
 export const runtime = "nodejs";
 export const maxDuration = 300;
-const requestSchema = z.object({
-  runId:z.string().regex(/^[a-zA-Z0-9_-]{1,120}$/).optional(),
-  provider: z.enum(["openai", "anthropic"]).default("openai"),
-  model: z.string().optional(),
-  attachmentIds: attachmentIdsSchema,
-  lowDetailImageIds: attachmentIdsSchema,
-  input: deckInputSchema.extend({ slideCount: z.number().int().min(5).max(30) }).optional(),
-  messages: z.array(messageSchema).max(40).default([]),
-  outline: z.array(outlineItemSchema).max(30).default([]),
-  sources: z.array(sourceSchema).max(30).default([]),
-  researchRecord: researchRecordSchema.optional(),
-  previousLayouts: z.array(z.enum(layoutIds)).max(30).default([]),
-  item: outlineItemSchema.optional(),
-  instruction: z.string().max(5000).default(""),
-  requestedLayout:z.enum(layoutIds).optional(),
-  exclude: z.array(z.string()).max(12).default([]),
-  rotation: z.number().int().min(0).max(10000).default(0),
-  previousSignatures: z.array(z.string().regex(/^[a-f0-9]{8}$/)).max(3).default([]),
-  context: z.enum(["setup", "outline", "slide"]).default("setup"),
-  webSearch: z.boolean().default(false),
-  currentSlide:slideSchema.optional(),
-  designSystem:persistedDeckSchema.shape.designSystem.optional(),
-  targetIndex:z.number().int().min(0).max(29).optional(),
-  deckContext:deckContextSchema.optional(),
-  currentDeck: persistedDeckSchema.optional(),
-  acceptLimitedEvidence: z.boolean().default(false),
-});
+
 async function handlePost(
   request: Request,
   { params }: { params: Promise<{ action: string[] }> },
@@ -137,7 +113,7 @@ async function handlePost(
       return Response.json({ ...await runResearch(c, b.input, b.researchRecord, evidence.text, b.messages, images), attachmentUsage });
     }
     if (action === "storyline" || action === "research/continue") {
-      const record = b.researchRecord;
+      const record = b.researchRecord?applyResearchCoverage(b.researchRecord):undefined;
       if (!record?.analysis || record.analysis.fingerprint !== taskFingerprint(b.input, evidence.text, b.messages)) throw new AIError("입력이나 첨부가 바뀌었습니다. 과제 해석부터 다시 진행해 주세요.", 409);
       if (record.requiresReview && !b.acceptLimitedEvidence) return Response.json({ needsResearchReview: true, reply: record.notice, outlineDraft: [], researchRecord: record, sources: b.sources });
       const approved = { ...record, acceptedLimits: b.acceptLimitedEvidence || record.acceptedLimits, requiresReview: false };
@@ -165,7 +141,7 @@ async function handlePost(
           e instanceof AIError
             ? e.message
             : e instanceof z.ZodError
-              ? "입력 내용과 길이를 확인해 주세요."
+              ? "입력 데이터 형식을 확인해 주세요: " + e.issues.slice(0,5).map(issue=>`${issue.path.join(".")||"요청"} (${issue.code})`).join(", ")
               : "요청을 처리하지 못했습니다. 다시 시도해 주세요.",
       },
       {

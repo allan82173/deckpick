@@ -1,6 +1,6 @@
 # DeckPick 4차 · 결과물 개선 계획 (교보문고 비교 기반) · 2026-11-08
 
-작성: Claude. 상태: **계획만 있고 코드 변경 없음**. Codex의 사이트 수정이 끝난 뒤 Claude가 실행한다(동시 작업 금지).
+작성: Claude. 상태: **1·2·6번 구현 완료(2026-11-08), 3번은 Codex가 같은 날 구현**. 구현 기록은 `docs/DeckPick-3차-안정화-진행.md`의 2026-11-08 Claude 항목에 있다.
 
 ## 1. 비교 결과 요약
 
@@ -42,12 +42,12 @@
 - 유료 확인 실행은 별도 예산 보고 후 사용자 승인 시에만 한다.
 
 ## 3. 다음 후보 (이번 범위 아님)
-- 3번 원문 확인된 '부분 일치' 근거를 [부분 일치] 표시로 허용 → 근거 범위 확인 화면 감소. 조사 단계 동작이 바뀌어 유료 확인 1회 필요.
+- 3번 (Codex 구현 완료) 원문 확인된 '부분 일치' 근거를 [부분 일치] 표시로 허용 → 근거 범위 확인 화면 감소. 조사 단계 동작이 바뀌어 유료 확인 1회 필요.
 - 4번 조사 계획에서 최신 연도 우선, 트렌드·회사 IR 질문 기본 1개.
 - 5번 첨부 내부 자료가 있으면 최소 1장에서 '내부 전제(n=…)'로 사용하거나 미사용 이유 기록.
 - 7번 장마다 큰 숫자 1개, 본문 최소 글자 크기, 같은 라벨 박스형 3장 연속 금지.
 
-## 4. 저장 공간 정리 (2026-11-08 사용자 승인, Codex 작업 종료 후 휴지통 이동 예정)
+## 4. 저장 공간 정리 (2026-11-08 사용자 승인, 휴지통 이동 완료)
 휴지통 이동 대상(`web/output/` 안, 약 25MB): `layout-1~14.jpg`, `pptx-layout-montage.jpg`, `preview-gallery.html`, `layout-alignment-review.html/.pptx`, `browser-flow.pptx`, `canvas-edit-browser-validation.pptx`, `editor-shared-chat-validation.pptx`, `full-draft-browser-validation.pptx`, `vercel-public-demo-validation.pptx`, `cover-preview/`, `design-options/`, `photo-qa/`, `screenshots/`, `visual-library/`, `attachment-qa/`.
 
 유지: `run-reports/`(실패 기록 보존), `stage4/`(6단계 결정 근거), `.generation-runs/`, `font-restoration/`(AGENTS.md 보관 지정), `claude-sync/`, 스크립트가 다시 쓰는 출력 폴더, `.next/`(Codex 서버 사용 중).

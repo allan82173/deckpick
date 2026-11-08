@@ -1,0 +1,8 @@
+.env*
+!.env.example
+tests/
+output/
+.key-setup/
+*.tsbuildinfo
+
+.attachments/

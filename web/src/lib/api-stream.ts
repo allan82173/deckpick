@@ -20,13 +20,14 @@ export function streamApiResponse(execute:()=>Promise<Response>,heartbeatMs:numb
 }
 
 /** Recover the original status/body from a streamed response; old JSON routes still work. */
-export async function readApiResponse(response:Response):Promise<Response>{
+export async function readApiResponse(response:Response,onHeartbeat?:()=>void):Promise<Response>{
  if(!response.headers.get("Content-Type")?.includes("application/x-ndjson"))return response;
  if(!response.body)throw Error("서버 응답이 비어 있습니다. 저장된 단계에서 이어서 생성해 주세요.");
  const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";
  const result=(line:string)=>{
   if(!line.trim())return;
   const event=JSON.parse(line);
+  if(event.type==="heartbeat"){onHeartbeat?.();return;}
   if(event.type!=="result")return;
   if(!Number.isInteger(event.status)||event.status<200||event.status>599||event.body===undefined)throw Error("서버 응답 형식을 읽지 못했습니다.");
   return Response.json(event.body,{status:event.status});

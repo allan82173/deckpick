@@ -44,6 +44,7 @@ export const researchRecordSchema = z.object({
   plan: researchPlanSchema.optional(),
   decisions: z.array(decisionSchema).optional(),
   gaps: z.array(z.object({ questionId: z.string(), question: z.string(), missing: z.string() })).optional(),
+  coverage: z.array(z.object({questionId:z.string(),question:z.string(),status:z.enum(["exact","substituted","insufficient"]),exactSources:z.number(),partialSources:z.number(),evidenceRefs:z.array(z.string()),description:z.string()})).optional(),
   requiresReview: z.boolean().optional(),
   acceptedLimits: z.boolean().optional(),
   queries: z.array(z.string()).optional(),

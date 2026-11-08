@@ -1930,3 +1930,5 @@ a.primary:hover {
 .saved-task-panel li .saved-task-delete{color:#a43f37;border-color:#dfb9b5;background:#fff}
 .saved-task-panel li .saved-task-delete:hover:not(:disabled){background:#fff3f1;border-color:#a43f37}
 @media(max-width:480px){.saved-task-panel li{flex-wrap:wrap}.saved-task-panel li>div:first-child{flex-basis:100%}.saved-task-panel li>.saved-task-actions{margin-left:auto}}
+
+.request-progress{display:flex;align-items:flex-start;gap:12px;border:1px solid #b5c9bf;background:#eff6f2;color:#244c3c}.request-progress p{margin:6px 0;font-variant-numeric:tabular-nums}.request-progress small{line-height:1.5}
