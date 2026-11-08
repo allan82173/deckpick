@@ -5,13 +5,15 @@ const medium = { effort: "medium" as Effort, maxOutputTokens: 16000 };
 const low = { effort: "low" as Effort, maxOutputTokens: 10000 };
 /** All generation budgets live here. This module is safe to import in the UI. */
 export const GENERATION_CONFIG = {
-  version: "2026-11-07-stability-v3-full-extraction",
+  version: "2026-11-08-stage6-final",
   /** Checkpoint compatibility key. Bump only when a saved stage result can no longer be reused (schema or stage meaning changed), not for every budget/version change. */
   checkpointVersion: "2026-11-07-stability-v3-revised",
   stages: {
     interpretTask: { ...high }, judgment: { ...high }, story: { ...high }, assessDeck: { ...high },
-    planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium }, candidates: { ...medium },
-    formatRepair: { ...low }, headlineRepair: { ...low }, slideChat: { ...low }, keyCheck: { ...low, maxOutputTokens: 32 }, visualReview: { ...medium },
+    planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium },
+    // 6단계 확정(2026-11-08): 4단계 B 조건 채택 — 판단·스토리라인·덱 검토 medium, 장 후보·시각 검수 low(출력 한도는 유지). 근거 추출은 원문 확인 54/77 vs 41/64로 medium 유지. 조사 단계는 실험에서 고정돼 기존값 유지.
+    candidates: { ...medium, effort: "low" as Effort },
+    formatRepair: { ...low }, headlineRepair: { ...low }, slideChat: { ...low }, keyCheck: { ...low, maxOutputTokens: 32 }, visualReview: { ...medium, effort: "low" as Effort },
   } satisfies Record<GenerationStage, { effort: Effort; maxOutputTokens: number }>,
   outputLimitLadder: [10000, 16000, 24000, 32000],
   outputLimitRetries: 1, formatAttempts: 3, calculationRepairAttempts: 2, qualityRetries: 2, providerTimeoutMs: 75000,
@@ -23,6 +25,8 @@ export const GENERATION_CONFIG = {
   research: { roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, originalsPerDeck: 12, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
   attachments: { chunkCharacters: 12000, rowsPerChunk: 80, extractVersion: "3", imagesPerExtraction: 4, contextTokens: 2400, researchTokens: 7200 },
   candidates: { maximum: 3 },
+  /** 자동 후보에서 빼는 레이아웃(사용자가 직접 고를 때만 사용). 4단계 사람 평가에서 장표 점수가 가장 낮았다: calculation-flow 평균 2.38(16덱 중 11덱이 2점 이하), system-flow 2.14(7덱 중 5덱). */
+  layouts: { autoExcludedKinds: ["calculation-flow", "system-flow"] as string[] },
   /** Deck review: start another repair round only if this much of the review budget remains (repairs run in parallel, then one re-assessment). */
   review: { roundReserveMs: 120000, repairConcurrency: 3 },
   visual: { enabled: true, width: 1280, minFontPt: 10, overlapAreaFraction: .15, toleranceInches: .025, bodyTop: 1.7, bodyBottom: 6.3, emptyBottomFraction: .30, defaultMinimumFill: .18,

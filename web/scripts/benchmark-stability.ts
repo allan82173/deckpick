@@ -4,7 +4,7 @@ import { performance } from "node:perf_hooks";
 import { prepareTask,runResearch,createStoryline } from "../src/lib/research-pipeline";
 import { generateCandidates } from "../src/lib/ai";
 import { reviewAndRepairDeck } from "../src/lib/deck-review";
-import { candidatePlan } from "../src/lib/candidate-plan";
+import { plannedFirstLayouts } from "../src/lib/candidate-plan";
 import { mapConcurrent } from "../src/lib/concurrency";
 import { mergeExecution } from "../src/lib/execution-model";
 import { withExecution } from "../src/lib/execution-scope";
@@ -37,7 +37,7 @@ async function main(){
    // while retaining every gap and warning; this is not a production approval bypass.
    phase="storyline";await progress(phase);const story=await createStoryline(c,fixture.input,messages,[],{...researched.researchRecord,acceptedLimits:true,requiresReview:false});deck.outline=story.outlineDraft;deck.researchRecord=story.researchRecord;
    phase="candidates";await progress(phase);const outcomes=await mapConcurrent(deck.outline,async item=>{
-    const slides=await generateCandidates(c,fixture.input,item,deck.research,"동일 입력 안정화·전달량 측정",[],true,deck.outline,fixture.attachment,0,[],[],undefined,deck.researchRecord?.evidence,deck.outline.slice(0,item.index).map(previous=>candidatePlan(fixture.input,previous)[0]),{record:deck.researchRecord});
+    const slides=await generateCandidates(c,fixture.input,item,deck.research,"동일 입력 안정화·전달량 측정",[],true,deck.outline,fixture.attachment,0,[],[],undefined,deck.researchRecord?.evidence,plannedFirstLayouts(fixture.input,deck.outline).slice(0,item.index),{record:deck.researchRecord});
     deck.candidates[item.index]=slides;deck.picked[item.index]=0;await progress(`candidates ${Object.keys(deck.candidates).length}/${deck.outline.length}`);return item.index;
    });const errors=outcomes.filter(o=>o.status==="rejected");if(errors.length)throw Error(errors.map(o=>o.status==="rejected"?(o.reason instanceof Error?o.reason.message:String(o.reason)):"").join(" / "));
    phase="review";await progress(phase);const reviewed=await reviewAndRepairDeck(c,deck);for(const replacement of reviewed.replacements)deck.candidates[replacement.index][0]=replacement.slide;deck.review=reviewed.review;

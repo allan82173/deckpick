@@ -68,7 +68,7 @@ export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInp
   const chartFloor = scene.nodes.some(n => n.kind === "image" && n.chart) ? .4 : 0;
   const fillRatio = chartFloor || (available ? Math.min(1, occupied / available) : 0);
   if (!compositionExempt && fillRatio < MIN_BODY_FILL[slide.layoutId]) warnings.push(`본문 채움 비율 ${Math.round(fillRatio * 100)}%가 기준 ${Math.round(MIN_BODY_FILL[slide.layoutId] * 100)}%보다 낮습니다.`);
-  if (previousLayouts.length >= 2 && previousLayouts.slice(-2).every(id => id === slide.layoutId)) warnings.push("같은 레이아웃이 연속 3장 이상입니다.");
+  if (!compositionExempt && previousLayouts.at(-1) === slide.layoutId) warnings.push("같은 레이아웃이 앞 장과 반복됩니다. 다른 구성으로 바꿔 주세요.");
   if (slide.layoutId.endsWith("formula-cards") && Array.isArray(slide.data.cards) && slide.data.cards.every(card => card && typeof card === "object" && "result" in card && !/\d/.test(String(card.result)))) warnings.push("계산 결과에 산출된 숫자가 없습니다. 근거만으로 가능한 기본 계산 또는 명시한 가정의 계산 예시를 보여 주세요.");
   if (item.role === "계산" && /가정|단순화/.test(JSON.stringify(slide.data)) && /확정/.test(slide.headline + String(slide.data.takeaway ?? ""))) warnings.push("가정이 있는 계산을 확정값으로 표현하지 마세요. 제목·결론에도 계산 예시의 범위를 명시해 주세요.");
   if (item.role && !roleLayouts(input.deckType, item.role).includes(slide.layoutId) && !exempt) warnings.push("장의 역할과 레이아웃이 맞지 않습니다.");

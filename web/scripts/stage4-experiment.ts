@@ -14,7 +14,7 @@ import { prepareTask, runResearch, createStoryline } from "../src/lib/research-p
 import { research, generateCandidates } from "../src/lib/ai";
 import { readOriginalPage } from "../src/lib/source-pages";
 import { reviewAndRepairDeck } from "../src/lib/deck-review";
-import { candidatePlan } from "../src/lib/candidate-plan";
+import { plannedFirstLayouts } from "../src/lib/candidate-plan";
 import { mapConcurrent } from "../src/lib/concurrency";
 import { withExecution } from "../src/lib/execution-scope";
 import { withRunContext, runState } from "../src/lib/run-checkpoints";
@@ -85,7 +85,7 @@ async function run(cacheFile: string, condition: "A" | "B" | "C", rep: string) {
       deck.outline = story.outlineDraft; deck.researchRecord = story.researchRecord; calculationIssues = story.calculationIssues;
       phase = "candidates";
       const outcomes = await mapConcurrent(deck.outline, async item => {
-        const slides = await generateCandidates(c, data.input, item, deck.research, "4단계 고정 조사 비교", [], true, deck.outline, data.attachment, 0, [], [], undefined, deck.researchRecord?.evidence, deck.outline.slice(0, item.index).map(previous => candidatePlan(data.input, previous)[0]), { record: deck.researchRecord });
+        const slides = await generateCandidates(c, data.input, item, deck.research, "4단계 고정 조사 비교", [], true, deck.outline, data.attachment, 0, [], [], undefined, deck.researchRecord?.evidence, plannedFirstLayouts(data.input,deck.outline).slice(0,item.index), { record: deck.researchRecord });
         deck.candidates[item.index] = slides; deck.picked[item.index] = 0; return item.index;
       });
       const errors = outcomes.filter(o => o.status === "rejected");

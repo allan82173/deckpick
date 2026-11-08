@@ -69,7 +69,7 @@ test("confirmed user statements persist beyond compact chat and assistant statem
 });
 test("role preferences stay first and a two-layout role remainder returns two without forcing a family",()=>{
  const item={index:2,section:"일정",message:"원인과 흐름",contentHint:"",role:"흐름" as const,argument:{questionId:"Q1",judgment:"선택",support:[{text:"근거",evidenceRefs:[]}],reversalCondition:"변경 조건",limitation:"",transition:"다음",visualIntent:"과정",preferredLayouts:["c-cause-chain","c-system-flow","c-swimlane"]}};
- const pool=roleLayouts("consulting","흐름");const allowed=["c-cause-chain","c-system-flow"];
+ const pool=roleLayouts("consulting","흐름");const allowed=["c-cause-chain","c-swimlane"];/* system-flow는 4단계 사람 평가 후 자동 후보에서 제외 */
  assert.deepEqual(candidatePlan(input,item,pool.filter(id=>!allowed.includes(id)),10),allowed);assert.equal(candidatePlan(input,item)[0],"c-cause-chain");
 });
 test("geometry inspection catches overlapping text, overflow and large unused body bottom",()=>{

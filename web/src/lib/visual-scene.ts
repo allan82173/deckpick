@@ -44,7 +44,17 @@ export function drawVisual(slide:SlideSpec,c:DesignSystem["colors"],g:Draw):bool
       d.items.forEach((v, i)=>{const {x,y}=positions[i];box(x,y,1.68,.5,v.highlight?c.primary:c.panel,c.primary);txt(v.name,x+.08,y+.1,1.52,.31,10,v.highlight?"#FFFFFF":c.darkest,v.highlight,"center");});header("축과 위치를 정한 이유",8.5,2.05,4.4);box(8.5,2.48,4.4,3.19,c.panel);txt(d.rationale,8.73,2.9,3.94,1.8,14);txt(d.status==="hypothesis"?"가설 위치 · 검증 필요":"제공 근거에 따른 상대 위치",8.73,5.14,3.94,.3,11,c.primary,true);break;
     }
     case "system-flow": {
-      const d=schema["system-flow"].parse(slide.data);header("입력·근거",.42,1.94,3.55);d.inputs.forEach((s,i)=>{box(.42,2.65+i*.58,3.55,.45,c.panel);txt(s,.6,2.76+i*.58,3.19,.25,11);});arrow(4.12,3.61,.48);box(4.82,2.95,3.65,2,c.primary);txt(d.layer,5.08,3.25,3.13,.7,17,"#FFFFFF",true,"center");txt(d.layerBody,5.08,4.08,3.13,.58,11,"#FFFFFF",false,"center");arrow(8.65,3.61,.48);header("결과·판단",9.35,1.94,3.55);d.outputs.forEach((s,i)=>{box(9.35,3+i*.83,3.55,.64,c.tint);txt(s,9.55,3.18+i*.83,3.15,.3,12,c.darkest,true);});bar(d.principle);break;
+      // 항목 수가 바뀌어도 열 높이를 같은 본문 영역에 꽉 채워 여백이 남지 않게 하고, 글자는 박스 가운데에 둔다.
+      const d=schema["system-flow"].parse(slide.data),top=2.47,bottom=6.13,gap=.14,height=bottom-top;
+      const lines=(text:string,size:number,w:number)=>Math.max(1,Math.ceil([...text.replace(/\*\*/g,"")].reduce((n,ch)=>n+(/[\u1100-\uFFFF]/.test(ch)?1:.55),0)*size/72/w));
+      const centered=(text:string,x:number,y:number,w:number,h:number,size:number,color:string,bold=false,align:"left"|"center"="left")=>{const th=Math.min(h-.08,lines(text,size,w)*size*1.25/72+.04);txt(text,x,y+(h-th)/2,w,th,size,color,bold,align);};
+      const stack=(items:string[],x:number,w:number,fill:string,size:number,bold:boolean)=>{const h=(height-(items.length-1)*gap)/items.length;items.forEach((s,i)=>{const y=top+i*(h+gap);box(x,y,w,h,fill);centered(s,x+.2,y,w-.4,h,size,c.darkest,bold);});};
+      header("입력·근거",.42,1.94,3.55);stack(d.inputs,.42,3.55,c.panel,12,false);
+      const middle=(1.94+bottom)/2;arrow(4.12,middle-.12,.48);
+      box(4.82,1.94,3.65,bottom-1.94,c.primary);
+      const titleH=lines(d.layer,18,3.13)*18*1.25/72+.04,bodyH=lines(d.layerBody,12,3.13)*12*1.25/72+.04,start=middle-(titleH+.22+bodyH)/2;
+      txt(d.layer,5.08,start,3.13,titleH,18,"#FFFFFF",true,"center");txt(d.layerBody,5.08,start+titleH+.22,3.13,bodyH,12,"#FFFFFF",false,"center");
+      arrow(8.65,middle-.12,.48);header("결과·판단",9.35,1.94,3.55);stack(d.outputs,9.35,3.55,c.tint,13,true);bar(d.principle);break;
     }
     case "system-compare": {
       const d=schema["system-compare"].parse(slide.data);d.panels.forEach((p,i)=>{const x=.42+i*6.55,w=5.94;header(p.title,x,1.94,w);box(x,2.37,w,3.56,"#FFFFFF",c.tint);p.inputs.forEach((v,j)=>{box(x+.18,2.8+j*.49,1.65,.4,c.panel);txt(v,x+.25,2.88+j*.49,1.51,.25,10);});arrow(x+1.94,3.49,.25);box(x+2.28,3.05,1.66,1.28,i?c.primary:c.muted);txt(p.layer,x+2.4,3.35,1.42,.7,12,"#FFFFFF",true,"center");arrow(x+4.04,3.49,.25);box(x+4.38,3.05,1.38,1.28,c.panel,c.primary);txt(p.output,x+4.5,3.35,1.14,.7,11,c.darkest,true,"center");line(x+.18,5.16,5.58,c.tint);txt(p.note,x+.18,5.38,5.58,.4,11,c.primary);});bar(d.takeaway);break;

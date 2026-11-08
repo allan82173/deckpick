@@ -59,7 +59,7 @@ import {
 } from "@/lib/model";
 import { z } from "zod";
 import { SlidePreview } from "./slide-preview";
-import { candidatePlan, candidateSignature, replaceCandidate, layoutPurpose } from "@/lib/candidate-plan";
+import { candidatePlan, candidateSignature, replaceCandidate, layoutPurpose, plannedFirstLayouts } from "@/lib/candidate-plan";
 import { attachmentOptions } from "@/lib/attachment-model";
 import { Attachments, useAttachmentUpload } from "./attachments";
 import { coverAlternatives, coverStyleNames } from "@/lib/covers";
@@ -1383,7 +1383,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
             outline: d.outline,
             sources: d.research,
             researchRecord: d.researchRecord,
-            previousLayouts: d.outline.slice(0, index).map((_, i) => draftSlide(d, i)?.layoutId).filter(Boolean),
+            previousLayouts: (() => { const planned = plannedFirstLayouts(d.input, d.outline); return d.outline.slice(0, index).map((_, i) => draftSlide(d, i)?.layoutId ?? planned[i]).filter(Boolean); })(),
             instruction,
             exclude,
             rotation: round,

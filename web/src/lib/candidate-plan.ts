@@ -20,13 +20,15 @@ export const layoutPurpose: Record<LayoutId, string> = {
   "c-metric-cards": "기준이 명시된 지표·측정 계획", "c-compare": "공통 기준으로 대안 비교", "c-conclusion": "추천과 다음 행동 요약", "c-split-insight": "핵심 통찰 한 가지와 근거 분리", "c-matrix": "두 기준의 정성적 2×2 프레임", "c-timeline": "단계별 실행 로드맵",
   "m-cover": "브랜드와 제안", "m-big-message": "하나의 큰 카피", "m-image-copy": "사용 장면과 카피", "m-big-number": "검증된 핵심 수치", "m-feature-cards": "가치와 특징 비교", "m-quote-cta": "메시지와 행동 제안",
 };
+/** 사람 평가에서 장표 품질이 낮았던 레이아웃은 자동 후보에서 제외한다(직접 선택은 허용). */
+const autoAllowed = (id: string) => !GENERATION_CONFIG.layouts.autoExcludedKinds.some(kind => id.endsWith("-" + kind));
 export function candidatePlan(input: DeckInput, item: OutlineItem, excluded: string[] = [], rotation = 0, count = 3, requested?:LayoutId): LayoutId[] {
   if (requested && item.role && !roleLayouts(input.deckType, item.role).includes(requested)) throw Error("이 장의 역할에 맞는 레이아웃을 선택해 주세요.");
   if(requested){if(count!==1||item.index===0||requested.endsWith("cover")||requested==="c-toc"||!requested.startsWith(input.deckType==="consulting"?"c-":"m-")||excluded.includes(requested))throw Error("현재 장표에 사용할 수 없는 구성입니다. 다른 후보에 없는 본문 구성을 골라 주세요.");return [requested];}
   if (item.index === 0) return Array(count).fill(input.deckType === "consulting" ? "c-cover" : "m-cover") as LayoutId[];
   if (item.section === "출처" && count === 1 && !excluded.includes(input.deckType === "consulting" ? "c-evidence-table" : "m-evidence-table")) return [input.deckType === "consulting" ? "c-evidence-table" : "m-evidence-table"];
   if(item.role){
-    const rolePool=roleLayouts(input.deckType,item.role).filter(id=>!excluded.includes(id));
+    const rolePool=roleLayouts(input.deckType,item.role).filter(id=>!excluded.includes(id)&&autoAllowed(id));
     const preferred=(item.argument?.preferredLayouts??[]).filter((id):id is LayoutId=>rolePool.includes(id as LayoutId));
     const rest=rolePool.filter(id=>!preferred.includes(id));
     const shift=rest.length?rotation%rest.length:0;
@@ -64,7 +66,7 @@ export function candidatePlan(input: DeckInput, item: OutlineItem, excluded: str
   const preferredStage = ["판단", "우선순위", "근거", "합의 사항", "마무리"].includes(item.role ?? "") ? 1 : item.role === "계산" ? 2 : item.role === "일정" ? 3 : 0;
   const score = (id: LayoutId) => { const k=expandedKind(id); return k && expandedRegistry[k].stage === preferredStage ? 2 : Number(id === `${prefix}-${rolePreference}`); };
   const orderedRoles = [...rolePool].sort((a,b)=>score(b)-score(a));
-  const pool = item.role ? [...new Set([...contentPreferences, ...orderedRoles])] : [...new Set([...preferred, ...layoutIds.filter((id) => id.startsWith(input.deckType === "consulting" ? "c-" : "m-") && !id.endsWith("cover") && (id !== "c-toc" || item.section === "목차"))])];
+  const pool = (item.role ? [...new Set([...contentPreferences, ...orderedRoles])] : [...new Set([...preferred, ...layoutIds.filter((id) => id.startsWith(input.deckType === "consulting" ? "c-" : "m-") && !id.endsWith("cover") && (id !== "c-toc" || item.section === "목차"))])]).filter(autoAllowed);
   const shift = rotation % pool.length;
   const excludedFamilies = new Set(excluded.map((id) => families[id as LayoutId]));
   const ordered = [...pool.slice(shift), ...pool.slice(0, shift)].filter((id) => !excluded.includes(id) && (count !== 1 || !excludedFamilies.has(families[id])));
@@ -94,4 +96,23 @@ export function replaceCandidate(deck: Deck, index: number, slot: number, candid
   const picked = { ...deck.picked }, edited = { ...deck.edited };
   if (picked[index] === slot) { delete picked[index]; delete edited[index]; }
   return { ...deck, candidates: { ...deck.candidates, [index]: next }, picked, edited };
+}
+
+/** 장별 첫 후보 레이아웃 계획. 바로 앞 장과 같은 구성이 연속되지 않도록 역할에 맞는 다른 후보를 먼저 고른다. */
+export function plannedFirstLayouts(input: DeckInput, outline: OutlineItem[]): LayoutId[] {
+  const chosen: LayoutId[] = [];
+  for (const item of outline) {
+    let plan: LayoutId[] = [];
+    try { plan = candidatePlan(input, item); } catch { plan = []; }
+    const previous = chosen.at(-1);
+    chosen.push((item.index > 0 ? plan.find(id => id !== previous) : undefined) ?? plan[0]);
+  }
+  return chosen;
+}
+/** 앞 장과 같은 레이아웃이 첫 후보가 되지 않게 순서를 바꾼다. 다른 후보가 없으면 그대로 둔다. */
+export function avoidPreviousLayout(plan: LayoutId[], previous: string | undefined, wider: LayoutId[], single: boolean): LayoutId[] {
+  if (!previous || plan[0] !== previous || previous.endsWith("cover")) return plan;
+  const alternative = [...plan, ...wider].find(id => id !== previous);
+  if (!alternative) return plan;
+  return single ? [alternative] : [...new Set([alternative, ...plan.filter(id => id !== previous && id !== alternative), previous])].slice(0, plan.length);
 }

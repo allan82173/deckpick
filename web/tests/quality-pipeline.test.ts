@@ -95,7 +95,9 @@ test("quality checks identify plans, missing evidence, todo-only content, repeti
   assert.ok(isPlanHeadline(slide.headline));
   assert.ok(result.warnings.some(w => w.includes("근거표")));
   assert.ok(result.warnings.some(w => w.includes("할 일")));
-  assert.ok(result.warnings.some(w => w.includes("연속 3장")));
+  assert.ok(result.warnings.some(w => w.includes("앞 장과 반복")));
+  assert.ok(inspectSlide(slide, item, input, [], [slide.layoutId]).warnings.some(w => w.includes("앞 장과 반복")), "a single repeat is already flagged");
+  assert.ok(!inspectSlide(slide, item, input, [], ["m-big-message"]).warnings.some(w => w.includes("반복")));
   assert.ok(result.warnings.some(w => w.includes("채움")));
   assert.equal(deckCountWarning(16, 10).length, 1);
   assert.equal(deckInputSchema.safeParse({ ...input, slideCount: 20 }).success, true);

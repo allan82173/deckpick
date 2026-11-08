@@ -52,7 +52,7 @@ export const expandedRegistry: Record<ExpandedKind, Meta> = {
   waterfall: { name: "증감 워터폴", stage: 2, reference: 35, roles: ["계산", "사실 제시"], use: "시작값에서 끝값까지의 증감을 설명할 때", avoid: "증감 항목이 중복돼 합계가 맞지 않을 때", minimum: "시작값, 증감1~8, 끝값은 코드 계산" },
   "composition-donut": { name: "구성비 도넛", stage: 2, reference: 37, roles: ["사실 제시", "비교"], use: "양의 전체를 구성하는 비중을 설명할 때", avoid: "항목이 중복되거나 음수가 있을 때", minimum: "항목3~6, 양의 총합, 단위" },
   "horizontal-formula": { name: "가로 막대와 산출 근거", stage: 2, reference: 36, roles: ["계산", "비교"], use: "가정에 따른 대안별 산출값을 비교할 때", avoid: "산식·가정을 밝힐 수 없을 때", minimum: "항목2~6, 값·근거, 가정·산식·단위" },
-  "calculation-flow": { name: "가정에서 산식·결과", stage: 2, reference: 38, roles: ["계산"], use: "하나의 계산을 가정부터 재현할 때", avoid: "숫자 결과나 산식이 없을 때", minimum: "가정2~6, 산식, 결과·단위·한계" },
+  "calculation-flow": { name: "가정에서 산식·결과", stage: 2, reference: 38, roles: ["계산"], use: "하나의 계산을 가정부터 재현할 때", avoid: "숫자 결과나 산식이 없을 때", minimum: "가정2~6, 산식(단계는 →로 구분), 결과·단위(결과가 여럿이면 같은 순서로 ' / '로 구분)·한계" },
   "date-timeline": { name: "날짜 기반 타임라인", stage: 3, reference: 39, roles: ["일정", "흐름"], use: "실제 날짜에 따른 병렬 일정을 보여 줄 때", avoid: "날짜 없이 단계 이름만 있을 때", minimum: "YYYY-MM-DD 기간2~6행, 이정표 선택" },
   "scenario-gantt": { name: "시나리오 간트와 계산 결과", stage: 3, reference: 40, roles: ["일정", "계산", "비교"], use: "기간 활용·빈 기간을 시나리오로 비교할 때", avoid: "일정이 중복되거나 전체 범위가 없을 때", minimum: "시나리오2~4, 시작·종료일, 기간 막대" },
   "vertical-events": { name: "세로 날짜 타임라인", stage: 3, reference: 28, roles: ["일정", "흐름"], use: "날짜별 사건과 산출물을 정리할 때", avoid: "시간순서가 의미 없는 목록일 때", minimum: "날짜·제목·설명3~6개" },

@@ -19,7 +19,7 @@ test("new structures validate and fit preview bounds without text overflow",()=>
 });
 test("content relationship takes precedence over generic section labels",()=>{
   assert.equal(candidatePlan(input,item)[0],"c-journey");
-  assert.equal(candidatePlan(input,{...item,message:"데이터 연결 레이어의 시스템 구조를 제안합니다",contentHint:""})[0],"c-system-flow");
+  assert.ok(!candidatePlan(input,{...item,message:"데이터 연결 레이어의 시스템 구조를 제안합니다",contentHint:""}).includes("c-system-flow"),"system-flow is excluded from automatic candidates after the stage 4 human scores");
   assert.equal(candidatePlan({...input,deckType:"marketing"},item)[0],"m-journey");
 });
 test("explicit layout replaces one card while preserving other selections and edits",()=>{

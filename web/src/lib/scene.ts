@@ -1,3 +1,4 @@
+import { GENERATION_CONFIG } from "./generation-config";
 import {drawAdaptiveBody,needsAdaptiveBody} from "./adaptive-scene";
 import { drawExpanded } from "./expanded-scene";
 import { expandedKind } from "./expanded-layouts";
@@ -73,6 +74,42 @@ export function wrap(text: string, size: number, width: number) {
     line.map((r) => r.text).join(""),
   );
 }
+/**
+ * 글자가 박스를 넘으면 글자 크기를 줄여 박스 안에 넣는다. 같은 크기·같은 박스 규격의 형제 텍스트(카드·표 칸 등)는
+ * 함께 같은 크기로 맞춰 통일감을 유지하고, 그중 모두가 들어가는 가장 큰(가장 잘 읽히는) 크기를 쓴다.
+ * 가독성 하한(본문 최소 글자 크기, 원래 크기의 75%)보다 줄여야 하면 크기는 하한에서 멈추고 문구 축약을 요청한다.
+ */
+export function fitTextNodes(nodes: SceneNode[], warnings: string[]): SceneNode[] {
+  const tolerance = GENERATION_CONFIG.visual.toleranceInches, step = .5;
+  const fits = (n: TextNode, size: number) => {
+    const lines = richLines(n.text, size, n.w, n.oneLine);
+    if (lines.length * size * n.lineHeight / 72 > n.h + tolerance) return false;
+    if (n.oneLine && [...n.text.replace(/\*\*/g, "")].reduce((sum, char) => sum + weight(char), 0) * size / 72 > n.w + tolerance) return false;
+    return true;
+  };
+  const floorOf = (n: TextNode) => n.size <= GENERATION_CONFIG.visual.minFontPt ? n.size : Math.max(GENERATION_CONFIG.visual.minFontPt, Math.ceil(n.size * .75 / step) * step);
+  const texts = nodes.map((node, index) => ({ node, index })).filter((entry): entry is { node: TextNode; index: number } => entry.node.kind === "text" && !!entry.node.text.trim());
+  const fitted = new Map<number, { size: number; resolved: boolean }>();
+  for (const { node, index } of texts) {
+    if (fits(node, node.size)) continue;
+    let size = node.size, resolved = false;
+    for (let candidate = node.size - step; candidate >= floorOf(node) - 1e-9; candidate -= step) { size = candidate; if (fits(node, candidate)) { resolved = true; break; } }
+    fitted.set(index, { size: Math.max(size, floorOf(node)), resolved });
+  }
+  if (!fitted.size) return nodes;
+  const same = (a: TextNode, b: TextNode) => a.size === b.size && !!a.bold === !!b.bold && Math.abs(a.w - b.w) < .02 && Math.abs(a.h - b.h) < .02 && (Math.abs(a.y - b.y) < .02 || Math.abs(a.x - b.x) < .02);
+  const result = [...nodes];
+  const unified = new Map<number, number>();
+  for (const [index, fit] of fitted) {
+    const node = nodes[index] as TextNode;
+    const group = texts.filter(entry => same(entry.node, node));
+    const size = Math.min(...group.map(entry => fitted.get(entry.index)?.size ?? entry.node.size));
+    for (const entry of group) unified.set(entry.index, Math.min(unified.get(entry.index) ?? Infinity, size));
+    if (!fit.resolved) warnings.push(`문구 축약 필요: 글자를 줄여도 박스에 들어가지 않습니다 · ${node.text.replace(/\*\*/g, "").slice(0, 24)}`);
+  }
+  for (const [index, size] of unified) result[index] = { ...(nodes[index] as TextNode), size };
+  return result;
+}
 export function makeScene(
   slide: SlideSpec,
   ds: DesignSystem,
@@ -113,11 +150,8 @@ export function makeScene(
     bold = false,
     align: "left" | "center" | "right" = "left",
   ) => {
-    let s = size;
-    while (s > size - 2 && (wrap(text, s, w).length * s * 1.25) / 72 > h)
-      s -= 1;
-    if ((wrap(text, s, w).length * s * 1.25) / 72 > h)
-      warnings.push(`${text.slice(0, 22)}… 텍스트가 길어 확인이 필요합니다.`);
+    // 넘침은 fitTextNodes가 같은 규격의 형제 텍스트와 함께 한 번에 맞춘다(개별 축소로 크기가 제각각이 되지 않게).
+    const s = size;
     nodes.push({
       kind: "text",
       x,
@@ -230,7 +264,7 @@ export function makeScene(
   const bodyStart=nodes.length,warningStart=warnings.length;
   if (drawExpanded(slide,c,{nodes,box,txt,line}) || drawAnalytical(slide,c,{ nodes,box,txt }) || drawVisual(slide,c,{ nodes,box,txt,line })) {
     if(needsAdaptiveBody(slide,nodes.slice(bodyStart),warnings.slice(warningStart))){nodes.splice(bodyStart);warnings.splice(warningStart);drawAdaptiveBody(slide,c,{nodes,box,txt});}
-    return { nodes:applyCanvasEdits(nodes,slide.canvasEdits),warnings:[...new Set(warnings)] };
+    return { nodes:applyCanvasEdits(fitTextNodes(nodes,warnings),slide.canvasEdits),warnings:[...new Set(warnings)] };
   }
   switch (slide.layoutId) {
     case "c-cover": {
@@ -311,22 +345,24 @@ export function makeScene(
     }
     case "c-funnel": {
       const d = dataSchemas["c-funnel"].parse(slide.data);
+      // 단계가 적으면 같은 본문 영역을 단계 높이로 채운다(3단계는 기존 배치와 동일).
+      const fewer = d.steps.length < 3, step = fewer ? 4.5 / d.steps.length : 1.5, height = fewer ? step - 0.45 : 1.05, pad = fewer ? (height - 1.05) / 2 : 0, extra = fewer ? height - 1.05 : 0;
       d.steps.forEach((s, i) => {
         const w = 11.8 - i * 1.5,
           x = (SLIDE.w - w) / 2,
-          y = 1.72 + i * 1.5;
+          y = 1.72 + i * step;
         box(
           x,
           y,
           w,
-          1.05,
+          height,
           i === d.steps.length - 1 ? c.darkest : c.panel,
           c.primary,
         );
         txt(
           s.title,
           x + 0.25,
-          y + 0.13,
+          y + pad + 0.13,
           w - 0.5,
           0.3,
           15,
@@ -336,7 +372,7 @@ export function makeScene(
         txt(
           s.body,
           x + 0.25,
-          y + 0.55,
+          y + pad + 0.55,
           w - 0.5,
           0.35,
           13,
@@ -346,7 +382,7 @@ export function makeScene(
           nodes.push({
             kind: "trapezoid",
             x: x + 0.3,
-            y: y + 1.13,
+            y: y + 1.13 + extra,
             w: w - 0.6,
             h: 0.25,
             fill: c.connector,
@@ -400,15 +436,17 @@ export function makeScene(
     }
     case "c-metric-cards": {
       const d = dataSchemas["c-metric-cards"].parse(slide.data),
-        rh = Math.min(1.42, 4.9 / d.rows.length);
+        // 행이 2개뿐이면 남는 높이를 행에 나눠 채우고 내용은 행 가운데에 둔다(3·4행은 기존 배치와 동일).
+        rh = d.rows.length >= 3 ? Math.min(1.42, 4.9 / d.rows.length) : 4.9 / d.rows.length,
+        pad = Math.max(0, (rh - 1.42) / 2);
       d.rows.forEach((s, i) => {
         const y = 1.7 + i * rh;
         box(0.42, y, 2.15, rh - 0.16, c.tint);
-        txt(s.label, 0.65, y + 0.3, 1.7, 0.6, 16, c.primary, true);
+        txt(s.label, 0.65, y + pad + 0.3, 1.7, 0.6, 16, c.primary, true);
         box(2.57, y, 10.34, rh - 0.16, "#FFFFFF", c.primary);
-        txt(s.value, 2.85, y + 0.22, 3, 0.65, 28, c.primary, true);
-        txt(s.strong, 6, y + 0.22, 6.5, 0.5, 14, c.darkest, true);
-        txt(s.sub, 6, y + 0.75, 6.5, 0.4, 12, c.muted);
+        txt(s.value, 2.85, y + pad + 0.22, 3, 0.65, 28, c.primary, true);
+        txt(s.strong, 6, y + pad + 0.22, 6.5, 0.5, 14, c.darkest, true);
+        txt(s.sub, 6, y + pad + 0.75, 6.5, 0.4, 12, c.muted);
       });
       break;
     }
@@ -579,5 +617,5 @@ export function makeScene(
       break;
     }
   }
-  return { nodes:applyCanvasEdits(nodes,slide.canvasEdits), warnings: [...new Set(warnings)] };
+  return { nodes:applyCanvasEdits(fitTextNodes(nodes,warnings),slide.canvasEdits), warnings: [...new Set(warnings)] };
 }

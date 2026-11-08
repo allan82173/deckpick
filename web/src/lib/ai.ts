@@ -8,7 +8,7 @@ import {estimateRequestInput} from "./usage-estimate";
 import { providerSlot } from "./concurrency";
 import { expandedRegistry, expandedKind } from "./expanded-layouts";
 import { withImageInputs, type VisionImage } from "./vision";
-import { candidatePlan, candidateSignature, layoutPurpose } from "./candidate-plan";
+import { candidatePlan, avoidPreviousLayout, candidateSignature, layoutPurpose } from "./candidate-plan";
 import { consultingStylePrompt, slideCompositionPrompt, validateHeadline } from "./consulting-style";
 import { z } from "zod";
 import {
@@ -494,7 +494,9 @@ async function generateCandidateBatch(
   const hasImage = images.some(image => image.id);
   if (requestedLayout?.endsWith("screenshot-notes") && !hasImage) throw new AIError("화면 주석 유형은 먼저 사진을 첨부해 주세요.", 400);
   const unavailable = hasImage ? [] : ["c-screenshot-notes", "m-screenshot-notes"];
-  const planned = candidatePlan(input, item, [...exclude, ...unavailable], rotation, single ? 1 : 3,requestedLayout);
+  const firstPlan = candidatePlan(input, item, [...exclude, ...unavailable], rotation, single ? 1 : 3,requestedLayout);
+  // 바로 앞 장과 같은 구성이 연속되면 디자인이 단조로워지므로, 사용자가 직접 고른 구성이 아니면 다른 후보를 먼저 둔다.
+  const planned = requestedLayout || item.index === 0 ? firstPlan : avoidPreviousLayout(firstPlan, previousLayouts.at(-1), (() => { try { return candidatePlan(input, item, [...exclude, ...unavailable], rotation, 3); } catch { return []; } })(), single);
   const allowedIds = [...new Set(planned)];
   const examples = Object.fromEntries(
     allowedIds.map((id) => [id, sampleData(id, item)]),
