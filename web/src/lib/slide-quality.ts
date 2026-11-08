@@ -62,6 +62,21 @@ export function answerFirstError(type: DeckInput["deckType"], outline: { section
 export function isPlanHeadline(text: string): boolean {
   return /(?:하겠습니다|해보겠습니다|보겠습니다|확인합니다|검토합니다|살핍니다|살펴봅니다|분석합니다|비교합니다|정리합니다|판단합니다|점검합니다|검증합니다|제안합니다|제시합니다)[.!。\s]*$/.test(text.replace(/\*\*/g, ""));
 }
+/** 원문 대조·검수 상태는 발표 화면이 아니라 노트·근거표에 둔다. */
+export const QA_STATUS_PATTERN = /원문\s*[·ㆍ]?\s*(?:페이지\s*)?(?:미확인|확인\s*전)|페이지\s*확인\s*전|제공된 자료 요약 수치|검수\s*전/;
+export function visibleQaStatus(data: unknown): string[] {
+  return strings(data).filter(text => QA_STATUS_PATTERN.test(text));
+}
+/** 차트 수치가 모두 0이면 "확인 안 됨"을 0으로 그린 것이므로 차트로 쓰지 않는다. */
+export function allZeroChart(data: unknown): boolean {
+  const numbers: number[] = [];
+  const walk = (value: unknown, key = "") => {
+    if (Array.isArray(value)) { if (/^(values|points|data)$/i.test(key) || value.every(item => typeof item === "number")) value.forEach(item => typeof item === "number" ? numbers.push(item) : walk(item, key)); else value.forEach(item => walk(item, key)); return; }
+    if (value && typeof value === "object") { for (const [k, v] of Object.entries(value)) { if (typeof v === "number" && /^(value|values|percent|y)$/i.test(k)) numbers.push(v); else walk(v, k); } }
+  };
+  walk(data);
+  return numbers.length >= 2 && numbers.every(value => value === 0);
+}
 function strings(value: unknown): string[] {
   if (typeof value === "string") return [value];
   if (Array.isArray(value)) return value.flatMap(strings);
@@ -74,6 +89,8 @@ export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInp
   const compositionExempt = item.index === 0 || ["표지", "목차"].includes(item.section);
   const refs = (slide.evidenceRefs ?? []).filter(id => evidence.some(e => e.id === id));
   if (isPlanHeadline(slide.headline)) warnings.push("키메시지가 판단·질문 대신 계획형으로 끝납니다.");
+  if (visibleQaStatus(slide.data).length) warnings.push("본문에 원문 확인·검수 상태 문구가 있습니다. 검수 상태는 노트로 옮기고 화면에는 내용과 기준 연도만 남기세요.");
+  if (allZeroChart(slide.data)) warnings.push("차트 수치가 모두 0입니다. 확인되지 않은 항목은 차트 대신 가설·검증 계획으로 보여 주세요.");
   if (!exempt && !refs.length) warnings.push("근거표를 참조하지 않습니다.");
   if (item.role === "사실 제시" && !refs.length && !/\d/.test(JSON.stringify(slide.data))) warnings.push("사실 제시 장에 숫자·근거 참조가 모두 없습니다.");
   const body = strings(slide.data).filter(s => s.trim().length > 8);

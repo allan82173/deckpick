@@ -188,6 +188,7 @@ export function makeScene(
     w: number,
     h: number,
     description: string,
+    hint = true,
   ) => {
     box(x, y, w, h, c.tint);
     for (let i = 0; i < 48; i++) {
@@ -206,6 +207,7 @@ export function makeScene(
           .join("");
       box(x + (w * i) / 48, y, w / 48 + 0.002, h, color);
     }
+    if (!hint) return;
     box(x + 0.25, y + h / 2 - 0.5, w - 0.5, 1, c.panel);
     txt(
       "이미지 자리\n" + description,
@@ -237,7 +239,7 @@ export function makeScene(
   )
     txt(slide.headline, 0.8, 0.65, 11.73, 0.8, 24, c.darkest, true);
   if (!["c-cover", "m-cover"].includes(slide.layoutId)) {
-    if (slide.sources.length && !slide.evidenceRefs?.length)
+    if (slide.sources.length && (!slide.evidenceRefs?.length || !slide.internalReview))
       txt(
         "출처: " + slide.sources.map((s) => s.title).join(" · "),
         0.42,
@@ -268,7 +270,7 @@ export function makeScene(
       warnings: ["비어 있거나 잘못 입력한 내용을 확인해 주세요."],
     };
   }
-  if (slide.evidenceRefs?.length) txt(slide.evidenceRefs.map(id => `[${id}]`).join(""), .42, 7.12, 10.5, .2, 8, c.muted);
+  if (slide.evidenceRefs?.length && slide.internalReview) txt(slide.evidenceRefs.map(id => `[${id}]`).join(""), .42, 7.12, 10.5, .2, 8, c.muted);
   if (slide.internalReview) txt("내부 검토용", 10.55, 7.1, 1.5, .22, 9, c.muted, true, "right");
   if (slide.claimType && ["추론", "가설", "계산"].includes(slide.claimType)) txt(`[${slide.claimType}]`, .42, 1.49, 2.3, .25, 10, c.muted, true);
   const bodyStart=nodes.length,warningStart=warnings.length;
@@ -282,7 +284,7 @@ export function makeScene(
       if (d.coverStyle === "photo") {
         const src = coverPhotoSrc(d);
         if (src) nodes.push({ kind: "image", x: 6.633333, y: 0, w: 6.7, h: 7.5, src, alt: "프로젝트 표지 사진" });
-        else placeholder(6.633333, 0, 6.7, 7.5, "선택한 장표에서 프로젝트 사진을 넣어 주세요");
+        else placeholder(6.633333, 0, 6.7, 7.5, "선택한 장표에서 프로젝트 사진을 넣어 주세요", false);
         box(0, 0, 6.633333, 7.5, "#FFFFFF");
         line(0.65, 0.8, 0.7, c.primary, 4);
         txt("PROJECT PROPOSAL", 0.65, 1.12, 5.25, 0.4, 11, c.primary, true);
