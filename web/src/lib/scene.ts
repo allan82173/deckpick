@@ -110,6 +110,16 @@ export function fitTextNodes(nodes: SceneNode[], warnings: string[]): SceneNode[
   for (const [index, size] of unified) result[index] = { ...(nodes[index] as TextNode), size };
   return result;
 }
+/** 위→아래로 이어지는 단계 블록의 색: 위는 연한 톤, 아래로 갈수록 진하게(마지막은 가장 진한 색). 글자색은 배경 밝기로 고른다. */
+export function stepShade(index: number, count: number, light: string, dark: string, mid?: string) {
+  // 주색(mid)을 가운데 정지점으로 두어 연한 톤 → 주색 → 가장 진한 색으로 같은 색상 계열을 유지한다.
+  const t = count <= 1 ? 1 : index / (count - 1), hex = (v: string) => v.replace("#", ""), ch = (v: string, k: number) => parseInt(hex(v).slice(k, k + 2), 16);
+  const [a, b, u] = mid ? (t <= .5 ? [light, mid, t * 2] : [mid, dark, (t - .5) * 2]) : [light, dark, t];
+  const rgb = [0, 2, 4].map(k => Math.round(ch(a as string, k) + (ch(b as string, k) - ch(a as string, k)) * (u as number)));
+  const fill = "#" + rgb.map(v => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+  const luminance = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+  return { fill, text: luminance < 0.55 ? "#FFFFFF" : dark, sub: luminance < 0.55 ? "#FFFFFF" : dark };
+}
 export function makeScene(
   slide: SlideSpec,
   ds: DesignSystem,
@@ -350,14 +360,15 @@ export function makeScene(
       d.steps.forEach((s, i) => {
         const w = 11.8 - i * 1.5,
           x = (SLIDE.w - w) / 2,
-          y = 1.72 + i * step;
+          y = 1.72 + i * step,
+          shade = stepShade(i, d.steps.length, c.tint, c.darkest, c.primary);
         box(
           x,
           y,
           w,
           height,
-          i === d.steps.length - 1 ? c.darkest : c.panel,
-          c.primary,
+          shade.fill,
+          shade.fill,
         );
         txt(
           s.title,
@@ -366,7 +377,7 @@ export function makeScene(
           w - 0.5,
           0.3,
           15,
-          i === d.steps.length - 1 ? "#FFFFFF" : c.primary,
+          shade.text,
           true,
         );
         txt(
@@ -376,7 +387,7 @@ export function makeScene(
           w - 0.5,
           0.35,
           13,
-          i === d.steps.length - 1 ? "#FFFFFF" : c.textSub,
+          shade.sub,
         );
         if (i < d.steps.length - 1)
           nodes.push({

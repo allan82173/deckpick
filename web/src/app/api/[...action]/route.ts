@@ -1,3 +1,4 @@
+import {streamApiResponse} from "@/lib/api-stream";
 import { withExecution } from "@/lib/execution-scope";
 import { withRunContext,runState } from "@/lib/run-checkpoints";
 import { saveAttemptReport } from "@/lib/run-attempt-report";
@@ -175,7 +176,7 @@ async function handlePost(
   }
 }
 
-export async function POST(request:Request,context:{params:Promise<{action:string[]}>}){
+async function executePost(request:Request,context:{params:Promise<{action:string[]}>}){
  if(isDemoOnly()||!isSameOriginRequest(request))return handlePost(request,context);
  const raw:unknown=await request.clone().json().catch(()=>null);const parsed=requestSchema.safeParse(raw);
  const id=parsed.success?parsed.data.runId??crypto.randomUUID():crypto.randomUUID();
@@ -192,4 +193,11 @@ export async function POST(request:Request,context:{params:Promise<{action:strin
  }
  return Response.json({...payload,generationState:state,executionDelta:execution,attemptReportFilename,...(reportWarning?{reportWarning}:{})},{status:result.status});
  });
+}
+
+export async function POST(request:Request,context:{params:Promise<{action:string[]}>}){
+ if(request.headers.get("x-deckpick-stream")==="1"&&!isDemoOnly()&&isSameOriginRequest(request)){
+  return streamApiResponse(()=>executePost(request,context),GENERATION_CONFIG.transport.heartbeatMs);
+ }
+ return executePost(request,context);
 }

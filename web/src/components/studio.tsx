@@ -1,4 +1,5 @@
 "use client";
+import {readApiResponse} from "@/lib/api-stream";
 import {DeckSessionControls} from "./deck-session-controls";
 import {hasDeckContext,appendSessionMessages} from "@/lib/deck-session";
 import { activeRunDeck } from "@/lib/client-run-context";
@@ -630,11 +631,12 @@ async function requestAPI(
   credentials: { provider: string; key: string; model: string },
 ): Promise<Record<string, unknown>> {
   const executionDeckId=activeRunDeck();
-  const networkFailed=(error:unknown)=>{if(executionDeckId)window.dispatchEvent(new CustomEvent("deckpick-generation",{detail:{deckId:executionDeckId,input:JSON.stringify(payload.input),generation:{runId:executionDeckId,status:"failed",completedStages:[],updatedAt:new Date().toISOString(),error:"연결이 끊겼습니다. 이어서 생성할 수 있습니다."}}}));throw error;};
-  const response = await fetch("/api/" + action, {
+  const networkFailed=(error:unknown)=>{if(executionDeckId)window.dispatchEvent(new CustomEvent("deckpick-generation",{detail:{deckId:executionDeckId,input:JSON.stringify(payload.input),generation:{runId:executionDeckId,status:"failed",completedStages:[],updatedAt:new Date().toISOString(),error:"연결이 끊겼습니다. 이어서 생성할 수 있습니다."}}}));throw error instanceof TypeError&&/fetch|network/i.test(error.message)?new Error("서버와 연결이 끊겼습니다. 서버가 실행 중인지 확인한 뒤 저장된 단계에서 이어서 생성해 주세요."):error;};
+  const transportResponse = await fetch("/api/" + action, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "x-deckpick-stream": "1",
       ...(credentials.key ? { "x-user-api-key": credentials.key } : {}),
     },
     body: JSON.stringify({
@@ -644,6 +646,7 @@ async function requestAPI(
       model: credentials.model,
     }),
   }).catch(networkFailed);
+  const response = await readApiResponse(transportResponse).catch(networkFailed);
   const result: unknown = await response.json().catch(networkFailed);
   if (typeof result !== "object" || result === null)
     throw Error("응답을 읽을 수 없습니다.");

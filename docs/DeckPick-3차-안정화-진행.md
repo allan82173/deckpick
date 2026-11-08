@@ -438,3 +438,28 @@ Windows 작업 폴더에서 이번 변경 후 전체 테스트 165개(새 테스
 ① `generation-config.ts` `layouts.autoExcludedKinds`에 comparison-table, validation-plan, cross-matrix, evidence-scope, compare 추가(기존 calculation-flow, system-flow 포함 7종). 출처 장 전용 evidence-table은 유지. 역할별 남는 후보는 최소 5개(근거·마무리)로 모든 역할에 후보가 남는 것을 확인. 사용자가 라이브러리에서 직접 고르는 경우는 기존처럼 허용. `tests/layout-variety-fit.test.ts`에 두 덱 유형·전 역할·회전 4회에서 제외 레이아웃이 자동 후보에 없는지 검사 추가.
 ② Codex의 최신 변경(보관 작업 삭제, contextReason 길이 수정)을 포함한 현재 폴더 전체로 리눅스 사본 172개·타입 검사 통과. Codex 작업 종료(03:48) 확인 후 진행.
 ③ 남은 일 없음(다음 실생성에서 레이아웃 분포 확인).
+
+## 2026-11-08 Codex — Failed to fetch 연결 유지 보완
+
+### ① 바꾼 파일과 이유
+확인된 사실: 로컬 3100 서버는 실행 중이었다. 개발 서버 로그에 research/prepare 200(55초), research/run 200(약 3분)과 Fast Refresh 전체 새로고침 경고가 있었다. 질문 Q1~Q3 완료 체크포인트는 기록됐지만 해당 research/run의 최종 리포트는 없었다. 브라우저는 Failed to fetch를 표시했다. 연결이 끊긴 정확한 원인(새로고침/로컬 전송 경로/연결 종료)은 확정하지 않는다. 앞선 contextReason 파싱 오류와 다른 전송 실패이며, API 잔액 부족이라고 판단하지 않았다.
+
+- `web/src/lib/api-stream.ts`: NDJSON 연결 유지 신호를 먼저·주기적으로 보내고, 완료 시 원래 HTTP 상태와 JSON 본문을 전달한다. 완료 이전 종료는 명시적 실패로 처리한다. 연결 유지에 AI 호출은 없으며 끊김 시 자동 유료 재시도도 하지 않는다. 연결 종료 후에도 실행 중인 작업은 체크포인트를 보존할 수 있게 둔다. 최종 처리 예외는 비밀 내용 없이 오류 응답으로 전달한다.
+- `web/src/app/api/[...action]/route.ts`: 기존 처리 함수를 그대로 사용하면서, 스트림을 요청하는 동일 출처의 비공개 작업 요청에만 연결 유지 래퍼를 적용한다. 기존 JSON 호출·공개 데모 제한·원래 실행 기록과 저장 흐름은 유지한다.
+- `web/src/components/studio.tsx`: 스트림 응답에서 원래 상태·본문을 복원한다. Failed to fetch 원문 대신 서버 연결과 이어 하기 안내를 표시한다.
+- `web/src/lib/generation-config.ts`: `transport.heartbeatMs=10000`으로 연결 유지 주기를 한곳에서 관리한다. 모델·effort·호출 예산은 변경하지 않았다.
+- `web/tests/api-stream.test.ts`: 완료 전 heartbeat, 1회 실행, 오류 상태 전달, 예외 정보 비노출, UTF-8 분할, 조기 종료 실패와 기존 JSON 호환을 검증한다.
+
+### ② 테스트·타입 검사·빌드 결과
+이번 작업 후 전체 테스트 177개 통과, 타입 검사 통과, 프로덕션 빌드 통과. `web/output/transport-fix/`에 로그 저장. 실제 로컬 HTTP에서 /new 200, 입력이 없는 스트림 요청의 원래 검증 오류 400 복원을 확인했다(`http-check.json`). 이 요청은 입력 검증 단계에서 종료하며 모델을 호출하지 않는다. 유료 AI 실행 0회. 사용자의 장시간 실제 조사 전체 재실행은 하지 않았으므로 실사용 전체 성공은 미검증이다.
+
+개발 서버를 종료하고 3100에 프로덕션 로컬 테스트 서버(next start)를 숨김 실행했다(PID 34044, 시작 시점 기준). 개발 코드 수정에 따른 Fast Refresh가 사용자 작업을 다시 로드하지 않게 한다. stdout/stderr는 `web/output/transport-fix/server.stdout.log`, `server.stderr.log`에 기록한다. 삭제·배포·GitHub 업로드 없음.
+
+### ③ 남은 일과 다음 할 일
+사용자는 새로고침 후 같은 문장을 재전송하는 대신 기존 작업의 이어서 생성을 사용한다. 저장된 단계는 보존되어 있으나 입력 변경·캐시 키에 따라 유료 호출이 다시 필요할 수 있다. 장시간 실사용에서 다시 끊기면 서버 로그와 마지막 체크포인트를 함께 확인한다. 스트림은 서버 종료나 탭 새로고침 자체를 막지 못하며 자동 배경 작업 복구까지 구현한 것은 아니다. 이후 코드 수정 시 이 로컬 서버는 build 후 재시작해야 반영된다. Codex 작업 종료.
+
+
+## 2026-11-08 · Claude — 디자인 생성 지시 추가, 단계 블록 명도 위계(사용자 요청)
+① `consulting-style.ts` slideCompositionPrompt에 추가: 텍스트 격자형 표 금지(카드·매트릭스·차트·단계 블록 사용, 표가 필요하면 칸은 키워드·숫자), 근거 있는 핵심 숫자 하나를 크게 + 기준·기간 표기, 글만 있는 장 연속 금지, 위→아래 단계 구성은 위 연하게·아래 진하게, 키메시지 한 줄(약 40자) 목표. `scene.ts`에 `stepShade`(연한 톤 → 주색 → 가장 진한 색 3점 보간, 배경 밝기로 글자색 선택)를 추가하고 c-funnel 단계 색에 적용. legacy 고정값은 c-funnel만 의도된 변경으로 갱신(나머지 48개 동일 확인). 프롬프트 문서 2종 재생성.
+② Codex 최신 변경(연결 유지 스트림 등) 포함 전체로 리눅스 사본 177개·타입 검사 통과.
+③ 사용자 PC는 Codex가 프로덕션 로컬 서버(next start)로 띄워 둔 상태라, 이번 변경을 화면에서 보려면 빌드 후 재시작이 필요하다.

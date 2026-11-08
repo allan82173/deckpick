@@ -33,12 +33,16 @@ ICT 경영 참고 자료에서 근거를 구조로 보여 주는 방식을 참�
 이어지는 단계와 논리는 위에서 아래 또는 왼쪽에서 오른쪽으로 연결하고, 마지막 단계와 결론에 시각적 위계를 둡니다.
 핵심 숫자는 눈에 띄는 숫자와 짧은 설명으로 분리하고, 단위·기간·분모·출처를 유지합니다.
 선택한 테마의 주색 하나와 명도 단계, 한 가지 폰트를 사용합니다. 본문은 발표 화면에서 읽히는 크기로 유지하며, 큰 빈 공간이나 글자 넘침이 생기면 내용 분량과 박스 배치를 조정합니다.
+행·열 칸마다 문장을 채우는 격자형 표는 쓰지 않습니다. 비교·판단은 카드·매트릭스·차트·단계 블록으로 보여 주고, 표가 꼭 필요하면 칸 안을 짧은 키워드나 숫자로 둡니다.
+장마다 근거가 있는 핵심 숫자가 있으면 하나를 크게 드러내고 바로 아래에 기준·기간을 짧게 붙입니다. 글만 있는 장이 연속되지 않게 숫자·도식·상태 표시를 섞습니다.
+위에서 아래로 이어지는 단계·깔때기 구성은 단계마다 색 명도를 달리해 위는 연하게, 아래로 갈수록 진하게 둡니다(렌더러가 같은 주색 계열로 칠합니다).
+키메시지는 한 줄(약 40자)을 목표로 쓰고, 꼭 필요할 때만 두 줄로 둡니다.
 현재 출력 스키마와 지원하는 레이아웃 안에서 이 원칙을 적용합니다.
 ```
 
 ### consultingStylePrompt
 
-출처: `web/src/lib/consulting-style.ts:12`
+출처: `web/src/lib/consulting-style.ts:16`
 
 ```text
 컨설팅 키메시지는 발표자가 해당 장을 시작하며 실제로 말할 첫 문장입니다.
@@ -552,7 +556,7 @@ undefined
 
 ### 1. instruction
 
-출처: `web/src/app/api/[...action]/route.ts:48`
+출처: `web/src/app/api/[...action]/route.ts:49`
 
 ```ts
 z.string().max(5000).default("")
@@ -560,7 +564,7 @@ z.string().max(5000).default("")
 
 ### 2. 사진만 첨부한 경우 기본 요청
 
-출처: `web/src/components/studio.tsx:805`
+출처: `web/src/components/studio.tsx:790`
 
 ```text
 첨부한 사진을 보고 발표 자료에 반영할 핵심 내용과 구성을 제안해 주세요.
@@ -568,7 +572,7 @@ z.string().max(5000).default("")
 
 ### 3. instruction
 
-출처: `web/src/components/studio.tsx:1453`
+출처: `web/src/components/studio.tsx:1439`
 
 ```ts
 "이 장의 첫 완성 초안입니다. 키메시지와 추가 내용을 제공된 근거로 채우고 앞뒤 장 사이의 논리를 연결하세요. 키메시지가 질문이나 메모라면 검증할 질문·가설로 구체화하세요. 구성을 사용자에게 먼저 고르게 하지 마세요. 참고 예시 문구·합성 수치를 실제 근거처럼 복사하지 마세요. 미확인 실적을 만들지 말고, 필요한 경우 [가정] 변수·산식을 밝힌 [계산] 예시나 [가설]로 현재 판단과 반전 조건을 적으세요. 이미 만든 다른 장표는 수정하지 않습니다. 앞뒤 장의 현재 내용: "+JSON.stringify(neighbors).slice(0,3600)
@@ -576,7 +580,7 @@ z.string().max(5000).default("")
 
 ### 4. instruction
 
-출처: `web/src/components/studio.tsx:1537`
+출처: `web/src/components/studio.tsx:1523`
 
 ```ts
 "현재 초안을 유지하고 다른 표현 후보를 만듭니다. 핵심 메시지·근거·사용자 수정을 보존하며 표현 구조를 바꾸세요. 현재 초안: "+JSON.stringify({headline:primary.headline,data:primary.data,notes:primary.notes,canvasEdits:primary.canvasEdits}).slice(0,4000)
@@ -744,24 +748,30 @@ const medium = { effort: "medium" as Effort, maxOutputTokens: 16000 };
 const low = { effort: "low" as Effort, maxOutputTokens: 10000 };
 /** All generation budgets live here. This module is safe to import in the UI. */
 export const GENERATION_CONFIG = {
-  version: "2026-11-07-stability-v3-full-extraction",
+  version: "2026-11-08-stage6-final-c",
   /** Checkpoint compatibility key. Bump only when a saved stage result can no longer be reused (schema or stage meaning changed), not for every budget/version change. */
   checkpointVersion: "2026-11-07-stability-v3-revised",
   stages: {
     interpretTask: { ...high }, judgment: { ...high }, story: { ...high }, assessDeck: { ...high },
-    planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium }, candidates: { ...medium },
+    planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium },
+    // 6단계 확정(2026-11-08, 사용자 결정): 사람 점수가 가장 높은 C(전 단계 medium) 채택. C의 실패 대부분이 스토리라인 시간 제한이라 storyline 제한을 6분으로 늘려 완료 가능성을 높인다. 근거 추출 medium(원문 확인 54/77 vs 41/64).
+    candidates: { ...medium },
     formatRepair: { ...low }, headlineRepair: { ...low }, slideChat: { ...low }, keyCheck: { ...low, maxOutputTokens: 32 }, visualReview: { ...medium },
   } satisfies Record<GenerationStage, { effort: Effort; maxOutputTokens: number }>,
   outputLimitLadder: [10000, 16000, 24000, 32000],
   outputLimitRetries: 1, formatAttempts: 3, calculationRepairAttempts: 2, qualityRetries: 2, providerTimeoutMs: 75000,
+  transport: { heartbeatMs: 10000 },
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
-    deadlines: { researchQuestion: 240000, storyline: 240000, candidate: 180000, review: 240000 } },
+    deadlines: { researchQuestion: 240000, storyline: 360000, candidate: 180000, review: 240000 } },
   efficiency:{concurrency:3,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:5000,adjacentParagraphs:1,paragraphChunkCharacters:900},
   benchmark: { minimumVerifiedClaimRatio: .8, maxDurationMs: 900000, minimumTimeReduction: .40, maxInputRatioToBaseline: 1/3, externalRunRetries: 1 },
   measurement: { encoding:"o200k_base", imageInputFallbackTokens:3000 },
   research: { roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, originalsPerDeck: 12, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
   attachments: { chunkCharacters: 12000, rowsPerChunk: 80, extractVersion: "3", imagesPerExtraction: 4, contextTokens: 2400, researchTokens: 7200 },
   candidates: { maximum: 3 },
+  /** 자동 후보에서 빼는 레이아웃(사용자가 직접 고를 때만 사용). 4단계 사람 평가에서 장표 점수가 가장 낮았다: calculation-flow 평균 2.38(16덱 중 11덱이 2점 이하), system-flow 2.14(7덱 중 5덱). */
+  // 2026-11-08 사용자 결정: 텍스트 격자형 표(행·열에 문장을 채우는 표)도 자동 후보에서 제외 — comparison-table, validation-plan, cross-matrix, evidence-scope, compare. 출처 장의 evidence-table은 유지.
+  layouts: { autoExcludedKinds: ["calculation-flow", "system-flow", "comparison-table", "validation-plan", "cross-matrix", "evidence-scope", "compare"] as string[] },
   /** Deck review: start another repair round only if this much of the review budget remains (repairs run in parallel, then one re-assessment). */
   review: { roundReserveMs: 120000, repairConcurrency: 3 },
   visual: { enabled: true, width: 1280, minFontPt: 10, overlapAreaFraction: .15, toleranceInches: .025, bodyTop: 1.7, bodyBottom: 6.3, emptyBottomFraction: .30, defaultMinimumFill: .18,

@@ -33,12 +33,16 @@ ICT 경영 참고 자료에서 근거를 구조로 보여 주는 방식을 참�
 이어지는 단계와 논리는 위에서 아래 또는 왼쪽에서 오른쪽으로 연결하고, 마지막 단계와 결론에 시각적 위계를 둡니다.
 핵심 숫자는 눈에 띄는 숫자와 짧은 설명으로 분리하고, 단위·기간·분모·출처를 유지합니다.
 선택한 테마의 주색 하나와 명도 단계, 한 가지 폰트를 사용합니다. 본문은 발표 화면에서 읽히는 크기로 유지하며, 큰 빈 공간이나 글자 넘침이 생기면 내용 분량과 박스 배치를 조정합니다.
+행·열 칸마다 문장을 채우는 격자형 표는 쓰지 않습니다. 비교·판단은 카드·매트릭스·차트·단계 블록으로 보여 주고, 표가 꼭 필요하면 칸 안을 짧은 키워드나 숫자로 둡니다.
+장마다 근거가 있는 핵심 숫자가 있으면 하나를 크게 드러내고 바로 아래에 기준·기간을 짧게 붙입니다. 글만 있는 장이 연속되지 않게 숫자·도식·상태 표시를 섞습니다.
+위에서 아래로 이어지는 단계·깔때기 구성은 단계마다 색 명도를 달리해 위는 연하게, 아래로 갈수록 진하게 둡니다(렌더러가 같은 주색 계열로 칠합니다).
+키메시지는 한 줄(약 40자)을 목표로 쓰고, 꼭 필요할 때만 두 줄로 둡니다.
 현재 출력 스키마와 지원하는 레이아웃 안에서 이 원칙을 적용합니다.
 ```
 
 ### consultingStylePrompt
 
-출처: `web/src/lib/consulting-style.ts:12`
+출처: `web/src/lib/consulting-style.ts:16`
 
 ```text
 컨설팅 키메시지는 발표자가 해당 장을 시작하며 실제로 말할 첫 문장입니다.
@@ -552,7 +556,7 @@ undefined
 
 ### 1. instruction
 
-출처: `web/src/app/api/[...action]/route.ts:48`
+출처: `web/src/app/api/[...action]/route.ts:49`
 
 ```ts
 z.string().max(5000).default("")
@@ -560,7 +564,7 @@ z.string().max(5000).default("")
 
 ### 2. 사진만 첨부한 경우 기본 요청
 
-출처: `web/src/components/studio.tsx:805`
+출처: `web/src/components/studio.tsx:790`
 
 ```text
 첨부한 사진을 보고 발표 자료에 반영할 핵심 내용과 구성을 제안해 주세요.
@@ -568,7 +572,7 @@ z.string().max(5000).default("")
 
 ### 3. instruction
 
-출처: `web/src/components/studio.tsx:1453`
+출처: `web/src/components/studio.tsx:1439`
 
 ```ts
 "이 장의 첫 완성 초안입니다. 키메시지와 추가 내용을 제공된 근거로 채우고 앞뒤 장 사이의 논리를 연결하세요. 키메시지가 질문이나 메모라면 검증할 질문·가설로 구체화하세요. 구성을 사용자에게 먼저 고르게 하지 마세요. 참고 예시 문구·합성 수치를 실제 근거처럼 복사하지 마세요. 미확인 실적을 만들지 말고, 필요한 경우 [가정] 변수·산식을 밝힌 [계산] 예시나 [가설]로 현재 판단과 반전 조건을 적으세요. 이미 만든 다른 장표는 수정하지 않습니다. 앞뒤 장의 현재 내용: "+JSON.stringify(neighbors).slice(0,3600)
@@ -576,7 +580,7 @@ z.string().max(5000).default("")
 
 ### 4. instruction
 
-출처: `web/src/components/studio.tsx:1537`
+출처: `web/src/components/studio.tsx:1523`
 
 ```ts
 "현재 초안을 유지하고 다른 표현 후보를 만듭니다. 핵심 메시지·근거·사용자 수정을 보존하며 표현 구조를 바꾸세요. 현재 초안: "+JSON.stringify({headline:primary.headline,data:primary.data,notes:primary.notes,canvasEdits:primary.canvasEdits}).slice(0,4000)
@@ -835,7 +839,9 @@ export const evidenceSchema = z.object({
   materialType: z.enum(materialTypes).optional(),
   contextMatch: z.enum(contextMatchValues).optional(),
   contextChecks:z.array(contextCheckSchema).optional(),
-  contextReason: z.string().max(500).optional(),
+  // Stored explanations may include verification annotations after classification.
+  // Keep historical/cached explanations readable without rejecting the entire record.
+  contextReason: z.string().optional(),
   questionIds: z.array(z.string()).max(4).optional(),
   originalVerified: z.boolean().optional(),
   verificationStatus:z.enum(["원문 확인","원문 미확인"]).optional(),
@@ -902,13 +908,15 @@ export const layoutPurpose: Record<LayoutId, string> = {
   "c-metric-cards": "기준이 명시된 지표·측정 계획", "c-compare": "공통 기준으로 대안 비교", "c-conclusion": "추천과 다음 행동 요약", "c-split-insight": "핵심 통찰 한 가지와 근거 분리", "c-matrix": "두 기준의 정성적 2×2 프레임", "c-timeline": "단계별 실행 로드맵",
   "m-cover": "브랜드와 제안", "m-big-message": "하나의 큰 카피", "m-image-copy": "사용 장면과 카피", "m-big-number": "검증된 핵심 수치", "m-feature-cards": "가치와 특징 비교", "m-quote-cta": "메시지와 행동 제안",
 };
+/** 사람 평가에서 장표 품질이 낮았던 레이아웃은 자동 후보에서 제외한다(직접 선택은 허용). */
+const autoAllowed = (id: string) => !GENERATION_CONFIG.layouts.autoExcludedKinds.some(kind => id.endsWith("-" + kind));
 export function candidatePlan(input: DeckInput, item: OutlineItem, excluded: string[] = [], rotation = 0, count = 3, requested?:LayoutId): LayoutId[] {
   if (requested && item.role && !roleLayouts(input.deckType, item.role).includes(requested)) throw Error("이 장의 역할에 맞는 레이아웃을 선택해 주세요.");
   if(requested){if(count!==1||item.index===0||requested.endsWith("cover")||requested==="c-toc"||!requested.startsWith(input.deckType==="consulting"?"c-":"m-")||excluded.includes(requested))throw Error("현재 장표에 사용할 수 없는 구성입니다. 다른 후보에 없는 본문 구성을 골라 주세요.");return [requested];}
   if (item.index === 0) return Array(count).fill(input.deckType === "consulting" ? "c-cover" : "m-cover") as LayoutId[];
   if (item.section === "출처" && count === 1 && !excluded.includes(input.deckType === "consulting" ? "c-evidence-table" : "m-evidence-table")) return [input.deckType === "consulting" ? "c-evidence-table" : "m-evidence-table"];
   if(item.role){
-    const rolePool=roleLayouts(input.deckType,item.role).filter(id=>!excluded.includes(id));
+    const rolePool=roleLayouts(input.deckType,item.role).filter(id=>!excluded.includes(id)&&autoAllowed(id));
     const preferred=(item.argument?.preferredLayouts??[]).filter((id):id is LayoutId=>rolePool.includes(id as LayoutId));
     const rest=rolePool.filter(id=>!preferred.includes(id));
     const shift=rest.length?rotation%rest.length:0;
@@ -946,7 +954,7 @@ export function candidatePlan(input: DeckInput, item: OutlineItem, excluded: str
   const preferredStage = ["판단", "우선순위", "근거", "합의 사항", "마무리"].includes(item.role ?? "") ? 1 : item.role === "계산" ? 2 : item.role === "일정" ? 3 : 0;
   const score = (id: LayoutId) => { const k=expandedKind(id); return k && expandedRegistry[k].stage === preferredStage ? 2 : Number(id === `${prefix}-${rolePreference}`); };
   const orderedRoles = [...rolePool].sort((a,b)=>score(b)-score(a));
-  const pool = item.role ? [...new Set([...contentPreferences, ...orderedRoles])] : [...new Set([...preferred, ...layoutIds.filter((id) => id.startsWith(input.deckType === "consulting" ? "c-" : "m-") && !id.endsWith("cover") && (id !== "c-toc" || item.section === "목차"))])];
+  const pool = (item.role ? [...new Set([...contentPreferences, ...orderedRoles])] : [...new Set([...preferred, ...layoutIds.filter((id) => id.startsWith(input.deckType === "consulting" ? "c-" : "m-") && !id.endsWith("cover") && (id !== "c-toc" || item.section === "목차"))])]).filter(autoAllowed);
   const shift = rotation % pool.length;
   const excludedFamilies = new Set(excluded.map((id) => families[id as LayoutId]));
   const ordered = [...pool.slice(shift), ...pool.slice(0, shift)].filter((id) => !excluded.includes(id) && (count !== 1 || !excludedFamilies.has(families[id])));
@@ -10951,7 +10959,7 @@ export const expandedRegistry: Record<ExpandedKind, Meta> = {
   waterfall: { name: "증감 워터폴", stage: 2, reference: 35, roles: ["계산", "사실 제시"], use: "시작값에서 끝값까지의 증감을 설명할 때", avoid: "증감 항목이 중복돼 합계가 맞지 않을 때", minimum: "시작값, 증감1~8, 끝값은 코드 계산" },
   "composition-donut": { name: "구성비 도넛", stage: 2, reference: 37, roles: ["사실 제시", "비교"], use: "양의 전체를 구성하는 비중을 설명할 때", avoid: "항목이 중복되거나 음수가 있을 때", minimum: "항목3~6, 양의 총합, 단위" },
   "horizontal-formula": { name: "가로 막대와 산출 근거", stage: 2, reference: 36, roles: ["계산", "비교"], use: "가정에 따른 대안별 산출값을 비교할 때", avoid: "산식·가정을 밝힐 수 없을 때", minimum: "항목2~6, 값·근거, 가정·산식·단위" },
-  "calculation-flow": { name: "가정에서 산식·결과", stage: 2, reference: 38, roles: ["계산"], use: "하나의 계산을 가정부터 재현할 때", avoid: "숫자 결과나 산식이 없을 때", minimum: "가정2~6, 산식, 결과·단위·한계" },
+  "calculation-flow": { name: "가정에서 산식·결과", stage: 2, reference: 38, roles: ["계산"], use: "하나의 계산을 가정부터 재현할 때", avoid: "숫자 결과나 산식이 없을 때", minimum: "가정2~6, 산식(단계는 →로 구분), 결과·단위(결과가 여럿이면 같은 순서로 ' / '로 구분)·한계" },
   "date-timeline": { name: "날짜 기반 타임라인", stage: 3, reference: 39, roles: ["일정", "흐름"], use: "실제 날짜에 따른 병렬 일정을 보여 줄 때", avoid: "날짜 없이 단계 이름만 있을 때", minimum: "YYYY-MM-DD 기간2~6행, 이정표 선택" },
   "scenario-gantt": { name: "시나리오 간트와 계산 결과", stage: 3, reference: 40, roles: ["일정", "계산", "비교"], use: "기간 활용·빈 기간을 시나리오로 비교할 때", avoid: "일정이 중복되거나 전체 범위가 없을 때", minimum: "시나리오2~4, 시작·종료일, 기간 막대" },
   "vertical-events": { name: "세로 날짜 타임라인", stage: 3, reference: 28, roles: ["일정", "흐름"], use: "날짜별 사건과 산출물을 정리할 때", avoid: "시간순서가 의미 없는 목록일 때", minimum: "날짜·제목·설명3~6개" },
@@ -11138,7 +11146,7 @@ export function scenarioDays(start: string, end: string, periods: { start: strin
       ],
       "use": "하나의 계산을 가정부터 재현할 때",
       "avoid": "숫자 결과나 산식이 없을 때",
-      "minimum": "가정2~6, 산식, 결과·단위·한계"
+      "minimum": "가정2~6, 산식(단계는 →로 구분), 결과·단위(결과가 여럿이면 같은 순서로 ' / '로 구분)·한계"
     },
     "date-timeline": {
       "name": "날짜 기반 타임라인",
@@ -11279,24 +11287,30 @@ const medium = { effort: "medium" as Effort, maxOutputTokens: 16000 };
 const low = { effort: "low" as Effort, maxOutputTokens: 10000 };
 /** All generation budgets live here. This module is safe to import in the UI. */
 export const GENERATION_CONFIG = {
-  version: "2026-11-07-stability-v3-full-extraction",
+  version: "2026-11-08-stage6-final-c",
   /** Checkpoint compatibility key. Bump only when a saved stage result can no longer be reused (schema or stage meaning changed), not for every budget/version change. */
   checkpointVersion: "2026-11-07-stability-v3-revised",
   stages: {
     interpretTask: { ...high }, judgment: { ...high }, story: { ...high }, assessDeck: { ...high },
-    planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium }, candidates: { ...medium },
+    planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium },
+    // 6단계 확정(2026-11-08, 사용자 결정): 사람 점수가 가장 높은 C(전 단계 medium) 채택. C의 실패 대부분이 스토리라인 시간 제한이라 storyline 제한을 6분으로 늘려 완료 가능성을 높인다. 근거 추출 medium(원문 확인 54/77 vs 41/64).
+    candidates: { ...medium },
     formatRepair: { ...low }, headlineRepair: { ...low }, slideChat: { ...low }, keyCheck: { ...low, maxOutputTokens: 32 }, visualReview: { ...medium },
   } satisfies Record<GenerationStage, { effort: Effort; maxOutputTokens: number }>,
   outputLimitLadder: [10000, 16000, 24000, 32000],
   outputLimitRetries: 1, formatAttempts: 3, calculationRepairAttempts: 2, qualityRetries: 2, providerTimeoutMs: 75000,
+  transport: { heartbeatMs: 10000 },
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
-    deadlines: { researchQuestion: 240000, storyline: 240000, candidate: 180000, review: 240000 } },
+    deadlines: { researchQuestion: 240000, storyline: 360000, candidate: 180000, review: 240000 } },
   efficiency:{concurrency:3,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:5000,adjacentParagraphs:1,paragraphChunkCharacters:900},
   benchmark: { minimumVerifiedClaimRatio: .8, maxDurationMs: 900000, minimumTimeReduction: .40, maxInputRatioToBaseline: 1/3, externalRunRetries: 1 },
   measurement: { encoding:"o200k_base", imageInputFallbackTokens:3000 },
   research: { roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, originalsPerDeck: 12, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
   attachments: { chunkCharacters: 12000, rowsPerChunk: 80, extractVersion: "3", imagesPerExtraction: 4, contextTokens: 2400, researchTokens: 7200 },
   candidates: { maximum: 3 },
+  /** 자동 후보에서 빼는 레이아웃(사용자가 직접 고를 때만 사용). 4단계 사람 평가에서 장표 점수가 가장 낮았다: calculation-flow 평균 2.38(16덱 중 11덱이 2점 이하), system-flow 2.14(7덱 중 5덱). */
+  // 2026-11-08 사용자 결정: 텍스트 격자형 표(행·열에 문장을 채우는 표)도 자동 후보에서 제외 — comparison-table, validation-plan, cross-matrix, evidence-scope, compare. 출처 장의 evidence-table은 유지.
+  layouts: { autoExcludedKinds: ["calculation-flow", "system-flow", "comparison-table", "validation-plan", "cross-matrix", "evidence-scope", "compare"] as string[] },
   /** Deck review: start another repair round only if this much of the review budget remains (repairs run in parallel, then one re-assessment). */
   review: { roundReserveMs: 120000, repairConcurrency: 3 },
   visual: { enabled: true, width: 1280, minFontPt: 10, overlapAreaFraction: .15, toleranceInches: .025, bodyTop: 1.7, bodyBottom: 6.3, emptyBottomFraction: .30, defaultMinimumFill: .18,
