@@ -7,3 +7,8 @@
 **/.vercel/
 **/*.tsbuildinfo
 **/output/
+
+# Retired demo assets and local credentials
+/web/public/examples/
+/web/public/cover-assets/
+**/.key-setup/

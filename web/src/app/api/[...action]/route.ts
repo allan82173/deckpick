@@ -1,3 +1,4 @@
+import {createStoryJudgments} from "@/lib/storyline";
 import {applyResearchCoverage} from "@/lib/research-coverage";
 import {requestSchema} from "@/lib/api-request";
 import {streamApiResponse} from "@/lib/api-stream";
@@ -66,10 +67,10 @@ async function handlePost(
     try {
       documents = await readAttachments(b.attachmentIds);
       const query = [b.messages.findLast(message => message.role === "user")?.text, b.item?.message, b.item?.contentHint, b.input.topic, b.input.purpose].filter(Boolean).join(" ");
-      evidence = ["chat", "outline", "research/prepare", "research/run", "research/continue", "storyline"].includes(action) ? selectResearchContext(documents, query) : selectAttachmentContext(documents, query);
+      evidence = ["chat", "outline", "research/prepare", "research/run", "research/continue", "storyline", "storyline/judgment"].includes(action) ? selectResearchContext(documents, query) : selectAttachmentContext(documents, query);
     }
     catch { throw new AIError("첨부 자료를 읽지 못했습니다. 파일을 다시 첨부해 주세요.", 400); }
-    const images = action==="research/run"?[]:await readAttachmentImages(b.attachmentIds, b.lowDetailImageIds);
+    const images = ["research/run","storyline/judgment"].includes(action)?[]:await readAttachmentImages(b.attachmentIds, b.lowDetailImageIds);
     const attachmentUsage = { estimatedTokens: evidence.estimatedTokens, selected: evidence.selected, total: evidence.total, budget: evidence.budget, images: images.length };
     if(action==="slides/chat"){
       if(!b.currentSlide||!b.designSystem||b.targetIndex===undefined)throw new AIError("수정할 장표를 선택해 주세요.",400);
@@ -104,7 +105,7 @@ async function handlePost(
       if (!b.currentDeck) throw new AIError("검토할 덱이 필요합니다.", 400);
       return Response.json(await reviewAndRepairDeck(c, b.currentDeck));
     }
-    if (["research/prepare", "research/run", "research/continue", "storyline"].includes(action) && b.input.slideCount > 20) throw new AIError("새 구성은 20장 이내로 만들어 주세요.", 400);
+    if (["research/prepare", "research/run", "research/continue", "storyline", "storyline/judgment"].includes(action) && b.input.slideCount > 20) throw new AIError("새 구성은 20장 이내로 만들어 주세요.", 400);
     if (action === "research/prepare") {
       const record = await prepareTask(c, b.input, evidence.text, b.messages, images, b.researchRecord,documents);
       return Response.json({ researchRecord: record, sources: [], attachmentUsage });
@@ -115,11 +116,12 @@ async function handlePost(
       const result=await runResearch(c,b.input,b.researchRecord,evidence.text,b.messages,images,{questionId:b.researchQuestionId});
       return Response.json({...result,sources:[...new Map([...b.sources,...result.sources].map(s=>[s.url,s])).values()],attachmentUsage});
     }
-    if (action === "storyline" || action === "research/continue") {
+    if (action === "storyline" || action === "storyline/judgment" || action === "research/continue") {
       const record = b.researchRecord?applyResearchCoverage(b.researchRecord):undefined;
       if (!record?.analysis || record.analysis.fingerprint !== taskFingerprint(b.input, evidence.text, b.messages)) throw new AIError("입력이나 첨부가 바뀌었습니다. 과제 해석부터 다시 진행해 주세요.", 409);
       if (record.requiresReview && !b.acceptLimitedEvidence) return Response.json({ needsResearchReview: true, reply: record.notice, outlineDraft: [], researchRecord: record, sources: b.sources });
       const approved = { ...record, acceptedLimits: b.acceptLimitedEvidence || record.acceptedLimits, requiresReview: false };
+      if(action==="storyline/judgment")return Response.json({researchRecord:await createStoryJudgments(c,b.input,b.messages,approved),sources:b.sources,attachmentUsage});
       const result = await createStoryline(c, b.input, b.messages, b.outline, approved, images);
       return Response.json({ ...result, sources: b.sources, needsResearchReview: false, attachmentUsage });
     }

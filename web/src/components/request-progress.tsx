@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
 import {LoaderCircle} from "lucide-react";
-export const requestStageLabels:Record<string,string>={"research/prepare":"첨부 자료·과제 해석 및 조사 계획","research/run":"질문별 공개 조사·원문 확인","storyline":"판단·발표 흐름 작성","research/continue":"추가 조사","candidates":"장표 후보 생성","candidates/regenerate":"장표 후보 생성","deck/review":"전체 덱 검토","slides/chat":"슬라이드 수정","key-check":"연결 확인"};
+export const requestStageLabels:Record<string,string>={"research/prepare":"첨부 자료·과제 해석 및 조사 계획","research/run":"질문별 공개 조사·원문 확인","storyline/judgment":"현재 판단·반전 조건 정리","storyline":"발표 흐름·장별 구성 작성","research/continue":"추가 조사","candidates":"장표 후보 생성","candidates/regenerate":"장표 후보 생성","deck/review":"전체 덱 검토","slides/chat":"슬라이드 수정","key-check":"연결 확인"};
 type Progress={deckId:string;action:string;active:boolean;startedAt:number;contactAt:number};
 export function RequestProgress({deckId,busy=false}:{deckId:string;busy?:boolean}){
  const [progress,setProgress]=useState<Progress>(),[now,setNow]=useState(Date.now());

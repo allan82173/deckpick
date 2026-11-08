@@ -37,6 +37,8 @@ export const researchRecordSchema = z.object({
   evidenceWarnings: z.array(z.object({questionId:z.string(),url:z.string(),reason:z.string()})).optional(),
   rejectedRows:z.array(rejectedRowSchema).optional(),
   evidenceCounts:z.object({raw:z.number(),unique:z.number(),publicRaw:z.number(),publicUnique:z.number()}).optional(),
+  researchComplete: z.boolean().optional(),
+  requestContext:z.string().regex(/^[a-f0-9]{64}$/).optional(),
   searchStatus: z.enum(["searched", "unavailable", "not-requested"]),
   notice: z.string(),
   query: z.string(),

@@ -1,4 +1,5 @@
 "use client";
+import {generationFlow,canResumeStoryline} from "@/lib/generation-flow";
 import {applyResearchCoverage} from "@/lib/research-coverage";
 import {ResearchScopeNotice} from "./research-scope-notice";
 import {RequestProgress} from "./request-progress";
@@ -420,6 +421,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
             context: "setup",
             sources: deck.research,
             researchRecord: deck.researchRecord,
+            resumeStoryline:canResumeStoryline(deck.researchRecord,deck.generation),
           },
           credentials,
           (record, sources) => setDeck(previous => previous?.id === deck.id && JSON.stringify(previous.input) === JSON.stringify(input) ? { ...previous, researchRecord: record, research: sources.length ? sources : previous.research } : previous),
@@ -608,7 +610,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
       <RequestProgress deckId={deck.id} busy={busy}/>
       <ResearchScopeNotice record={deck.researchRecord}/>
       <ResearchGate context="setup" mode="generate" busy={busy} onBusy={setBusy} onAttach={() => setStep("chat")} onError={onError}/>
-      {deck.generation?.status==="failed"&&!deck.demo&&<div className="notice warning" role="status">{busy?"저장된 작업을 확인하고 이어서 생성 중입니다.":`마지막 저장 단계: ${deck.generation.lastCompletedStage??"시작 전"}. 완료한 단계는 재사용합니다.`} <button className="button" disabled={busy} onClick={()=>void generate()}>{busy?"진행 중…":"이어서 생성"}</button></div>}
+      {deck.generation?.status==="failed"&&!deck.demo&&<div className="notice warning" role="status">{busy?"저장된 작업을 확인하고 이어서 생성 중입니다.":`마지막 저장 단계: ${deck.generation.lastCompletedStage??"시작 전"}. 완료한 단계는 재사용합니다.`} <button className="button" disabled={busy} onClick={()=>void generate()}>{busy?"진행 중…":canResumeStoryline(deck.researchRecord,deck.generation)?"스토리라인만 다시 생성":"이어서 생성"}</button></div>}
       </>}
       <div className="setup-conversation-page" hidden={step !== "chat"}>
         <ChatPanel key={deck.id} context="setup" onError={onError} />
@@ -674,24 +676,8 @@ async function requestAPI(
 async function callAPI(action: string, payload: Record<string, unknown>, credentials: { provider: string; key: string; model: string }, onResearch?: (record: z.infer<typeof researchRecordSchema>, sources: Source[]) => void): Promise<Record<string, unknown>> {
   const origin=activeRunDeck();
   const request=(name:string,data:Record<string,unknown>,auth:typeof credentials)=>{if(activeRunDeck()!==origin)throw Error("주제가 바뀌어 이전 요청의 후속 작업을 중단했습니다.");return requestAPI(name,data,auth);};
-  if ((action === "outline" || action === "chat") && payload.context !== "slide") {
-    const prepared = await request("research/prepare", payload, credentials);
-    onResearch?.(researchRecordSchema.parse(prepared.researchRecord), []);
-    let researched:Record<string,unknown>;
-    if(process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE==="1"){
-      let record=researchRecordSchema.parse(prepared.researchRecord),sources:Source[]=[];
-      const questions=record.plan?.questions.filter(q=>record.analysis?.questions.some(a=>a.id===q.questionId&&a.needsPublicEvidence))??[];
-      researched={researchRecord:record,sources};
-      for(const question of questions){
-        researched=await request("research/run",{...payload,researchRecord:record,sources,researchQuestionId:question.questionId},credentials);
-        record=researchRecordSchema.parse(researched.researchRecord);sources=z.array(sourceSchema).parse(researched.sources);
-        onResearch?.(record,sources);
-      }
-    }else researched=await request("research/run", { ...payload, researchRecord: prepared.researchRecord }, credentials);
-    const record = researchRecordSchema.parse(researched.researchRecord);
-    onResearch?.(record, z.array(sourceSchema).parse(researched.sources));
-    if (record.requiresReview) return { ...researched, reply: record.notice, outlineDraft: [], needsResearchReview: true };
-    return request("storyline", { ...payload, researchRecord: record, sources: researched.sources }, credentials);
+  if (((action === "outline" || action === "chat") && payload.context !== "slide") || action==="storyline/resume") {
+    return generationFlow(payload,(name,data)=>request(name,data,credentials),{cloud:process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE==="1",resumeOnly:action==="storyline/resume"||payload.resumeStoryline===true,onResearch});
   }
   return request(action, payload, credentials);
 }
@@ -713,7 +699,7 @@ function ResearchGate({ context, mode, busy = false, onBusy, onAttach, onError }
       const payload = { input: snapshot.input, messages: snapshot.chat[context], outline: snapshot.outline,
         researchRecord: snapshot.researchRecord, sources: snapshot.research, ...attachmentOptions(snapshot.attachments), context };
       const result = additionalResearch ? await callAPI("outline", payload, credentials)
-        : await requestAPI("research/continue", { ...payload, acceptLimitedEvidence: true }, credentials);
+        : await callAPI("storyline/resume", { ...payload, acceptLimitedEvidence: true }, credentials);
       const nextRecord = researchRecordSchema.parse(result.researchRecord);
       const sources = z.array(sourceSchema).parse(result.sources);
       const outline = z.array(outlineItemSchema).parse(result.outlineDraft ?? []);

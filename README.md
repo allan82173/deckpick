@@ -1,5 +1,15 @@
 # DeckPick
 
+## 비공개 배포 및 실행
+
+- 서비스: https://deckpick.vercel.app — 접근 권한이 있는 Vercel 계정 로그인 필요.
+- 앱 실행 루트와 Vercel Root Directory: `web`.
+- 현재 `main`의 소스를 Vercel에 비공개로 직접 배포합니다. 자동 배포 연결은 Vercel 계정의 GitHub Login Connection 설정이 추가로 필요합니다. Vercel Root Directory는 `web`으로 준비돼 있습니다.
+- API 키는 사이트의 AI 연결 설정에서 입력하며 키·첨부 원본·실행 기록은 저장소에 올리지 않습니다.
+- 클라우드에서는 비공개 Blob에 첨부·중간 결과를 저장합니다. localhost 작업은 자동 이전되지 않습니다.
+- 판단과 스토리라인은 별도 요청으로 실행하며, 스토리라인 재시도 시 완료된 조사를 다시 실행하지 않습니다.
+
+
 AI와 발표 흐름을 다듬고, 장별 후보 3개를 선택·수정해 편집 가능한 PPTX로 내려받는 로컬 앱입니다. 앱 실행 루트는 `web/`입니다.
 
 - 기준 명세: [deckpick-spec.md](참고자료/deckpick-spec.md)
