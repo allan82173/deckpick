@@ -23,7 +23,8 @@ export const GENERATION_CONFIG = {
   hosting: { stageBudgetMs: 270000 },
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
     deadlines: { researchQuestion: 240000, storyline: 480000, candidate: 180000, review: 240000 } },
-  efficiency:{concurrency:3,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:5000,adjacentParagraphs:1,paragraphChunkCharacters:900},
+  // 2026-11-08: 핵심 질문 4개를 한 번에 조사하도록 3→4. 제공자 동시 호출 상한도 같이 4가 된다.
+  efficiency:{concurrency:4,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:5000,adjacentParagraphs:1,paragraphChunkCharacters:900},
   benchmark: { minimumVerifiedClaimRatio: .8, maxDurationMs: 900000, minimumTimeReduction: .40, maxInputRatioToBaseline: 1/3, externalRunRetries: 1 },
   measurement: { encoding:"o200k_base", imageInputFallbackTokens:3000 },
   /** 2026-11-08 사용자 결정: 근거가 부족한 질문이 있어도 사용할 근거(공개 또는 첨부)가 하나라도 있으면 확인 화면 없이 현재 범위로 진행하고, 부족한 범위는 안내·덱 한계로 남긴다. */

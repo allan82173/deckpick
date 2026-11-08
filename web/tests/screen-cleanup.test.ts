@@ -60,3 +60,10 @@ test("3차 실행: 계열·범주가 뒤바뀐 차트를 잡는다", async () =>
   assert.equal(swappedSeriesChart({ categories: ["2024", "2025"], series: [{ name: "교보문고", values: [9770, 9900] }, { name: "예스24", values: [6558, 6400] }] }), false);
   assert.equal(swappedSeriesChart({ series: [{ name: "단일", values: [3, 3] }] }), false);
 });
+
+test("하단 출처는 발행처·자료명만 짧게, 3건 넘으면 외 N건", async () => {
+  const { shortSources } = await import("../src/lib/scene");
+  assert.equal(shortSources(["2024 출판시장 통계 보고서 — 주요 서점 실적", "KT 밀리의서재(418470) - 사용 84% 가 손판감", "2025 사회조사 결과 (복지, 사회참여, 여가)"]), "2024 출판시장 통계 보고서 · KT 밀리의서재 · 2025 사회조사 결과");
+  assert.match(shortSources(["A 자료", "B 자료", "C 자료", "D 자료", "E 자료"]), /외 2건$/);
+  assert.equal(shortSources(["같은 자료 — 1부", "같은 자료 — 2부"]), "같은 자료");
+});

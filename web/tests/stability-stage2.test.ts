@@ -24,9 +24,9 @@ test("excerpt includes tail keywords and adjacent paragraphs without altering fu
  const full="일반 설명입니다.\n\n".repeat(6000)+"직전 문단.\n\n서울 점심 구독의 핵심 조건입니다.\n\n다음 문단입니다.";
  const excerpt=evidenceExcerpt(full,"서울 점심 구독");assert.ok(full.length>60000);assert.ok(excerpt.length<=GENERATION_CONFIG.efficiency.excerptCharactersPerPage);assert.match(excerpt,/서울 점심 구독/);assert.match(excerpt,/직전 문단/);assert.match(excerpt,/다음 문단/);assert.ok(full.includes("일반 설명입니다."));
 });
-test("bounded workers preserve successes around failures, provider calls never exceed three",async()=>{
- let active=0,peak=0;const results=await mapConcurrent(Array.from({length:9},(_,i)=>i),async i=>{active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,5));active--;if(i===3)throw Error("forced");return i;});assert.equal(peak,3);assert.equal(results.filter(r=>r.status==="fulfilled").length,8);
- active=0;peak=0;await Promise.all(Array.from({length:8},()=>providerSlot(async()=>{active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,5));active--;},new AbortController().signal)));assert.equal(peak,3);
+test("bounded workers preserve successes around failures, provider calls never exceed the configured limit",async()=>{
+ let active=0,peak=0;const results=await mapConcurrent(Array.from({length:9},(_,i)=>i),async i=>{active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,5));active--;if(i===3)throw Error("forced");return i;});assert.equal(peak,GENERATION_CONFIG.efficiency.concurrency);assert.equal(results.filter(r=>r.status==="fulfilled").length,8);
+ active=0;peak=0;await Promise.all(Array.from({length:8},()=>providerSlot(async()=>{active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,5));active--;},new AbortController().signal)));assert.equal(peak,GENERATION_CONFIG.efficiency.concurrency);
  const controller=new AbortController();const stopped=providerSlot(()=>new Promise(()=>{}),controller.signal);controller.abort();await assert.rejects(stopped,/aborted/);await providerSlot(async()=>true,new AbortController().signal);
 });
 test("candidate wire payload contains only referenced public evidence, full deduplicated internal rows and decisions",async()=>{

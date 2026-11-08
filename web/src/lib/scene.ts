@@ -120,6 +120,11 @@ export function stepShade(index: number, count: number, light: string, dark: str
   const luminance = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
   return { fill, text: luminance < 0.55 ? "#FFFFFF" : dark, sub: luminance < 0.55 ? "#FFFFFF" : dark };
 }
+/** 화면 하단 출처는 발행처·자료명만 짧게 보이고, 전체 제목은 근거표·노트에 남긴다. */
+export function shortSources(titles: string[], max = 3): string {
+  const short = [...new Set(titles.map(title => title.split(/\s[—–-]\s|\s*[(|｜]\s*/)[0].trim()).map(title => title.length > 26 ? title.slice(0, 25) + "…" : title).filter(Boolean))];
+  return short.slice(0, max).join(" · ") + (short.length > max ? ` 외 ${short.length - max}건` : "");
+}
 export function makeScene(
   slide: SlideSpec,
   ds: DesignSystem,
@@ -241,7 +246,7 @@ export function makeScene(
   if (!["c-cover", "m-cover"].includes(slide.layoutId)) {
     if (slide.sources.length && (!slide.evidenceRefs?.length || !slide.internalReview))
       txt(
-        "출처: " + slide.sources.map((s) => s.title).join(" · "),
+        "출처: " + shortSources(slide.sources.map((s) => s.title)),
         0.42,
         7.05,
         11.4,
