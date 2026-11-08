@@ -744,6 +744,31 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
 ### ③ Codex 인계(배포·공유 전 확인)
 1. Vercel 단계 시간: hosting.stageBudgetMs 270초. 로컬 스토리라인은 판단 51초 + 스토리라인 79초로 통과했지만, 근거가 많으면 개별 호출 대기(story 330초)가 Vercel 270초를 넘을 수 있다. judgment/story 요청 분리나 maxDuration 확인이 필요하다.
 2. 스토리라인 실패 후 재시도: studio.tsx callAPI가 outline/chat 요청 시 research/prepare부터 다시 실행해 조사(약 7분)가 반복된다. 스토리라인만 재시도하는 경로가 필요하다.
-3. 근거 확인 화면: 이 주제는 질문별 정확 일치 0개라 매번 확인 화면이 뜬다. 공개 근거가 있으면 범위를 표시하고 자동 진행할지 사용자 결정이 필요하다(제안만 했고 미구현).
-4. 전체 논리 검토(deck/review)는 수동 버튼이다. 보류형 헤드라인 AI 판정은 이 단계에서만 돈다. 초안 완성 직후 자동 실행할지 결정이 필요하다.
+3. 근거 확인 화면: 사용자 결정으로 자동 진행 구현 완료(아래 항목).
+4. 전체 논리 검토: 초안 완성 후 자동 실행을 보강 완료(아래 항목).
 5. 오늘 Claude 변경 파일: ai.ts, scene.ts, slide-quality.ts, storyline.ts, deck-review.ts, task-analysis.ts, task-model.ts, research-questions.ts, generation-config.ts, run-budget.ts, app/api/[...action]/route.ts, 테스트(answer-first-hedge, screen-cleanup, candidate-diversity, pipeline-fixture, legacy 표지 fixture 1건).
+
+## 2026-11-08 Claude — 근거 확인 화면 자동 진행·초안 완성 후 전체 검토 자동 실행(사용자 결정)
+
+### ① 바꾼 파일과 이유
+- `web/src/lib/generation-config.ts`: `autoProceedLimitedEvidence: true`(사용자 결정 2026-11-08).
+- `web/src/lib/research-coverage.ts`:
+  - 부족한 질문이 있어도 원문 URL이 있는 공개 근거가 1개 이상이면 requiresReview=false, acceptedLimits=true로 자동 진행한다.
+  - 안내문에 "현재 자료 범위로 자동 진행, 해당 판단은 가설로 표시"를 남기고, gaps·coverage는 그대로 보존한다.
+  - 공개 근거가 하나도 없으면(검색 장애 등) 기존처럼 확인을 요청한다.
+  - `applyResearchCoverage(record, {autoProceed})`로 엄격 모드를 쓸 수 있다.
+- `web/src/components/studio.tsx`:
+  - 초안 완성 후 자동 전체 검토(inspectWholeDraft)는 이미 buildDraft 끝에 있었다. 그러나 setDeck 업데이트가 다음 렌더에 반영돼 deckRef가 마지막 장을 아직 갖지 않으면, 미완성 장이 있다고 보고 조용히 건너뛸 수 있었다. 3차 실행에서 deck/review 호출이 없었던 것과 일치한다.
+  - buildDraft가 동기적으로 누적한 덱 사본(built)을 함께 유지하고, deckRef가 완성 상태가 아니면 이 사본으로 전체 검토를 실행한다.
+- 테스트:
+  - 기존 확인 화면 정책을 검증하던 3개 테스트(generation-execution, stability-stage1, research-coverage)는 엄격 모드로 명시했다.
+  - 자동 진행 정책 테스트 1개를 추가했다.
+
+### ② 테스트·타입 검사·빌드 결과
+- Linux 복사본: tsc 통과, 테스트 205/205 통과.
+- Windows: typecheck 통과, 테스트 205/205 통과, 빌드 통과. 3100 서버 재시작(Ready). 기록은 `web/output/answer-first/`.
+- 유료 AI 호출 0회.
+- 자동 검토로 초안 완성 뒤 2~4분과 검토·수정 호출이 추가된다.
+
+### ③ 남은 일
+- 사용자 실사용에서 확인 화면 없이 초안까지 진행되는지, 전체 검토가 자동으로 실행되는지 확인한다.

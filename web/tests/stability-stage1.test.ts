@@ -30,9 +30,11 @@ const url="https://example.org/official",originalText="원문에서 확인할 �
 const row={claim:originalText,title:"공식 자료",url,kind:"공개 사실",locator:"본문",originalText,publishedAt:"",materialType:"기관·기업 공식 안내",contextMatch:"일치",contextReason:"지역과 대상 일치",questionIds:["Q1"]};
 const services={search:async()=>({text:originalText,sources:[{title:"공식 자료",url}]}),readPage:async()=>({url,text:originalText,opened:true,checkedAt:"today",format:"html" as const})};
 test("bad URL and question rows are isolated while unmatched originalText is retained",async()=>{
+ const strictGate=GENERATION_CONFIG as {autoProceedLimitedEvidence:boolean},previousGate=strictGate.autoProceedLimitedEvidence;strictGate.autoProceedLimitedEvidence=false;try{
  const native=fetch;let calls=0;
  globalThis.fetch=async(_,init)=>{const b=JSON.parse(String(init?.body));if(JSON.stringify(b.text).includes('"localQuery"'))return reply({localQuery:"다른 자료",englishQuery:"another source"});calls++;return reply({rows:[row,{...row,claim:"원문 미확인 주장",originalText:"원문에 없는 인용입니다"},{...row,url:"https://invalid.example/fabricated"},{...row,questionIds:["WRONG"]}]});};
  try{const result=await runResearch(c,input,base(),"",[],[],services);assert.equal(result.researchRecord.evidence.length,1);assert.equal(result.researchRecord.rejectedRows?.length,2*result.researchRecord.searchRounds!.length);const unconfirmed=result.researchRecord.evidence.flatMap(e=>[e,...(e.relatedFacts??[])]).find(e=>e.claim==="원문 미확인 주장")!;assert.equal(unconfirmed.originalText,"");assert.equal(unconfirmed.verificationStatus,"원문 미확인");assert.equal(unconfirmed.originalVerified,false);assert.ok(calls>=1);assert.equal(result.researchRecord.requiresReview,true);}finally{globalThis.fetch=native;}
+ }finally{strictGate.autoProceedLimitedEvidence=previousGate;}
 });
 test("zero valid rows retry once then become a gap instead of failing the pipeline",async()=>{
  const native=fetch;let calls=0;globalThis.fetch=async()=>{calls++;return reply({rows:[{...row,url:"https://invalid.example/wrong"}]});};

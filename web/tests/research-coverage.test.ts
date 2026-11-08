@@ -16,7 +16,7 @@ test("sufficient original-verified partial sources proceed with explicit scope r
 });
 test("duplicate URLs and unverified or unrelated facts cannot clear the gate",()=>{
  const a=row("1","부분 일치"),b={...row("2","부분 일치"),url:a.url};
- const r=applyResearchCoverage({...fixture(),evidence:[a,b,row("3","부분 일치",false),{...row("4","일치"),questionIds:["Q2"]}]});
+ const r=applyResearchCoverage({...fixture(),evidence:[a,b,row("3","부분 일치",false),{...row("4","일치"),questionIds:["Q2"]}]},{autoProceed:false});
  assert.equal(r.requiresReview,true);assert.equal(r.coverage?.[0].partialSources,1);assert.equal(r.gaps?.length,1);
 });
 test("exact sources pass, and verified related facts retain question attribution",()=>{
@@ -26,4 +26,11 @@ test("exact sources pass, and verified related facts retain question attribution
 test("research notice is absent before research and shows factual scope after substitution",()=>{
  const pending={...fixture(),searchStatus:"not-requested" as const};assert.equal(renderToStaticMarkup(createElement(ResearchScopeNotice,{record:pending})),"");
  const r=applyResearchCoverage({...fixture(),evidence:[row("1","부분 일치"),row("2","부분 일치"),row("3","부분 일치")]});assert.match(renderToStaticMarkup(createElement(ResearchScopeNotice,{record:r})),/20대 전체/);
+});
+
+test("2026-11-08 결정: 공개 근거가 있으면 부족한 질문이 있어도 확인 없이 진행하고 범위를 안내한다",()=>{
+ const limited=applyResearchCoverage({...fixture(),evidence:[row("1","부분 일치")]});
+ assert.equal(limited.requiresReview,false);assert.equal(limited.acceptedLimits,true);assert.equal(limited.gaps?.length,1);assert.match(limited.notice,/자동 진행/);
+ const none=applyResearchCoverage({...fixture(),evidence:[]});
+ assert.equal(none.requiresReview,true);
 });

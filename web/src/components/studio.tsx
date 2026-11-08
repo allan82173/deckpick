@@ -1525,6 +1525,9 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     generationLock.current=true;cancel.current=false;setRunning(true);setFailed(null);onError("");
     setDeck(d=>{if(!d||!sameDraftContext(d,snapshot))return d;const next=initializeDraftSelections(d);deckRef.current=next;return next;});
     let activeIndex=0;
+    // React state updaters run on the next render, so deckRef can lag behind the last finished slide.
+    // Keep a synchronously built copy for the automatic whole-deck review below.
+    let built=initializeDraftSelections(deckRef.current&&sameDraftContext(deckRef.current,snapshot)?deckRef.current:snapshot);
     try{
       const missing=snapshot.outline.map((_,i)=>i).filter(i=>draftNeedsCandidates(deckRef.current??snapshot,i));
       const results=await mapConcurrent(missing,async i=>{
@@ -1533,12 +1536,14 @@ function Picker({ onError }: { onError: (s: string) => void }) {
         const working=deckRef.current&&sameDraftContext(deckRef.current,snapshot)?deckRef.current:snapshot;
         const options=await requestInitialCandidates(working,i);
         if(cancel.current)return;
+        built=applyDraftCandidates(built,i,options);
         setDeck(previous=>{if(!previous||!sameDraftContext(previous,snapshot))return previous;const next=applyDraftCandidates(previous,i,options);deckRef.current=next;return next;});
       });
       const failure=results.findIndex(r=>r.status==="rejected");if(failure>=0){activeIndex=missing[failure];const result=results[failure];if(result.status==="rejected")throw result.reason;}
-      if (!cancel.current && deckRef.current) {
+      if (!cancel.current) {
         setBusy(null);
-        await inspectWholeDraft(deckRef.current);
+        const latest=deckRef.current&&sameDraftContext(deckRef.current,snapshot)&&deckRef.current.outline.every((_,index)=>!!draftSlide(deckRef.current!,index))?deckRef.current:built;
+        await inspectWholeDraft(latest);
       }
     }catch(e){if(!cancel.current){setFailed({index:activeIndex,kind:"draft"});onError(errorMessage(e));}}
     finally{generationLock.current=false;if(!cancel.current){setRunning(false);setBusy(null);}}
