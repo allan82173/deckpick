@@ -789,3 +789,81 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
 ### ③ 남은 일(사용자에게 일정 안내만 하고 미착수)
 - 4단계 시각 레이아웃: IDI 인용 카드, 사진 자리, 로고·벤치마킹 카드, Executive Summary 표.
 - 최종 발표 모드: 20~30장 프리셋과 컨셉·벤치마킹·로드맵 장.
+
+## 2026-11-08 Codex — 최신 비공개 배포·GitHub 반영·과제 제출
+
+### ① 바꾼 파일과 이유
+- Claude 기준 커밋 2a3483c의 생성·조사·화면 개선을 유지했다.
+- web/src/lib/storyline.ts, web/src/app/api/[...action]/route.ts: 판단과 스토리라인을 서로 다른 HTTP 요청으로 분리하고 저장된 판단을 재사용한다.
+- web/src/lib/generation-flow.ts(신규), web/src/lib/evidence-model.ts, web/src/lib/research-questions.ts, web/src/components/studio.tsx, web/src/components/request-progress.tsx: 완료된 조사를 재사용하는 스토리라인 재시도, 질문별 병렬 조사 결과 병합, 입력·사용자 대화·첨부 변경 감지, 단계 표시를 연결했다. 연구가 미완료이거나 입력이 바뀌면 오래된 결과를 완료된 조사처럼 재사용하지 않는다.
+- web/src/lib/generation-config.ts, web/src/lib/run-budget.ts: 로컬 story 330초는 유지하고 Vercel 개별 호출은 260초, 단계 예산은 270초로 제한했다. 함수 maxDuration은 300초다.
+- web/tests/generation-flow.test.ts: 병렬 조사, 단계 분리, 실패 후 재개, 입력 변경, 저장된 판단 재사용과 시간 제한을 검증한다.
+- 게시용 체크아웃의 README·배포 안내·제외 규칙을 보완했다. 이전 공개 데모 이미지 2개는 게시용 Git 추적에서만 제외했고 원본은 삭제하지 않았다. 키·원본 참고자료·개인 작업 캐시는 업로드하지 않았다.
+
+### ② 테스트·타입 검사·빌드·배포 결과
+- 자동 테스트 212/212 통과, 타입 검사 통과, 로컬 빌드 통과. 기록: web/output/latest-sharing/.
+- GitHub private 저장소 https://github.com/allan82173/deckpick 에 fe243a1c917efe0a23609eb973ac12af8328f08a를 push하고 원격 main 일치를 확인했다.
+- Git 연결 시 Vercel이 GitHub Login Connection 필요 오류(400)를 반환했다. Git 체크아웃을 통한 첫 배포 dpl_HkrzE6CfmswGJY36DDbSKnrjTg6R는 BLOCKED이며 성공으로 처리하지 않았다.
+- 동일한 최신 소스를 직접 배포한 dpl_3PYDQjpSaLPeenSkRkwjP8XdNE4C는 READY. 대표 주소 https://deckpick.vercel.app 에 반영했다. 이후 Root Directory는 web으로 복원했다.
+- All Deployments 인증 유지, GitHub private 유지. 익명 /, /new, /api/config 모두 로그인 필요를 확인했다. 검증용 우회 비밀값은 폐기했고 잔여 개수는 0이다.
+- 소유자 인증으로 /new 200, 이전 /example/input 404를 확인했다. 신규 judgment 경로는 불완전 입력을 409로 거절했고 모델 호출은 없었다. 게시용 소스와 정식 소스의 src 차이는 0개다.
+- 유료 AI 호출 0회. 실제 Luna 생성 품질·429 발생 여부는 미검증이다. 동시 실행 설정 4는 유지했다.
+- 지정 Drive 폴더 02. 과제(1s44EMBbQxOs4ARbYHUl1Ab0LawCUSqwD)에 Google 문서 ‘박동한 — DeckPick 프로젝트 제출 링크’를 생성·이동했다. 문서 내용과 링크, 부모 폴더를 다시 읽어 확인했다.
+- 제출 문서: https://docs.google.com/document/d/1eWICw0uCYcjRUL3ASAWkJQ63p4PG08hCUcVV4qdGgig
+- 사용자가 정정한 GitHub 아이디는 저장소 소유자 allan82173이므로 별도 협업자 초대를 실행하지 않았다.
+
+### ③ 남은 일과 다음 할 일
+- GitHub 자동 배포 연결만 미완료다. Vercel 계정에서 GitHub Login Connection을 추가한 뒤 저장소 연결을 다시 실행해야 한다. 현재 사이트는 직접 배포로 최신 버전이며 자동 배포 연결 완료로 기록하지 않는다.
+- 팀장이 비공개 사이트·저장소를 열려면 별도의 접근 권한이 필요하다. Drive 문서에는 이 제한을 명시했고 권한을 임의 공개하지 않았다.
+- 실제 모델 실행을 통한 생성 품질·시간·429 확인은 다음 검증으로 남긴다. Claude 예정 작업(최종 발표 모드, IDI·사진·로고·Executive Summary 레이아웃)은 이번 배포 범위에 추가하지 않았다.
+- 사용자 요청에 따라 임시 절전 방지를 2026-11-08 19:30 KST까지 실행했다. 영구 전원 설정 변경은 없으며 tools/keep-awake-status.json에 상태를 남겼다.
+
+## 2026-11-08 Codex — 용량 정리 사전 점검
+- 변경: docs/정리대상-2026-11-08.json에 실제 용량과 삭제 확인 대상을 기록했다. 아직 삭제하지 않았다.
+- 검사: Junction을 제외한 실사용 파일 용량을 집계했다. web/.next와 과거 Claude 전달용 tgz를 정리 후보로 선택하고 최신 sync34.tgz는 보존한다. github-connection/repository에는 미커밋 변경이 있어 정리에서 제외했고 최신 게시용 checkout도 보존한다.
+- 테스트·타입 검사·빌드: 미실행(코드 변경 없는 읽기 전용 용량 점검). 유료 호출 0회.
+- 남은 일: 사용자 확인 후 명시된 캐시·압축본만 정리하고 실제 확보 용량을 확인한다. 성능 개선용 원본·실험/실패 리포트·평가 데이터·체크포인트·첨부·환경설정·설치된 의존성은 유지한다.
+
+## 2026-11-08 Codex — 已승인 용량 정리 실행 차단
+- 사용자 승인 후 실행을 시도했다. 로컬 next start 서버가 3100 포트에서 실행 중이어서 .next 전체 대신 web/.next/cache·web/.next/dev와 승인된 과거 tgz 20개만 대상으로 좁혔다.
+- 삭제 실행은 자동 승인 검토에서 blocked by policy로 명령 시작 전에 거부됐다. 상세 사유는 반환되지 않았다. 다른 삭제 수단으로 우회하지 않았고, 이번 시도로 삭제된 파일은 없다.
+- 테스트·타입 검사·빌드는 미실행(코드 수정 없음). 남은 일은 위 캐시와 압축본의 실제 정리이며, 사전 대상 목록은 docs/정리대상-2026-11-08.json에 남아 있다.
+
+## 2026-11-08 Codex — 재승인 후 정리 재시도
+- 사용자 명시적 재승인에 따라 같은 캐시·과거 압축본만 삭제하는 명령을 다시 요청했다. 절대 경로와 Junction 부재를 확인했으나 실행 전 자동 검토가 다시 blocked by policy로 거부했다.
+- 삭제 0건. 보호 기능을 우회하지 않았다. 코드 변경이 없으므로 테스트·타입 검사·빌드는 미실행이다.
+- 실제 용량 정리는 여전히 미완료이며 정리 대상과 보존 범위는 직전 기록과 같다.
+
+## 2026-11-08 Codex — 사용자 요청으로 Vercel 공개 전환
+- 사용자 명시적 요청으로 DeckPick 프로젝트의 Vercel ssoProtection을 all에서 null로 변경했다. 기존 비공개 배포 제한보다 이번 요청을 우선한다. GitHub 공개 범위·코드·환경변수는 변경하지 않았다.
+- 검증: 로그인·우회 토큰 없는 요청으로 /, /new, /api/config 모두 HTTP 200이며 Vercel 로그인 리다이렉트 없음 확인. 기록: web/output/latest-sharing/public-access-verification.json.
+- 테스트·타입 검사·빌드는 미실행(호스팅 접근 설정만 변경). 유료 모델 호출 0회. 이제 사이트는 로그인 없이 접속할 수 있다.
+
+## 2026-11-08 Claude — 최종 발표 모드(20~30장, 컨셉·벤치마킹·로드맵)
+
+배경: 학생 최종 발표 3건(30~50장)과 비교했을 때 DeckPick은 10장 중간 발표에 맞춰져 있었다. 사용자 요청으로 최종 발표 모드를 추가했다. Codex 배포본(fe243a1 계열, judgment/story 요청 분리 포함)을 기준으로 작업했다.
+
+### ① 바꾼 파일과 이유
+- `web/src/lib/model.ts`:
+  - 새 덱 상한 `MAX_DECK_SLIDES`를 20에서 30으로 올렸다(AGENTS.md의 '새 덱 상한 20장'은 이번 사용자 요청으로 대체).
+  - DeckInput에 `stage: "interim" | "final"`(선택, 없으면 중간 발표)와 `FINAL_DEFAULT_SLIDES` 24를 추가했다. 저장된 기존 덱은 그대로 읽힌다.
+- `web/src/components/studio.tsx`: 덱 설정에 '발표 단계' 선택(중간 발표·진단·가설 / 최종 발표·컨셉·로드맵)을 추가했다. 최종을 고르고 장 수가 16 미만이면 24장으로 맞춘다. 장 수 선택은 5~30장이다.
+- `web/src/app/api/[...action]/route.ts`: 새 구성 요청 상한을 하드코딩 20에서 MAX_DECK_SLIDES로 바꿨다.
+- `web/src/lib/storyline.ts`:
+  - 흐름을 input.stage로 정한다. 중간 발표는 기존 흐름이다.
+  - 최종 발표는 결론 요약(Executive Summary) → 목차 → 과제 배경(재무 As-Is) → 시장·고객 → 경쟁 → 문제 정의(As-Is/To-Be) → 과제 재정의·전략 방향 → 사업 컨셉(이름 붙인 해결안마다 대상·가치·운영·수익 구조) → 국내외 벤치마킹(실명 2~3) → 실행 로드맵(단기·중기·장기 + KPI) → 기대효과 → 리스크·검증이다.
+  - 섹션 묶음, 역할 지정(컨셉 판단·흐름, 벤치마킹 비교, 로드맵 일정, 문제 정의 비교), 24장 배분 예시를 넣었다. 최종 발표에서는 As-Is 우선 대신 해결안을 단정형으로 쓰고, 약한 수치는 가정으로 표시한다.
+- `web/src/lib/task-analysis.ts`: stage가 final이면 checklist에 컨셉·벤치마킹·로드맵/KPI·기대효과를 포함하고, 핵심 질문 하나는 국내외 유사 사례를 다룬다.
+- `web/src/lib/generation-config.ts`: assessDeck 개별 호출 150초 → 220초, review 단계 240초 → 300초(로컬). 30장 검토에 대비했고 Vercel 상한은 Codex 설정을 따른다. story 출력은 24k를 유지하며, 잘리면 기존 출력 사다리로 32k 재시도한다.
+- 테스트: `final-presentation.test.ts` 신규(3개). `quality-pipeline.test.ts`의 장 수 상한 검사를 30/31로 갱신했다.
+
+### ② 테스트·타입 검사·빌드 결과
+- Linux 복사본: tsc 통과, 테스트 215/215 통과.
+- Windows: typecheck 통과, 테스트 215/215 통과, 빌드 통과. 3100 서버 재시작(Ready). 기록은 `web/output/answer-first/`.
+- 유료 AI 호출 0회.
+
+### ③ 남은 일
+- 사용자 실사용: 발표 단계 '최종 발표', 24장으로 새 덱을 생성해 흐름·시간을 확인한다.
+- 예상 위험: 24장 스토리라인 응답은 10장(약 80초)의 2~2.5배라 Vercel 260초에 가깝다. 장표 생성과 자동 검토도 늘어난다.
+- 다음: IDI 인용 카드·사진 자리·로고/벤치마킹 카드·Executive Summary 표 레이아웃(2번 작업).
+- Codex 배포 대상: 위 변경 전체.

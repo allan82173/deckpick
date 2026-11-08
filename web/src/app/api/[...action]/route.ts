@@ -13,7 +13,7 @@ import {isDemoOnly} from "@/lib/runtime-mode";
 import {isSameOriginRequest} from "@/lib/request-origin";
 import {slideConversation} from "@/lib/ai";
 import {deckContextSchema} from "@/lib/slide-chat";
-import {slideSchema,persistedDeckSchema} from "@/lib/model";
+import {slideSchema,persistedDeckSchema,MAX_DECK_SLIDES} from "@/lib/model";
 import { attachmentIdsSchema } from "@/lib/attachment-model";
 import { readAttachments, readAttachmentImages } from "@/lib/attachments";
 import { selectAttachmentContext, selectResearchContext } from "@/lib/attachment-context";
@@ -105,7 +105,7 @@ async function handlePost(
       if (!b.currentDeck) throw new AIError("검토할 덱이 필요합니다.", 400);
       return Response.json(await reviewAndRepairDeck(c, b.currentDeck));
     }
-    if (["research/prepare", "research/run", "research/continue", "storyline", "storyline/judgment"].includes(action) && b.input.slideCount > 20) throw new AIError("새 구성은 20장 이내로 만들어 주세요.", 400);
+    if (["research/prepare", "research/run", "research/continue", "storyline", "storyline/judgment"].includes(action) && b.input.slideCount > MAX_DECK_SLIDES) throw new AIError(`새 구성은 ${MAX_DECK_SLIDES}장 이내로 만들어 주세요.`, 400);
     if (action === "research/prepare") {
       const record = await prepareTask(c, b.input, evidence.text, b.messages, images, b.researchRecord,documents);
       return Response.json({ researchRecord: record, sources: [], attachmentUsage });
@@ -126,7 +126,7 @@ async function handlePost(
       return Response.json({ ...result, sources: b.sources, needsResearchReview: false, attachmentUsage });
     }
     if (action === "chat" || action === "outline") {
-      if (b.input.slideCount > 20) throw new AIError("새 구성은 20장 이내로 만들어 주세요.", 400);
+      if (b.input.slideCount > MAX_DECK_SLIDES) throw new AIError(`새 구성은 ${MAX_DECK_SLIDES}장 이내로 만들어 주세요.`, 400);
       if (b.context === "slide")
         return Response.json({
           reply: "요청 내용을 반영해 현재 슬라이드의 세 후보를 다시 만듭니다.",

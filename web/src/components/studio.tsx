@@ -63,6 +63,8 @@ import {
   type Source,
   type LayoutId,
   MAX_DECK_SLIDES,
+  FINAL_DEFAULT_SLIDES,
+  type PresentationStage,
 } from "@/lib/model";
 import { z } from "zod";
 import { SlidePreview } from "./slide-preview";
@@ -578,6 +580,19 @@ function Setup({ onError }: { onError: (s: string) => void }) {
                 />
               </label>
               <label className="count-field">
+                발표 단계
+                <select
+                  value={input.stage ?? "interim"}
+                  onChange={(e) => {
+                    const stage = e.target.value as PresentationStage;
+                    update({ stage, ...(stage === "final" && input.slideCount < 16 ? { slideCount: FINAL_DEFAULT_SLIDES } : {}) });
+                  }}
+                >
+                  <option value="interim">중간 발표 · 진단·가설</option>
+                  <option value="final">최종 발표 · 컨셉·로드맵</option>
+                </select>
+              </label>
+              <label className="count-field">
                 슬라이드 수
                 <select
                   value={input.slideCount}
@@ -585,12 +600,11 @@ function Setup({ onError }: { onError: (s: string) => void }) {
                     update({ slideCount: Number(e.target.value) })
                   }
                 >
-                  {Array.from({ length: 16 }, (_, i) => (
+                  {Array.from({ length: MAX_DECK_SLIDES - 4 }, (_, i) => (
                     <option key={i} value={i + 5}>
-                      {i + 5}장
+                      {i + 5}장{input.stage === "final" && i + 5 >= 20 ? " · 최종 발표 권장" : ""}
                     </option>
                   ))}
-                  {input.slideCount>20&&<option value={input.slideCount}>{input.slideCount}장 · 페이지 추가 후</option>}
                 </select>
               </label>
             </div>

@@ -156,7 +156,12 @@ export const outlineItemSchema = z.object({
   claimType: z.enum(["공개 사실", "내부 전제", "추론", "가설", "계산"]).optional(),
 });
 export type OutlineItem = z.infer<typeof outlineItemSchema>;
-export const MAX_DECK_SLIDES=20;
+/** 2026-11-08: 최종 발표 모드(20~30장)를 위해 새 덱 상한을 20→30장으로 올렸다. */
+export const MAX_DECK_SLIDES=30;
+export const presentationStages = ["interim", "final"] as const;
+export type PresentationStage = (typeof presentationStages)[number];
+/** 최종 발표를 고르면 처음 제안하는 장 수 */
+export const FINAL_DEFAULT_SLIDES = 24;
 export const deckInputSchema = z.object({
   deckType: z.enum(["consulting", "marketing"]),
   designSystemId: z.enum(["ict-forest", "navy", "coral", "lemonade", "sand", "charcoal", "custom"]),
@@ -171,6 +176,8 @@ export const deckInputSchema = z.object({
   publicSearchTopic: z.string().max(250).optional(),
   appendSources: z.boolean().optional(),
   internalReview: z.boolean().optional(),
+  /** 중간 발표(기본: 현황 진단·가설·검증 계획) / 최종 발표(컨셉·벤치마킹·로드맵·KPI 포함) */
+  stage: z.enum(presentationStages).optional(),
 });
 export type DeckInput = z.infer<typeof deckInputSchema>;
 export type Colors = {

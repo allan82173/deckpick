@@ -100,8 +100,8 @@ test("quality checks identify plans, missing evidence, todo-only content, repeti
   assert.ok(!inspectSlide(slide, item, input, [], ["m-big-message"]).warnings.some(w => w.includes("반복")));
   assert.ok(result.warnings.some(w => w.includes("채움")));
   assert.equal(deckCountWarning(16, 10).length, 1);
-  assert.equal(deckInputSchema.safeParse({ ...input, slideCount: 20 }).success, true);
-  assert.equal(deckInputSchema.safeParse({ ...input, slideCount: 21 }).success, false);
+  assert.equal(deckInputSchema.safeParse({ ...input, slideCount: 30 }).success, true);
+  assert.equal(deckInputSchema.safeParse({ ...input, slideCount: 31 }).success, false);
 });
 
 test("failed slides get at most two quality repairs and retain warnings, evidence and notes", async () => {

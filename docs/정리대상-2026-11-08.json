@@ -1,0 +1,98 @@
+{
+  "status": "awaiting_confirmation",
+  "items": [
+    {
+      "path": "web\\.next",
+      "bytes": 757886691
+    },
+    {
+      "path": "web\\output\\claude-sync\\src-final4.tgz",
+      "bytes": 3059053
+    },
+    {
+      "path": "web\\output\\claude-sync\\src-final5.tgz",
+      "bytes": 3059473
+    },
+    {
+      "path": "web\\output\\claude-sync\\src-final6.tgz",
+      "bytes": 3063669
+    },
+    {
+      "path": "web\\output\\claude-sync\\src-final7.tgz",
+      "bytes": 3065485
+    },
+    {
+      "path": "web\\output\\claude-sync\\src18.tgz",
+      "bytes": 2480
+    },
+    {
+      "path": "web\\output\\claude-sync\\src19.tgz",
+      "bytes": 1605
+    },
+    {
+      "path": "web\\output\\claude-sync\\src20.tgz",
+      "bytes": 10684
+    },
+    {
+      "path": "web\\output\\claude-sync\\src21.tgz",
+      "bytes": 8269
+    },
+    {
+      "path": "web\\output\\claude-sync\\src22.tgz",
+      "bytes": 3054422
+    },
+    {
+      "path": "web\\output\\claude-sync\\src24.tgz",
+      "bytes": 3066227
+    },
+    {
+      "path": "web\\output\\claude-sync\\src27.tgz",
+      "bytes": 3066464
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync23.tgz",
+      "bytes": 3085535
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync25.tgz",
+      "bytes": 3097566
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync26.tgz",
+      "bytes": 3098728
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync28.tgz",
+      "bytes": 3102483
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync29.tgz",
+      "bytes": 3105002
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync30.tgz",
+      "bytes": 3105591
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync31.tgz",
+      "bytes": 3106544
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync32.tgz",
+      "bytes": 3110135
+    },
+    {
+      "path": "web\\output\\claude-sync\\sync33.tgz",
+      "bytes": 3111816
+    }
+  ],
+  "totalBytes": 807267922,
+  "preserve": [
+    "source, prompts, schemas, tests",
+    "reference materials",
+    "run reports including failed runs, checkpoints, stage4 evaluations",
+    "attachments, environment settings, node_modules",
+    "latest-sharing/repository and modified github-connection/repository",
+    "claude-sync/sync34.tgz"
+  ]
+}
