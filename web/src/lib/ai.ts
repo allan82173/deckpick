@@ -97,7 +97,7 @@ export async function providerCall(
   const retryMetadata={networkRetry:networkAttempt,outputRetry:limitAttempt,...estimateRequestInput(payload,images.length)};
   const startedAt=new Date().toISOString(), started=Date.now();
   try {
-    const signal=providerSignal();
+    const signal=providerSignal(stage);
     const received=await providerSlot(async()=>{const response = await fetch(url, {
       method: "POST",
       headers,

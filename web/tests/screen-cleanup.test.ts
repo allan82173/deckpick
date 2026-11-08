@@ -44,3 +44,12 @@ test("2차 실행에서 새로 나온 편법(0/1 지표 차트, 출처 개수 �
   assert.equal(visibleQaStatus({ rows: [{ label: "직접 부합 출처", value: "0 건" }] }).length, 1);
   assert.equal(visibleQaStatus({ text: "근거 수준을 구분해 해석" }).length, 0);
 });
+
+test("큰 응답 단계는 개별 호출 대기 시간이 길고, 작은 단계는 기본값을 쓴다", async () => {
+  const { GENERATION_CONFIG } = await import("../src/lib/generation-config");
+  const byStage = GENERATION_CONFIG.providerTimeoutMsByStage as Record<string, number | undefined>;
+  assert.ok((byStage.story ?? 0) >= 180000);
+  assert.ok((byStage.story ?? 0) < GENERATION_CONFIG.reliability.deadlines.storyline);
+  assert.equal(byStage.candidates, undefined);
+  assert.equal(GENERATION_CONFIG.providerTimeoutMs, 75000);
+});

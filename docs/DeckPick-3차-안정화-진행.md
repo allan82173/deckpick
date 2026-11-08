@@ -671,3 +671,22 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
 ### ③ 남은 일과 다음 할 일
 - 사용자가 '내부 검토용 표시'를 끄고 **새 덱**으로 처음부터 생성해 확인한다. 확인할 것은 교보문고 재무 근거 확보 여부, 질문별 정확 일치 근거 수, 보류형 키메시지 ≤2, 2장 결론 요약 내용, 가설 장의 확인 방법 표시다.
 - 이후 4단계: IDI 인용 카드, 사진·로고 자리, Executive Summary 표 레이아웃, 최종 발표 장 수.
+
+## 2026-11-08 Claude — 스토리라인 504(개별 호출 75초 제한) 수정
+
+증상: 새 덱 실행(run 7f254c3f)에서 조사(4질문, 약 6분 46초)와 판단은 완료됐다. 이후 스토리라인이 07:40:13 시작 → 07:44:01에 "AI 응답이 지연되거나 연결이 끊겼습니다"(504)로 실패했다. 원인은 개별 provider 호출 대기 시간 75초(`providerTimeoutMs`)다. 스토리라인 응답이 75초를 넘기면 같은 큰 호출을 네트워크 재시도 2회까지 총 3번 반복(약 228초)하고 504가 된다. 오늘 추가한 가설·검증 지시와 늘어난 근거로 응답이 길어져 문턱을 넘은 것으로 판단했다. 조사 결과는 짧은 검색어가 적용됐다(예: "교보문고 2025 감사보고서 영업이익", "예스24 2025 DART 사업부문별 매출").
+
+### ① 바꾼 파일과 이유
+- `web/src/lib/generation-config.ts`: `providerTimeoutMsByStage`를 추가했다. story 240초, judgment·assessDeck 150초, interpretTask 120초, formatRepair 180초이고, 나머지는 기존 75초다. 스토리라인 단계 제한(6분) 안에 들어간다.
+- `web/src/lib/run-budget.ts`: `providerSignal(stage)`가 단계별 대기 시간을 쓴다.
+- `web/src/lib/ai.ts`: provider 호출 시 현재 단계를 넘긴다.
+- `web/tests/screen-cleanup.test.ts`: 단계별 대기 시간 설정 검사를 추가했다.
+
+### ② 테스트·타입 검사·빌드 결과
+- Linux 복사본: tsc 통과, 테스트 202/202 통과.
+- Windows: typecheck 통과, 테스트 202/202 통과, 빌드 통과. 3100 서버 재시작(Ready). 기록은 `web/output/answer-first/`.
+- 유료 AI 호출 0회.
+
+### ③ 남은 일 / Codex 인계 시 주의
+- 사용자는 같은 덱에서 이어서 생성하면 된다. 조사·판단 체크포인트를 재사용하고 스토리라인부터 다시 실행한다.
+- **Vercel 배포 시 주의**: hosting.stageBudgetMs가 270초라 Vercel에서는 스토리라인 단계가 270초로 잘린다. judgment(약 74초)와 story를 같은 요청에서 실행하면 넘칠 수 있다. 배포 전에 judgment/story 요청 분리나 maxDuration 확인이 필요하다.

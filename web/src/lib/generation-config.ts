@@ -17,6 +17,8 @@ export const GENERATION_CONFIG = {
   } satisfies Record<GenerationStage, { effort: Effort; maxOutputTokens: number }>,
   outputLimitLadder: [10000, 16000, 24000, 32000],
   outputLimitRetries: 1, formatAttempts: 3, calculationRepairAttempts: 2, qualityRetries: 2, providerTimeoutMs: 75000,
+  /** 한 번의 응답이 큰 단계는 개별 호출 대기 시간을 늘린다. 스토리라인은 75초를 넘기면 같은 큰 호출을 3번 반복하다 504로 실패했다(2026-11-08). 단계 시간 제한(storyline 6분) 안에 들어가도록 둔다. */
+  providerTimeoutMsByStage: { story: 240000, judgment: 150000, assessDeck: 150000, interpretTask: 120000, formatRepair: 180000 } as Partial<Record<GenerationStage, number>>,
   transport: { heartbeatMs: 10000 },
   hosting: { stageBudgetMs: 270000 },
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
