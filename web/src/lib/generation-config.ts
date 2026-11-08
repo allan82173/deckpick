@@ -5,20 +5,20 @@ const medium = { effort: "medium" as Effort, maxOutputTokens: 16000 };
 const low = { effort: "low" as Effort, maxOutputTokens: 10000 };
 /** All generation budgets live here. This module is safe to import in the UI. */
 export const GENERATION_CONFIG = {
-  version: "2026-11-08-stage6-final",
+  version: "2026-11-08-stage6-final-c",
   /** Checkpoint compatibility key. Bump only when a saved stage result can no longer be reused (schema or stage meaning changed), not for every budget/version change. */
   checkpointVersion: "2026-11-07-stability-v3-revised",
   stages: {
     interpretTask: { ...high }, judgment: { ...high }, story: { ...high }, assessDeck: { ...high },
     planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium },
-    // 6단계 확정(2026-11-08): 4단계 B 조건 채택 — 판단·스토리라인·덱 검토 medium, 장 후보·시각 검수 low(출력 한도는 유지). 근거 추출은 원문 확인 54/77 vs 41/64로 medium 유지. 조사 단계는 실험에서 고정돼 기존값 유지.
-    candidates: { ...medium, effort: "low" as Effort },
-    formatRepair: { ...low }, headlineRepair: { ...low }, slideChat: { ...low }, keyCheck: { ...low, maxOutputTokens: 32 }, visualReview: { ...medium, effort: "low" as Effort },
+    // 6단계 확정(2026-11-08, 사용자 결정): 사람 점수가 가장 높은 C(전 단계 medium) 채택. C의 실패 대부분이 스토리라인 시간 제한이라 storyline 제한을 6분으로 늘려 완료 가능성을 높인다. 근거 추출 medium(원문 확인 54/77 vs 41/64).
+    candidates: { ...medium },
+    formatRepair: { ...low }, headlineRepair: { ...low }, slideChat: { ...low }, keyCheck: { ...low, maxOutputTokens: 32 }, visualReview: { ...medium },
   } satisfies Record<GenerationStage, { effort: Effort; maxOutputTokens: number }>,
   outputLimitLadder: [10000, 16000, 24000, 32000],
   outputLimitRetries: 1, formatAttempts: 3, calculationRepairAttempts: 2, qualityRetries: 2, providerTimeoutMs: 75000,
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
-    deadlines: { researchQuestion: 240000, storyline: 240000, candidate: 180000, review: 240000 } },
+    deadlines: { researchQuestion: 240000, storyline: 360000, candidate: 180000, review: 240000 } },
   efficiency:{concurrency:3,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:5000,adjacentParagraphs:1,paragraphChunkCharacters:900},
   benchmark: { minimumVerifiedClaimRatio: .8, maxDurationMs: 900000, minimumTimeReduction: .40, maxInputRatioToBaseline: 1/3, externalRunRetries: 1 },
   measurement: { encoding:"o200k_base", imageInputFallbackTokens:3000 },
