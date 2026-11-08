@@ -7,6 +7,7 @@ import { saveAttemptReport } from "@/lib/run-attempt-report";
 import { design } from "@/lib/design";
 import type { Deck } from "@/lib/model";
 import { GENERATION_CONFIG } from "@/lib/generation-config";
+import { BudgetTimeout } from "@/lib/run-budget";
 import {isDemoOnly} from "@/lib/runtime-mode";
 import {isSameOriginRequest} from "@/lib/request-origin";
 import {slideConversation} from "@/lib/ai";
@@ -140,7 +141,7 @@ async function handlePost(
     return Response.json(
       {
         error:
-          e instanceof AIError
+          e instanceof AIError || e instanceof BudgetTimeout
             ? e.message
             : e instanceof z.ZodError
               ? "입력 데이터 형식을 확인해 주세요: " + e.issues.slice(0,5).map(issue=>`${issue.path.join(".")||"요청"} (${issue.code})`).join(", ")
@@ -148,7 +149,7 @@ async function handlePost(
       },
       {
         status:
-          e instanceof AIError ? e.status : e instanceof z.ZodError ? 400 : 500,
+          e instanceof AIError ? e.status : e instanceof BudgetTimeout ? 504 : e instanceof z.ZodError ? 400 : 500,
       },
     );
   }
