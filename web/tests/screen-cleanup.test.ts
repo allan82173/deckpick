@@ -53,3 +53,10 @@ test("큰 응답 단계는 개별 호출 대기 시간이 길고, 작은 단계�
   assert.equal(byStage.candidates, undefined);
   assert.equal(GENERATION_CONFIG.providerTimeoutMs, 75000);
 });
+
+test("3차 실행: 계열·범주가 뒤바뀐 차트를 잡는다", async () => {
+  const { swappedSeriesChart } = await import("../src/lib/slide-quality");
+  assert.equal(swappedSeriesChart({ categories: ["독서 경험률 (%)", "문화·스포츠 관람률 (%)"], series: [{ name: "독서 경험률", values: [48.7, 48.7] }, { name: "문화·스포츠 관람률", values: [57.7, 57.7] }] }), true);
+  assert.equal(swappedSeriesChart({ categories: ["2024", "2025"], series: [{ name: "교보문고", values: [9770, 9900] }, { name: "예스24", values: [6558, 6400] }] }), false);
+  assert.equal(swappedSeriesChart({ series: [{ name: "단일", values: [3, 3] }] }), false);
+});

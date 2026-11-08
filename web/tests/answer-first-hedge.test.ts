@@ -76,3 +76,13 @@ test("2차 실행의 보류형 표현과 메타 요약을 잡는다", async () =
   assert.equal(isWeakSummaryHeadline("이번 중간 발표는 현황 진단을 우선하고, 성장 기회는 가설로 다룹니다."), true);
   assert.equal(isWeakSummaryHeadline("20대 공략은 전자책 학생 요금이 1순위, 오프라인 프로그램이 2순위라는 가설에서 출발합니다."), false);
 });
+
+test("3차 실행: '자료가 증명·입증하지 않는다'형 부정 헤드라인을 잡는다", () => {
+  for (const text of [
+    "전국 독서·여가 통계는 배경 신호이며, 20대 대학생의 선택 기준을 증명하지 않습니다",
+    "전국 여가 신호는 경험 가설의 출발점일 뿐, 20대의 선호를 입증하지 않습니다.",
+    "공개 자료는 사업 실적과 시장 배경까지만 말하며, 20대 인식과 사업별 원인은 입증하지 않습니다.",
+  ]) assert.equal(isHedgeHeadline(text), true, text);
+  assert.equal(isHedgeHeadline("2024년 교보문고는 매출이 가장 컸지만 영업이익률은 음수였습니다."), false);
+  assert.equal(isHedgeHeadline("교보문고는 핵심 서점 수익성을 먼저 진단하고, 디지털·클래스는 검증 후보로 봐야 합니다."), false);
+});

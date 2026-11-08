@@ -37,7 +37,7 @@ export function isRendererWarning(warning:string){return /텍스트.*넘|한 줄
 export const HEDGE_HEADLINE_LIMIT = 2;
 export function isHedgeHeadline(text: string): boolean {
   const plain = text.replace(/\*\*/g, "");
-  return /(?:판단|판정|단정|진단|확정|설명|입증|결론|평가|우열)(?:을|를|은|는|이|가|까지는?)?\s*(?:내리기|짓기|하기)?\s*(?:어렵|할 수 없|하지\s*(?:않|못)|되지\s*않|내릴 수 없|지을 수 없|짓지\s*못)|확인되지 않|확인할 수 없|알 수 없|불분명|미확인|근거가 부족|자료가 부족|(?:조사|확인|검증|비교|분석)(?:이|가)?\s*(?:더\s*)?필요|(?:검증|확인)해야|검증 가설|검증할 가설|아직\s*(?:판정|판단|확인|검증|입증)|아직\s.{0,20}가설/.test(plain);
+  return /(?:판단|판정|단정|진단|확정|설명|입증|결론|평가|우열)(?:을|를|은|는|이|가|까지는?)?\s*(?:내리기|짓기|하기)?\s*(?:어렵|할 수 없|하지\s*(?:않|못)|되지\s*않|내릴 수 없|지을 수 없|짓지\s*못)|확인되지 않|확인할 수 없|알 수 없|불분명|미확인|근거가 부족|자료가 부족|(?:조사|확인|검증|비교|분석)(?:이|가)?\s*(?:더\s*)?필요|(?:증명|입증|설명|대신|보여주|말해주|판단|판정|진단|확정|단정|규명)(?:하)?지\s*(?:않|못)|(?:검증|확인)해야|검증 가설|검증할 가설|아직\s*(?:판정|판단|확인|검증|입증)|아직\s.{0,20}가설/.test(plain);
 }
 /** 결론 요약 장이 실제 선택·우선순위 대신 판단 보류나 발표 성격만 말하는지. */
 export function isWeakSummaryHeadline(text: string): boolean {
@@ -67,6 +67,15 @@ export const QA_STATUS_PATTERN = /원문\s*[·ㆍ]?\s*(?:페이지\s*)?(?:미확
 export function visibleQaStatus(data: unknown): string[] {
   return strings(data).filter(text => QA_STATUS_PATTERN.test(text));
 }
+/** 계열마다 값이 범주 전체에서 같으면 지표를 계열·범주에 잘못 넣은 차트다(예: 독서 경험률 48.7, 48.7 / 관람률 57.7, 57.7). */
+export function swappedSeriesChart(data: unknown): boolean {
+  if (!data || typeof data !== "object") return false;
+  const series = (data as { series?: unknown }).series;
+  if (!Array.isArray(series) || series.length < 2) return false;
+  const rows = series.map(item => (item && typeof item === "object" && Array.isArray((item as { values?: unknown }).values) ? (item as { values: unknown[] }).values : [])).filter(values => values.length >= 2 && values.every(value => typeof value === "number")) as number[][];
+  if (rows.length < 2) return false;
+  return rows.every(values => values.every(value => value === values[0])) && new Set(rows.map(values => values[0])).size > 1;
+}
 /** 차트 수치가 모두 0이면 "확인 안 됨"을 0으로 그린 것이므로 차트로 쓰지 않는다. */
 export function allZeroChart(data: unknown): boolean {
   const numbers: number[] = [];
@@ -91,6 +100,7 @@ export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInp
   const refs = (slide.evidenceRefs ?? []).filter(id => evidence.some(e => e.id === id));
   if (isPlanHeadline(slide.headline)) warnings.push("키메시지가 판단·질문 대신 계획형으로 끝납니다.");
   if (visibleQaStatus(slide.data).length) warnings.push("본문에 원문 확인·검수 상태나 출처 개수 문구가 있습니다. 검수 상태는 노트로 옮기고 화면에는 내용과 기준 연도만 남기세요.");
+  if (swappedSeriesChart(slide.data)) warnings.push("차트의 계열마다 값이 범주 전체에서 같습니다. 서로 다른 지표를 범주로 두거나 단일 막대·핵심 숫자로 바꾸세요.");
   if (allZeroChart(slide.data)) warnings.push("차트 수치가 모두 0이거나 0/1 표시뿐입니다. 확인되지 않은 항목은 차트 대신 가설·검증 계획으로 보여 주세요.");
   if (!exempt && !refs.length) warnings.push("근거표를 참조하지 않습니다.");
   if (item.role === "사실 제시" && !refs.length && !/\d/.test(JSON.stringify(slide.data))) warnings.push("사실 제시 장에 숫자·근거 참조가 모두 없습니다.");
