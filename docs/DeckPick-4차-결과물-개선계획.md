@@ -47,5 +47,7 @@
 - 5번 첨부 내부 자료가 있으면 최소 1장에서 '내부 전제(n=…)'로 사용하거나 미사용 이유 기록.
 - 7번 장마다 큰 숫자 1개, 본문 최소 글자 크기, 같은 라벨 박스형 3장 연속 금지.
 
-## 4. 저장 공간 정리 후보 (사용자 확인 후 휴지통 이동, 아직 미실행)
+## 4. 저장 공간 정리 (2026-11-08 사용자 승인, Codex 작업 종료 후 휴지통 이동 예정)
+휴지통 이동 대상(`web/output/` 안, 약 25MB): `layout-1~14.jpg`, `pptx-layout-montage.jpg`, `preview-gallery.html`, `layout-alignment-review.html/.pptx`, `browser-flow.pptx`, `canvas-edit-browser-validation.pptx`, `editor-shared-chat-validation.pptx`, `full-draft-browser-validation.pptx`, `vercel-public-demo-validation.pptx`, `cover-preview/`, `design-options/`, `photo-qa/`, `screenshots/`, `visual-library/`, `attachment-qa/`.
+
 유지: `run-reports/`(실패 기록 보존), `stage4/`(6단계 결정 근거), `.generation-runs/`, `font-restoration/`(AGENTS.md 보관 지정), `claude-sync/`, 스크립트가 다시 쓰는 출력 폴더, `.next/`(Codex 서버 사용 중).
