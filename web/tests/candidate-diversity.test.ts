@@ -108,3 +108,23 @@ test("model-written long section names cannot fail the slide; the outline sectio
     for (const slide of result) assert.equal(slide.section, "결론");
   } finally { globalThis.fetch = original; }
 });
+test("one slot that keeps failing no longer fails the whole slide; valid candidates are kept in plan order", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  const closing: OutlineItem = { ...item, index: 5, section: "결론" };
+  globalThis.fetch = async (_url, init) => {
+    calls++;
+    const prompt = JSON.parse(JSON.parse(String(init?.body)).input.split("\n앞선 응답")[0]);
+    const plan = prompt.slotPlan as { layoutId: LayoutId }[];
+    // 순서를 뒤집고, 마지막 계획 슬롯은 매번 빈 데이터로 실패시킨다.
+    const slides = [...plan].reverse().map(({ layoutId }, i) => ({ layoutId, section: "결론", headline: closing.message, dataJson: layoutId === plan.at(-1)!.layoutId ? "{}" : JSON.stringify(sampleData(layoutId, closing, i)), sourceUrls: [], notes: "가상 검증" }));
+    return Response.json({ output: [{ content: [{ type: "output_text", text: JSON.stringify({ slides }) }] }] });
+  };
+  try {
+    const result = await generateCandidates({ provider: "openai", key: "test-only", model: "test" }, input, closing, [], "");
+    assert.equal(calls, 3);
+    assert.ok(result.length >= 1 && result.length <= 2);
+    const plan = candidatePlan(input, closing);
+    assert.deepEqual(result.map(slide => slide.layoutId), plan.slice(0, result.length));
+  } finally { globalThis.fetch = original; }
+});
