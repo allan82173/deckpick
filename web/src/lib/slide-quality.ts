@@ -36,7 +36,13 @@ export function isRendererWarning(warning:string){return /텍스트.*넘|한 줄
 /** 유보형 키메시지(판단 보류) — 덱당 상한을 넘으면 잠정 판단 형태로 고친다. */
 export const HEDGE_HEADLINE_LIMIT = 2;
 export function isHedgeHeadline(text: string): boolean {
-  return /(판단할 수 없|판단하기 어렵|단정할 수 없|단정하기 어렵|확인되지 않|확인할 수 없|알 수 없|불분명|미확인|근거가 부족|자료가 부족|추가 (?:조사|확인|검증)(?:이|가)? 필요|확인이 필요|검증이 필요)/.test(text.replace(/\*\*/g, ""));
+  const plain = text.replace(/\*\*/g, "");
+  return /(?:판단|판정|단정|결론|평가|우열)(?:을|를|은|는|이|가)?\s*(?:내리기|짓기|하기)?\s*(?:어렵|할 수 없|내릴 수 없|지을 수 없)|확인되지 않|확인할 수 없|알 수 없|불분명|미확인|근거가 부족|자료가 부족|(?:조사|확인|검증|비교|분석)(?:이|가)?\s*(?:더\s*)?필요|(?:검증|확인)해야|검증 가설|아직\s*(?:판정|판단|확인|검증|입증)/.test(plain);
+}
+/** 결론 요약 장이 실제 선택·우선순위 대신 판단 보류나 발표 성격만 말하는지. */
+export function isWeakSummaryHeadline(text: string): boolean {
+  const plain = text.replace(/\*\*/g, "");
+  return isHedgeHeadline(plain) || /(?:결론|목표|목적)은\s.*(?:아니라|진단|구분)|(?:현황|근거)\s*(?:수준을\s*)?(?:진단|정리|구분)(?:이다|입니다|한다|합니다)?[.\s]*$/.test(plain);
 }
 /** 상한을 넘는 유보형 장의 인덱스. 한계·다음 단계가 놓이는 뒤쪽 장을 남기고 앞쪽부터 고친다. */
 export function excessHedgeIndices(pages: { index: number; text: string }[], limit = HEDGE_HEADLINE_LIMIT): number[] {

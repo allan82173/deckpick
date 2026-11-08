@@ -18,6 +18,7 @@ export const GENERATION_CONFIG = {
   outputLimitLadder: [10000, 16000, 24000, 32000],
   outputLimitRetries: 1, formatAttempts: 3, calculationRepairAttempts: 2, qualityRetries: 2, providerTimeoutMs: 75000,
   transport: { heartbeatMs: 10000 },
+  hosting: { stageBudgetMs: 270000 },
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
     deadlines: { researchQuestion: 240000, storyline: 360000, candidate: 180000, review: 240000 } },
   efficiency:{concurrency:3,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:5000,adjacentParagraphs:1,paragraphChunkCharacters:900},

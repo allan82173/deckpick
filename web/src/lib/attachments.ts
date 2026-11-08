@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import type { VisionImage } from "./vision";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import {storageMkdir as mkdir, storageRead as readFile, storageWrite as writeFile} from "./private-storage";
 import path from "node:path";
 import JSZip from "jszip";
 import { XMLParser } from "fast-xml-parser";

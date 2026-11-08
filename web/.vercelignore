@@ -6,3 +6,9 @@ output/
 *.tsbuildinfo
 
 .attachments/
+
+.generation-runs/
+web/
+scripts/
+public/examples/
+public/cover-assets/

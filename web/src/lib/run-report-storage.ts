@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import {storageMkdir as mkdir, storageRead as readFile, storageWrite as writeFile} from "./private-storage";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import type { Deck } from "./model";

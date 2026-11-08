@@ -17,10 +17,10 @@ const fact=z.object({claim:z.string().min(1).max(1600),title:z.string().min(1).m
 const factsWire=z.object({rows:z.array(fact).max(50)}),loose=z.object({rows:z.array(z.unknown())});
 type Page=Awaited<ReturnType<typeof readOriginalPage>>;
 type QuestionResult={sources:Source[];evidence:Evidence[];pages:Page[];queries:string[];rounds:NonNullable<ResearchRecord["searchRounds"]>;rejectedRows:RejectedRow[];warnings:NonNullable<ResearchRecord["evidenceWarnings"]>;complete:boolean};
-type Services={search?:typeof research;readPage?:typeof readOriginalPage};
+type Services={search?:typeof research;readPage?:typeof readOriginalPage;questionId?:string};
 export async function runQuestionResearch(c:ReturnType<typeof connection>,input:DeckInput,record:ResearchRecord,services:Services={}){
  const analysis=record.analysis!,search=services.search??research,readPage=services.readPage??readOriginalPage;
- const planned=record.plan!.questions.filter(q=>analysis.questions.some(a=>a.id===q.questionId&&a.needsPublicEvidence));
+ const planned=record.plan!.questions.filter(q=>(!services.questionId||q.questionId===services.questionId)&&analysis.questions.some(a=>a.id===q.questionId&&a.needsPublicEvidence));
  let originalsUsed=0;const queryCache=new Map<string,ReturnType<typeof research>>(),pageCache=new Map<string,Promise<Page>>();
  const searchOnce=(query:string)=>{const key=query.toLowerCase();let found=queryCache.get(key);if(!found){found=search(c,query);queryCache.set(key,found);}return found;};
  const readOnce=(url:string)=>{let found=pageCache.get(url);if(!found&&originalsUsed<GENERATION_CONFIG.research.originalsPerDeck){originalsUsed++;found=readPage(url);pageCache.set(url,found);}return found;};
@@ -76,14 +76,14 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
  });
  const parts=outcomes.map(outcome=>{if(outcome.status==="rejected")throw outcome.reason;return outcome.value;});
  const sources=[...new Map(parts.flatMap(p=>p.sources).map(s=>[s.url,s])).values()];
- const rawEvidence=[...record.evidence.filter(e=>e.kind==="내부 전제"),...parts.flatMap(p=>p.evidence)].map((e,index)=>({...e,id:String(index+1)}));
+ const rawEvidence=[...record.evidence,...parts.flatMap(p=>p.evidence)].map((e,index)=>({...e,id:String(index+1)}));
  const evidence=deduplicateEvidence(rawEvidence);
  const gaps=analysis.questions.filter(q=>q.needsPublicEvidence).flatMap(q=>evidence.filter(e=>e.kind==="공개 사실"&&verifiedQuestionEvidence(e,q.id)).length>=GENERATION_CONFIG.research.matchingEvidencePerQuestion?[]:[{questionId:q.id,question:q.question,missing:"맥락과 일치하고 원문을 확인한 공개 근거가 부족합니다."}]);
  const rejectedRows=[...(record.rejectedRows??[]),...parts.flatMap(p=>p.rejectedRows)],warnings=[...new Map(parts.flatMap(p=>p.warnings).map(w=>[JSON.stringify(w),w])).values()];
  const pageRows=parts.flatMap((p,i)=>p.pages.map(page=>({url:page.url,opened:page.opened,checkedAt:page.checkedAt,error:page.error,format:page.format,originalCharacters:page.text.length,excerptCharacters:evidenceExcerpt(page.text,planned[i].localQuery+" "+planned[i].englishQuery).length,questionIds:[planned[i].questionId]})));
- const pages=[...new Map(pageRows.map(page=>[page.url,{...page,questionIds:[...new Set(pageRows.filter(p=>p.url===page.url).flatMap(p=>p.questionIds))]}])).values()];
- const searchStatus=sources.length?"searched":planned.length?"unavailable":"not-requested";
- const result:ResearchRecord={...record,evidence,evidenceCounts:{raw:rawEvidence.length,unique:evidence.length,publicRaw:rawEvidence.filter(e=>e.kind!=="내부 전제").length,publicUnique:evidence.filter(e=>e.kind!=="내부 전제").length},rejectedRows,evidenceWarnings:warnings,searchStatus,query:parts.flatMap(p=>p.queries).join("\n"),queries:parts.flatMap(p=>p.queries),searchRounds:parts.flatMap(p=>p.rounds),originalPages:pages,gaps,requiresReview:!!gaps.length,acceptedLimits:false,notice:(searchStatus==="unavailable"?"웹 검색 없이 첨부 자료만으로 작성됨":`공개 조사 · 원문 ${pages.filter(p=>p.opened).length}/${pages.length}개 · 근거 ${evidence.length}행`)+(warnings.length?` · 원문 미확인·시간 제한 안내 ${warnings.length}건`:"")+(rejectedRows.length?` · 제외 행 ${rejectedRows.length}건`:"")};
+ const pages=[...new Map([...(record.originalPages??[]),...pageRows].map(page=>[page.url,{...page,questionIds:[...new Set([...(page.questionIds??[]),...pageRows.filter(p=>p.url===page.url).flatMap(p=>p.questionIds)])]}])).values()];
+ const searchStatus=sources.length||record.searchStatus==="searched"?"searched":planned.length?"unavailable":"not-requested";
+ const result:ResearchRecord={...record,evidence,evidenceCounts:{raw:rawEvidence.length,unique:evidence.length,publicRaw:rawEvidence.filter(e=>e.kind!=="내부 전제").length,publicUnique:evidence.filter(e=>e.kind!=="내부 전제").length},rejectedRows,evidenceWarnings:warnings,searchStatus,query:parts.flatMap(p=>p.queries).join("\n"),queries:[...new Set([...(record.queries??[]),...parts.flatMap(p=>p.queries)])],searchRounds:[...(record.searchRounds??[]),...parts.flatMap(p=>p.rounds)],originalPages:pages,gaps,requiresReview:!!gaps.length,acceptedLimits:false,notice:(searchStatus==="unavailable"?"웹 검색 없이 첨부 자료만으로 작성됨":`공개 조사 · 원문 ${pages.filter(p=>p.opened).length}/${pages.length}개 · 근거 ${evidence.length}행`)+(warnings.length?` · 원문 미확인·시간 제한 안내 ${warnings.length}건`:"")+(rejectedRows.length?` · 제외 행 ${rejectedRows.length}건`:"")};
  const saved=await checkpoint("evidence-table",{model:c.model,input,analysis,evidence,queries:result.queries},async()=>({sources,researchRecord:result}));
  return {...saved,researchRecord:applyResearchCoverage(saved.researchRecord)};
 }

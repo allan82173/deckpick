@@ -547,3 +547,46 @@ Windows 작업 폴더에서 이번 변경 후 전체 테스트 165개(새 테스
 - 사용자 실사용 1회로 2장 결론 요약, 판단 보류 키메시지 수(≤2), 스토리라인 재시도·시간 증가 여부를 확인한다.
 - 결론 먼저 검증 때문에 스토리라인 재시도가 잦으면 검증을 경고로 낮추는 방안을 검토한다.
 - 다음 후보: 4차 계획 4번(조사 최신 연도 우선·IR 질문), 5번(내부 자료 활용), 7번(큰 숫자·최소 글자 크기). Claude 작업 종료.
+
+## 2026-11-08 Codex — 최신 기능 비공개 Vercel 배포 및 공개 데모 제거
+
+### ① 바꾼 파일과 이유
+사용자의 최신 요청으로 2번 프로젝트에 한해 비공개 Vercel 배포를 허용했고 AGENTS.md 맨 위에 반영했다. 상세 구현·검증·한계는 `docs/Vercel-비공개-배포-2026-11-08.md`.
+- `web/src/lib/private-storage.ts` 신설, attachments.ts/attachment-evidence.ts/run-checkpoints.ts/run-attempt-report.ts/run-report-storage.ts: 로컬 파일 저장은 유지하면서 Vercel에서는 Private Blob으로 지속 저장한다. 클라우드 체크포인트는 로컬 rename을 실행하지 않으며 이벤트는 고유 키로 보존한다.
+- `web/src/app/api/attachments/upload/route.ts`, attachments/route.ts, client-upload.ts, cover-editor.tsx: 서명된 직접 업로드와 서버 추출로 큰 파일의 함수 요청 크기 제한을 피한다. 제한된 업로드 경로·파일 종류·용량을 확인한다.
+- `api-request.ts`, research-pipeline.ts, research-questions.ts, API action route, studio.tsx: Vercel 모드에서 질문 단위 조사 요청과 근거/출처/조회 기록 누적. research/run에는 사용하지 않는 첨부 이미지 읽기를 생략한다. 로컬 기본 파이프라인은 유지한다.
+- `generation-config.ts`, run-budget.ts: 클라우드 단계 예산 270초. 함수 maxDuration은 300초를 유지하며 모델·effort·디자인 선택은 바꾸지 않았다.
+- `store.tsx`, studio.tsx, app/page.tsx, app/example/layout.tsx: 비공개 배포의 데모 진입·쇼케이스·예시 경로 비활성화. 새 덱과 기존 데모 저장본을 클라우드에서 AI 모드로 사용한다. 로컬 회귀 예시는 삭제하지 않았다.
+- `.vercelignore`: 로컬 첨부·실행 기록·원본 예시 자산을 배포에서 제외. package.json/package-lock.json에 @vercel/blob 추가. `tests/private-storage.test.ts`에 네임스페이스와 경로 탈출 검사를 추가했다.
+
+### ② 테스트·타입 검사·빌드·배포 결과
+전체 192개 테스트, 타입 검사 통과. 원격 Vercel 빌드 통과, 최종 배포 dpl_FZu39PHByquJZNME8QGZPqJy39PQ READY, 대표 https://deckpick.vercel.app 연결.
+Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API 접근의 로그인 이동 확인. 인증된 /new 200, /example 및 /example/input 404. 합성 이미지 업로드/다른 요청 읽기/재배포 후 지속 읽기 성공. 기존 데모 설정 배포 11개는 프로젝트·ID·현재 대표 배포 대상을 확인한 뒤 사용자 요청에 따라 삭제했다. 테스트용 CLI 접근 우회 수단 1개도 회수해 최종 bypass 0개. 검증 로그는 `web/output/private-vercel/`.
+유료 AI 호출 0회. 로컬 OpenAI/Anthropic 키는 클라우드로 복사하지 않았다. Private Blob 저장소를 같은 Vercel 프로젝트에 생성·연결했다. 로컬 원본 참고자료·사용자 작업·기록은 업로드하지 않았고 GitHub 업로드도 하지 않았다.
+
+### ③ 남은 일과 다음 할 일
+사용자는 Vercel 계정으로 로그인한 뒤 클라우드의 AI 연결 설정에 자신의 키를 입력해 사용한다. 로컬 저장 작업과 첨부는 자동 이전되지 않는다. 실제 유료 모델 생성/큰 PDF 브라우저 업로드/장시간 재개는 미검증이다. 원격 함수의 300초 한계를 넘는 긴 준비 작업은 재개가 필요할 수 있다. 의존성 audit high 6건은 상세 문서에 기록했으며 강제 비호환 업그레이드는 하지 않았다. 계정 접근 보호를 해제하거나 공개 데모를 자동 복원하지 않는다. Codex 작업 종료.
+
+## 2026-11-08 Claude — 마지막 장 후보 생성 실패(section 8자) 수정, 판단 보류 탐지 확대, 결론 요약 내용 검사
+
+증상: 교보문고 실행(덱 b4e178fa, 리포트 `2026-11-08_635f1773…`)에서 9/10장까지만 생성됐다. 마지막 장 candidates가 HTTP 502 "section Too big: expected string to have <=8 characters"로 반복 실패했다.
+
+### ① 바꾼 파일과 이유
+- `web/src/lib/ai.ts`:
+  - 원인: 장표 후보 응답의 section을 모델이 다시 쓰고, slideSchema가 8자 이하를 요구한다. 결론 장에서 "결론 및 다음 단계"처럼 8자를 넘기면 형식 재시도 3회가 모두 실패한다. 같은 날 바뀐 장별 최대 3후보 동시 생성으로 실패 확률이 커졌다.
+  - 수정: decode에서 목차가 확정한 `item.section`(이미 8자 이하)을 쓰고, 없을 때만 모델 값을 8자로 자른다.
+- `web/src/lib/slide-quality.ts`:
+  - `isHedgeHeadline` 탐지 범위를 넓혔다. 실제 실행에서 놓친 "판정할 수 없다", "추가 비교가 필요", "검증 가설이다", "검증해야" 등을 포함한다. 이 실행의 10장 중 5장이 판단 보류형이었는데 이전 규칙은 2장만 잡아 상한 수정이 돌지 않았다.
+  - `isWeakSummaryHeadline` 추가. 결론 요약 장이 "결론은 전략 확정이 아니라 현황 진단이다"처럼 발표 성격만 말하는 경우를 잡는다.
+- `web/src/lib/storyline.ts`: 결론 요약 장의 키메시지가 약하면 기존 키메시지 부분 수정 호출에 합쳐 최종 선택·우선순위 문장으로 고친다. 전체 스토리라인은 재생성하지 않는다.
+- `web/src/lib/deck-review.ts`: 덱 검토에서도 약한 결론 요약 장을 수정 대상으로 올린다. 이미 스토리라인이 저장된 실행도 이어서 생성하면 검토 단계에서 적용된다.
+- 테스트: `candidate-diversity.test.ts`에 모델이 긴 섹션 이름을 써도 1회 호출로 성공하고 목차 섹션이 쓰이는지 검사를 추가했다. `answer-first-hedge.test.ts`에 실제 실행 문구 기반 검사를 추가했다.
+
+### ② 테스트·타입 검사·빌드 결과
+- Linux 복사본: tsc 통과, 테스트 194/194 통과.
+- Windows: typecheck 통과, 테스트 194/194 통과, 프로덕션 빌드 통과. 3100 next start를 수정본으로 재시작했다(Ready 확인). 기록은 `web/output/answer-first/`.
+- 유료 AI 호출 0회.
+
+### ③ 남은 일과 다음 할 일
+- 사용자는 강력 새로고침 후 같은 덱에서 '이어서 생성'을 누른다. 조사·스토리라인 체크포인트는 재사용되고 마지막 장 후보와 덱 검토만 실행된다.
+- 근거 자체가 약한 문제(1번 질문 정확 일치 0개)는 4차 계획 4번(조사 최신 연도 우선·회사 IR 질문) 대상이다.

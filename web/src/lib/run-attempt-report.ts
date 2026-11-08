@@ -1,4 +1,4 @@
-import { mkdir,writeFile } from "node:fs/promises";
+import {storageMkdir as mkdir, storageWrite as writeFile} from "./private-storage";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Deck } from "./model";

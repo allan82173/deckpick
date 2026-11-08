@@ -4,7 +4,7 @@ import { structured, AIError, type connection } from "./ai";
 import { outlineItemSchema, type DeckInput, type ChatMessage, type OutlineItem } from "./model";
 import { decisionSchema, argumentSchema, calculationSchema } from "./task-model";
 import { slideRoles, type ResearchRecord } from "./evidence-model";
-import { isPlanHeadline, isHedgeHeadline, excessHedgeIndices, answerFirstError, HEDGE_HEADLINE_LIMIT, roleLayouts } from "./slide-quality";
+import { isPlanHeadline, isHedgeHeadline, isWeakSummaryHeadline, excessHedgeIndices, answerFirstError, answerFirstIndex, HEDGE_HEADLINE_LIMIT, roleLayouts } from "./slide-quality";
 import { repairStoryCalculations, calculationRepairSchema, calculationRepairPrompt, calculationError, normalizeCalculation } from "./calculation-repair";
 import type { VisionImage } from "./vision";
 import { withBudget } from "./run-budget";
@@ -71,12 +71,14 @@ async function createStorylineBody(c: Connection, input: DeckInput, messages: Ch
   result.outlineDraft = calculationResult.items;
   const bodyIndex = (index: number) => index > 0 && !(input.appendSources && index === input.slideCount - 1);
   const excessHedges = new Set(excessHedgeIndices(result.outlineDraft.map((item, index) => ({ index, text: item.message })).filter(page => bodyIndex(page.index))));
-  const plannedHeadlines = result.outlineDraft.map((item, index) => ({ item, index })).filter(({ item, index }) => bodyIndex(index) && (isPlanHeadline(item.message) || excessHedges.has(index)));
+  const summaryIndex = input.deckType === "consulting" && result.outlineDraft.length >= 6 ? answerFirstIndex(result.outlineDraft) : -1;
+  const weakSummary = summaryIndex > 0 && isWeakSummaryHeadline(result.outlineDraft[summaryIndex].message);
+  const plannedHeadlines = result.outlineDraft.map((item, index) => ({ item, index, ...(index === summaryIndex ? { summary: "덱 전체 결론 요약 장: 최종 선택·우선순위를 바로 말하는 한 문장" } : {}) })).filter(({ item, index }) => bodyIndex(index) && (isPlanHeadline(item.message) || excessHedges.has(index) || (weakSummary && index === summaryIndex)));
   if (plannedHeadlines.length) {
     const repaired = await structured(c, z.object({ headlines: z.array(z.object({ index: z.number().int(), text: z.string().min(1).max(75) })).min(1).max(30) }),
-      "계획형 키메시지와 덱 상한을 넘은 유보형 키메시지(판단할 수 없다·확인되지 않았다 등)만 현재 판단이나 질문으로 수정합니다. 본문 내용·근거·반전 조건은 보존합니다. '~확인합니다/~검토합니다/~제안합니다/~하겠습니다'와 같은 할 일 보고 대신 현재 무엇을 선택했는지 또는 어떤 조건에서 판단이 달라지는지 한 문장으로 적으세요. 자료가 약하면 추론·가설로 낮추되 추가 조사만 약속하지 마세요. 요청한 index만 반환하며 앞뒤 연결과 주장을 뒷받침하는 근거의 한계를 보존합니다.",
+      "계획형 키메시지와 덱 상한을 넘은 유보형 키메시지(판단할 수 없다·확인되지 않았다 등)만 현재 판단이나 질문으로 수정합니다. summary 표시가 있는 장은 발표 성격·근거 수준 설명이 아니라 덱 전체의 최종 선택·우선순위를 근거 강도와 함께 말합니다. 본문 내용·근거·반전 조건은 보존합니다. '~확인합니다/~검토합니다/~제안합니다/~하겠습니다'와 같은 할 일 보고 대신 현재 무엇을 선택했는지 또는 어떤 조건에서 판단이 달라지는지 한 문장으로 적으세요. 자료가 약하면 추론·가설로 낮추되 추가 조사만 약속하지 마세요. 요청한 index만 반환하며 앞뒤 연결과 주장을 뒷받침하는 근거의 한계를 보존합니다.",
       JSON.stringify({ analysis, decisions: decisions.decisions, evidence: selectedEvidence, slides: plannedHeadlines }), value => {
-        if (value.headlines.length !== plannedHeadlines.length || new Set(value.headlines.map(item => item.index)).size !== plannedHeadlines.length || value.headlines.some(item => !plannedHeadlines.some(page => page.index === item.index) || isPlanHeadline(item.text) || (excessHedges.has(item.index) && isHedgeHeadline(item.text)))) throw Error("지정된 장마다 계획형·판단 보류형이 아닌 판단·질문 한 문장만 반환해 주세요.");
+        if (value.headlines.length !== plannedHeadlines.length || new Set(value.headlines.map(item => item.index)).size !== plannedHeadlines.length || value.headlines.some(item => !plannedHeadlines.some(page => page.index === item.index) || isPlanHeadline(item.text) || (excessHedges.has(item.index) && isHedgeHeadline(item.text)) || (weakSummary && item.index === summaryIndex && isWeakSummaryHeadline(item.text)))) throw Error("지정된 장마다 계획형·판단 보류형이 아닌 판단·질문 한 문장만 반환해 주세요.");
       }, [], "headlineRepair");
     for (const replacement of repaired.headlines) result.outlineDraft[replacement.index].message = replacement.text;
   }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import {storageMkdir as mkdir, storageRead as readFile, storageWrite as writeFile} from "./private-storage";
 import path from "node:path";
 import { z } from "zod";
 import { AIError,structured, type connection } from "./ai";

@@ -505,7 +505,8 @@ async function generateCandidateBatch(
     const slides = result.slides.map((s, i) =>
       styleCover(slideSchema.parse({
         layoutId: s.layoutId,
-        section: s.section,
+        // 탭 섹션은 목차에서 이미 8자 이하로 확정됐다. 모델이 다시 쓴 긴 섹션 이름 때문에 장 전체가 실패하지 않게 목차 값을 쓴다.
+        section: (item.section || s.section).slice(0, 8),
         headline: s.headline,
         data: JSON.parse(s.dataJson),
         sources: s.sourceUrls.map((url) => {

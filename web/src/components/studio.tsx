@@ -203,7 +203,7 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
                 ? "데모 모드 · AI 호출 없이 준비된 예시로 체험합니다. 수치·출처를 생성하지 않습니다."
                 : "AI 모드 · 입력 내용은 선택한 AI 제공자에게 전송됩니다."}
             </span>
-            {stage === "new" && !publicDemoOnly && (
+            {stage === "new" && !publicDemoOnly && process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE!=="1" && (
               <button
                 onClick={() =>
                   setDeck((d) => (d ? { ...d, demo: !d.demo } : d))
@@ -281,7 +281,7 @@ function Home() {
           </span>
         </div>
       </div>
-      <div className="home-art">
+      {process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE!=="1"&&<div className="home-art">
         <div className="floating-label">
           <Sparkles size={14} /> 컨설팅 장표 포지셔닝 맵 예시
         </div>
@@ -309,7 +309,7 @@ function Home() {
             <small>텍스트와 도형을 그대로</small>
           </div>
         </div>
-      </div>
+      </div>}
       <div className="home-process">
         {[
           "주제와 목적을 알려주세요",
@@ -677,7 +677,17 @@ async function callAPI(action: string, payload: Record<string, unknown>, credent
   if ((action === "outline" || action === "chat") && payload.context !== "slide") {
     const prepared = await request("research/prepare", payload, credentials);
     onResearch?.(researchRecordSchema.parse(prepared.researchRecord), []);
-    const researched = await request("research/run", { ...payload, researchRecord: prepared.researchRecord }, credentials);
+    let researched:Record<string,unknown>;
+    if(process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE==="1"){
+      let record=researchRecordSchema.parse(prepared.researchRecord),sources:Source[]=[];
+      const questions=record.plan?.questions.filter(q=>record.analysis?.questions.some(a=>a.id===q.questionId&&a.needsPublicEvidence))??[];
+      researched={researchRecord:record,sources};
+      for(const question of questions){
+        researched=await request("research/run",{...payload,researchRecord:record,sources,researchQuestionId:question.questionId},credentials);
+        record=researchRecordSchema.parse(researched.researchRecord);sources=z.array(sourceSchema).parse(researched.sources);
+        onResearch?.(record,sources);
+      }
+    }else researched=await request("research/run", { ...payload, researchRecord: prepared.researchRecord }, credentials);
     const record = researchRecordSchema.parse(researched.researchRecord);
     onResearch?.(record, z.array(sourceSchema).parse(researched.sources));
     if (record.requiresReview) return { ...researched, reply: record.notice, outlineDraft: [], needsResearchReview: true };

@@ -37,7 +37,7 @@ export function freshDeck(): Deck {
     candidates: {},
     picked: {},
     edited: {},
-    demo: true,
+    demo: process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE!=="1",
   };
 }
 type Credentials = {
@@ -83,7 +83,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   }
   function changeInput(patch:Partial<DeckInput>,keepConversation=false){if(!deck)return;const next=updateSetupInput(deck,patch,keepConversation);if(next.id!==deck.id)switchDeck(next);else setDeck(previous=>previous?.id===deck.id?updateSetupInput(previous,patch,keepConversation):previous);}
   function startNewTopic(){const next=freshDeck();if(deck){next.demo=deck.demo;next.input={...next.input,topic:"",purpose:"",audience:"",deckType:deck.input.deckType,designSystemId:deck.input.designSystemId,customPrimary:deck.input.customPrimary,slideCount:deck.input.slideCount};next.designSystem=structuredClone(deck.designSystem);}switchDeck(next);}
-  function restoreDeck(id:string){try{const saved=loadDeckArchive(localStorage,id);if(saved)switchDeck({...saved,demo:publicDemoOnly||saved.demo});else setStorageError("보관된 작업을 읽지 못했습니다.");}catch{setStorageError("보관된 작업을 읽지 못했습니다.");}}
+  function restoreDeck(id:string){try{const saved=loadDeckArchive(localStorage,id);if(saved)switchDeck({...saved,demo:process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE==="1"?false:publicDemoOnly||saved.demo});else setStorageError("보관된 작업을 읽지 못했습니다.");}catch{setStorageError("보관된 작업을 읽지 못했습니다.");}}
   function deleteArchive(id:string){try{const deleted=deleteDeckArchive(localStorage,id,deck?.id,topic=>window.confirm(`“${topic}” 보관본을 삭제할까요?\n삭제한 대화와 장표는 다시 불러올 수 없습니다. 현재 작업과 원본 첨부 파일은 삭제하지 않습니다.`));if(deleted){setArchivedDecks(listDeckArchives(localStorage));setStorageError("");}}catch{setStorageError("보관된 작업을 삭제하지 못했습니다. 다시 시도해 주세요.");}}
   const [credentials, setCredentials] = useState<Credentials>({
     provider: "openai",
@@ -120,7 +120,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       const raw = localStorage.getItem("deckpick-deck");
       if (raw) {
         const r = persistedDeckSchema.safeParse(JSON.parse(raw));
-        if (r.success) setDeck({...r.data,demo:publicDemoOnly || r.data.demo} as Deck);
+        if (r.success) setDeck({...r.data,demo:process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE==="1"?false:publicDemoOnly || r.data.demo} as Deck);
         else
           setStorageError(
             "이전에 저장한 자료를 읽지 못했습니다. 새 덱을 만들 수 있습니다.",

@@ -91,3 +91,20 @@ test("API single replacement emits exactly one nonexcluded structure", async () 
     assert.equal(result.length, 1);
   } finally { globalThis.fetch = original; }
 });
+test("model-written long section names cannot fail the slide; the outline section is used", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  const closing: OutlineItem = { ...item, index: 5, section: "결론" };
+  globalThis.fetch = async (_url, init) => {
+    calls++;
+    const prompt = JSON.parse(JSON.parse(String(init?.body)).input.split("\n앞선 응답")[0]);
+    const slides = (prompt.slotPlan as { layoutId: LayoutId }[]).map(({ layoutId }, i) => ({ layoutId, section: "결론 및 다음 검증 단계", headline: closing.message, dataJson: JSON.stringify(sampleData(layoutId, closing, i)), sourceUrls: [], notes: "가상 검증" }));
+    return Response.json({ output: [{ content: [{ type: "output_text", text: JSON.stringify({ slides }) }] }] });
+  };
+  try {
+    const result = await generateCandidates({ provider: "openai", key: "test-only", model: "test" }, input, closing, [], "");
+    assert.equal(calls, 1);
+    assert.ok(result.length >= 1);
+    for (const slide of result) assert.equal(slide.section, "결론");
+  } finally { globalThis.fetch = original; }
+});

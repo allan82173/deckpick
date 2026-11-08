@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash,randomUUID } from "node:crypto";
-import { mkdir,readFile,writeFile,rename,readdir,appendFile } from "node:fs/promises";
+import {rename} from "node:fs/promises";
+import {cloudStorage,storageMkdir as mkdir,storageRead as readFile,storageWrite as writeFile,storageList as readdir,storageAppend as appendFile} from "./private-storage";
 import path from "node:path";
 import type { GenerationState } from "./run-state";
 import { assertBudget } from "./run-budget";
@@ -18,7 +19,7 @@ export async function checkpoint<T>(stage:string,input:unknown,fn:()=>Promise<T>
  const run=scope.getStore();if(!run)return fn();assertBudget();const file=path.join(run.directory,hash({version:GENERATION_CONFIG.checkpointVersion,stage,input})+".checkpoint.json");
  try{const saved=JSON.parse(await readFile(file,"utf8"));if(saved.status==="complete")return saved.result as T;}catch{}
  const at=()=>new Date().toISOString();
- try{const result=await fn();assertBudget();const data={stage,status:reusable(result)?"complete":"incomplete",updatedAt:at(),result:stripCredentials(result)};const temporary=file+"."+randomUUID()+".tmp";await writeFile(temporary,JSON.stringify(data),{mode:0o600});await rename(temporary,file);await appendFile(path.join(run.directory,"events.jsonl"),JSON.stringify({stage,status:data.status,at:at()})+"\n",{mode:0o600});return result;}
+ try{const result=await fn();assertBudget();const data={stage,status:reusable(result)?"complete":"incomplete",updatedAt:at(),result:stripCredentials(result)};if(cloudStorage())await writeFile(file,JSON.stringify(data));else{const temporary=file+"."+randomUUID()+".tmp";await writeFile(temporary,JSON.stringify(data),{mode:0o600});await rename(temporary,file);}await appendFile(path.join(run.directory,"events.jsonl"),JSON.stringify({stage,status:data.status,at:at()})+"\n",{mode:0o600});return result;}
  catch(error){await appendFile(path.join(run.directory,"events.jsonl"),JSON.stringify({stage,status:"failed",at:at(),reason:error instanceof Error?error.message:"실패"})+"\n",{mode:0o600});throw error;}
 }
 export async function runState(status:GenerationState["status"],error?:string):Promise<GenerationState|undefined>{

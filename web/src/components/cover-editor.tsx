@@ -1,4 +1,5 @@
 "use client";
+import {uploadReference} from "@/lib/client-upload";
 import { useRef, useState } from "react";
 import { attachmentSchema } from "@/lib/attachment-model";
 import { coverPhotoSrc, coverStyleNames } from "@/lib/covers";
@@ -14,11 +15,7 @@ export function CoverEditor({ slide, onChange }: { slide: SlideSpec; onChange: (
   async function upload(file: File) {
     setBusy(true); setError("");
     try {
-      const form = new FormData(); form.append("file", file);
-      const response = await fetch("/api/attachments", { method: "POST", body: form });
-      const result = await response.json();
-      if (!response.ok) throw Error(result.error ?? "사진을 넣지 못했습니다.");
-      const photo = attachmentSchema.parse(result.attachment);
+      const photo=await uploadReference(file);
       if (photo.kind !== "image") throw Error("PNG·JPG·WebP 사진을 선택해 주세요.");
       update({ photoId: photo.id, referencePhoto: undefined, coverStyle: "photo" });
     } catch (e) { setError(e instanceof Error ? e.message : "사진을 넣지 못했습니다."); }

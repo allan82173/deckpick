@@ -47,3 +47,18 @@ test("평가 매트릭스 등급 의미와 결론 먼저 흐름이 생성 지시
   assert.match(slideCompositionPrompt, /근거를 확인한 정도를 등급으로 쓰지 않/);
   assert.match(consultingStylePrompt, /결론 요약을 먼저/);
 });
+
+test("실제 교보문고 실행의 판단 보류형 표현과 형식만 결론인 요약을 잡는다", async () => {
+  const { isWeakSummaryHeadline } = await import("../src/lib/slide-quality");
+  for (const text of [
+    "디지털 독서 경쟁사는 구독·콘텐츠 사례를 보여주지만 우열은 아직 판정할 수 없다",
+    "차별화 후보는 서비스 경험에서 찾되, 선점 위험은 추가 비교가 필요하다",
+    "대학생의 교보문고 인식과 이용 경험은 현재 공개 근거로 확인되지 않는다",
+    "디지털 편의성·가격 가치·오프라인 경험은 확인된 니즈가 아니라 검증 가설이다",
+    "자료는 시장·서비스 현황을 말해주지만 대학생의 선택과 사업성은 추가 검증이 필요하다",
+  ]) assert.equal(isHedgeHeadline(text), true, text);
+  assert.equal(excessHedgeIndices([4, 5, 6, 7, 9].map(index => ({ index, text: "우열은 아직 판정할 수 없다" }))).length, 3);
+  assert.equal(isWeakSummaryHeadline("중간 발표의 결론은 전략 확정이 아니라 근거 수준을 구분한 현황 진단이다"), true);
+  assert.equal(isWeakSummaryHeadline("20대 공략 1순위는 서점 공간 × 굿즈, 2순위는 전자책 학생 요금입니다"), false);
+  assert.equal(isHedgeHeadline("1순위는 오프라인 서점 × 굿즈이며, 방문 빈도가 낮으면 2순위와 교체합니다"), false);
+});

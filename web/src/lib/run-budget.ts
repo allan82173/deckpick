@@ -9,7 +9,7 @@ export function assertBudget(){if(scope.getStore()?.signal.aborted)throw new Bud
 export function providerSignal(){assertBudget();const signal=AbortSignal.timeout(GENERATION_CONFIG.providerTimeoutMs);return scope.getStore()?AbortSignal.any([signal,scope.getStore()!.signal]):signal;}
 export async function retryDelay(attempt:number){assertBudget();await delay(GENERATION_CONFIG.reliability.backoffMs*2**attempt,undefined,{signal:scope.getStore()?.signal});assertBudget();}
 export async function withBudget<T>(name:BudgetName,fn:()=>Promise<T>,overrideMs?:number):Promise<T>{
- const parent=scope.getStore(),deadline=Math.min(parent?.deadline??Infinity,Date.now()+(overrideMs??GENERATION_CONFIG.reliability.deadlines[name]));
+ const parent=scope.getStore(),deadline=Math.min(parent?.deadline??Infinity,Date.now()+Math.min(overrideMs??GENERATION_CONFIG.reliability.deadlines[name],process.env.VERCEL==="1"?GENERATION_CONFIG.hosting.stageBudgetMs:Infinity));
  const controller=new AbortController();let timer:ReturnType<typeof setTimeout>;
  const signal=parent?AbortSignal.any([parent.signal,controller.signal]):controller.signal;
  const expiration=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new BudgetTimeout(name));},Math.max(0,deadline-Date.now()));});

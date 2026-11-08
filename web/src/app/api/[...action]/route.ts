@@ -68,7 +68,7 @@ async function handlePost(
       evidence = ["chat", "outline", "research/prepare", "research/run", "research/continue", "storyline"].includes(action) ? selectResearchContext(documents, query) : selectAttachmentContext(documents, query);
     }
     catch { throw new AIError("첨부 자료를 읽지 못했습니다. 파일을 다시 첨부해 주세요.", 400); }
-    const images = await readAttachmentImages(b.attachmentIds, b.lowDetailImageIds);
+    const images = action==="research/run"?[]:await readAttachmentImages(b.attachmentIds, b.lowDetailImageIds);
     const attachmentUsage = { estimatedTokens: evidence.estimatedTokens, selected: evidence.selected, total: evidence.total, budget: evidence.budget, images: images.length };
     if(action==="slides/chat"){
       if(!b.currentSlide||!b.designSystem||b.targetIndex===undefined)throw new AIError("수정할 장표를 선택해 주세요.",400);
@@ -110,7 +110,9 @@ async function handlePost(
     }
     if (action === "research/run") {
       if (!b.researchRecord) throw new AIError("과제 해석이 필요합니다.", 400);
-      return Response.json({ ...await runResearch(c, b.input, b.researchRecord, evidence.text, b.messages, images), attachmentUsage });
+      if(b.researchQuestionId&&!b.researchRecord.plan?.questions.some(q=>q.questionId===b.researchQuestionId))throw new AIError("조사 질문을 확인해 주세요.",400);
+      const result=await runResearch(c,b.input,b.researchRecord,evidence.text,b.messages,images,{questionId:b.researchQuestionId});
+      return Response.json({...result,sources:[...new Map([...b.sources,...result.sources].map(s=>[s.url,s])).values()],attachmentUsage});
     }
     if (action === "storyline" || action === "research/continue") {
       const record = b.researchRecord?applyResearchCoverage(b.researchRecord):undefined;

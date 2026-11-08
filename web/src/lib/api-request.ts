@@ -15,6 +15,7 @@ export const requestSchema = z.object({
   outline: z.array(outlineItemSchema).max(30).default([]),
   sources: z.array(sourceSchema).default([]),
   researchRecord: researchRecordSchema.optional(),
+  researchQuestionId:z.string().regex(/^Q[1-4]$/).optional(),
   previousLayouts: z.array(z.enum(layoutIds)).max(30).default([]),
   item: outlineItemSchema.optional(),
   instruction: z.string().max(5000).default(""),
