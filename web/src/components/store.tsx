@@ -1,4 +1,5 @@
 "use client";
+import {updateSetupInput,saveDeckArchive,loadDeckArchive,listDeckArchives,deleteDeckArchive} from "@/lib/deck-session";
 import { setActiveRunDeck } from "@/lib/client-run-context";
 import { executionSchema,mergeExecution } from "@/lib/execution-model";
 import { generationStateSchema } from "@/lib/run-state";
@@ -48,6 +49,11 @@ type Credentials = {
 type State = {
   deck: Deck | null;
   setDeck: Dispatch<SetStateAction<Deck | null>>;
+  changeInput:(patch:Partial<DeckInput>,keepConversation?:boolean)=>void;
+  startNewTopic:()=>void;
+  restoreDeck:(id:string)=>void;
+  deleteArchive:(id:string)=>void;
+  archivedDecks:ReturnType<typeof listDeckArchives>;
   ready: boolean;
   storageError: string;
   credentials: Credentials;
@@ -69,6 +75,16 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     };window.addEventListener("deckpick-execution",receive);return()=>window.removeEventListener("deckpick-execution",receive);
   },[]);
   useEffect(()=>{const receive=(event:Event)=>{const detail=(event as CustomEvent).detail,parsed=generationStateSchema.safeParse(detail?.generation);if(!parsed.success)return;updateDeck(previous=>previous&&previous.id===detail.deckId&&JSON.stringify(previous.input)===detail.input?{...previous,generation:{...parsed.data,completedStages:parsed.data.completedStages.length?parsed.data.completedStages:previous.generation?.completedStages??[],lastCompletedStage:parsed.data.lastCompletedStage??previous.generation?.lastCompletedStage}}:previous);};window.addEventListener("deckpick-generation",receive);return()=>window.removeEventListener("deckpick-generation",receive);},[]);
+  const [archivedDecks,setArchivedDecks]=useState<ReturnType<typeof listDeckArchives>>([]);
+  function switchDeck(next:Deck){
+    try{if(deck)saveDeckArchive(localStorage,deck);localStorage.setItem("deckpick-deck",JSON.stringify(next));setArchivedDecks(listDeckArchives(localStorage));}
+    catch{setStorageError("이전 작업을 보관할 공간이 부족합니다. PPTX를 내려받은 뒤 다시 시도해 주세요.");return;}
+    setStorageError("");setActiveRunDeck(next.id);setDeck(next);
+  }
+  function changeInput(patch:Partial<DeckInput>,keepConversation=false){if(!deck)return;const next=updateSetupInput(deck,patch,keepConversation);if(next.id!==deck.id)switchDeck(next);else setDeck(previous=>previous?.id===deck.id?updateSetupInput(previous,patch,keepConversation):previous);}
+  function startNewTopic(){const next=freshDeck();if(deck){next.demo=deck.demo;next.input={...next.input,topic:"",purpose:"",audience:"",deckType:deck.input.deckType,designSystemId:deck.input.designSystemId,customPrimary:deck.input.customPrimary,slideCount:deck.input.slideCount};next.designSystem=structuredClone(deck.designSystem);}switchDeck(next);}
+  function restoreDeck(id:string){try{const saved=loadDeckArchive(localStorage,id);if(saved)switchDeck({...saved,demo:publicDemoOnly||saved.demo});else setStorageError("보관된 작업을 읽지 못했습니다.");}catch{setStorageError("보관된 작업을 읽지 못했습니다.");}}
+  function deleteArchive(id:string){try{const deleted=deleteDeckArchive(localStorage,id,deck?.id,topic=>window.confirm(`“${topic}” 보관본을 삭제할까요?\n삭제한 대화와 장표는 다시 불러올 수 없습니다. 현재 작업과 원본 첨부 파일은 삭제하지 않습니다.`));if(deleted){setArchivedDecks(listDeckArchives(localStorage));setStorageError("");}}catch{setStorageError("보관된 작업을 삭제하지 못했습니다. 다시 시도해 주세요.");}}
   const [credentials, setCredentials] = useState<Credentials>({
     provider: "openai",
     key: "",
@@ -110,6 +126,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
             "이전에 저장한 자료를 읽지 못했습니다. 새 덱을 만들 수 있습니다.",
           );
       }
+      setArchivedDecks(listDeckArchives(localStorage));
       const keyRaw = sessionStorage.getItem("deckpick-ai");
       if (keyRaw && !publicDemoOnly) {
         const v: unknown = JSON.parse(keyRaw);
@@ -168,6 +185,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         deck,
         setDeck,
         ready,
+        changeInput,startNewTopic,restoreDeck,deleteArchive,archivedDecks,
         storageError,
         credentials,
         setCredentials,

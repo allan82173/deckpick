@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fitTextNodes, type TextNode, type SceneNode } from "../src/lib/scene";
-import { avoidPreviousLayout, plannedFirstLayouts } from "../src/lib/candidate-plan";
+import { avoidPreviousLayout, plannedFirstLayouts, candidatePlan } from "../src/lib/candidate-plan";
+import { slideRoles } from "../src/lib/evidence-model";
 import { demoOutline } from "../src/lib/demo";
 import type { DeckInput, LayoutId } from "../src/lib/model";
 
@@ -34,5 +35,14 @@ test("the first candidate does not repeat the previous slide's layout when anoth
     const input: DeckInput = { topic: "합성 과제", purpose: "레이아웃 다양성", slideCount: 10, deckType, designSystemId: "ict-forest" };
     const plan = plannedFirstLayouts(input, demoOutline(input));
     for (let i = 1; i < plan.length; i++) assert.notEqual(plan[i], plan[i - 1], `${deckType} ${i}`);
+  }
+});
+
+test("text-grid tables and low-scored layouts never appear as automatic candidates", () => {
+  const banned = ["comparison-table", "validation-plan", "cross-matrix", "evidence-scope", "compare", "calculation-flow", "system-flow"];
+  for (const deckType of ["consulting", "marketing"] as const) for (const role of slideRoles) for (let rotation = 0; rotation < 4; rotation++) {
+    const input: DeckInput = { topic: "합성", purpose: "표 제외", slideCount: 8, deckType, designSystemId: "ict-forest" };
+    const plan = candidatePlan(input, { index: 3, section: "분석", message: "비교와 판단", contentHint: "", role }, [], rotation);
+    assert.ok(plan.length > 0); assert.ok(!plan.some(id => banned.some(k => id.endsWith("-" + k))), `${deckType} ${role} ${plan}`);
   }
 });

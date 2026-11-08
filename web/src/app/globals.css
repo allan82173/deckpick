@@ -1903,3 +1903,30 @@ a.primary:hover {
 .design-catalog-page{max-width:1500px;margin:auto;padding:32px 24px}.design-catalog-page h1{font-size:36px}.design-catalog-page details{margin:20px 0;padding:16px;border:1px solid var(--line,#d8e5dc);border-radius:10px}.design-catalog-page summary{cursor:pointer;font-weight:700}.design-catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:18px}.design-catalog-grid article{padding:16px;border:1px solid #d8e5dc;border-radius:10px;background:white}.design-catalog-grid h2{font-size:18px}.design-catalog-grid dl{display:grid;grid-template-columns:100px 1fr;gap:6px;font-size:13px}.design-catalog-grid dd{margin:0;color:#526158}.catalog-link{font-size:12px;white-space:nowrap;color:#244c3c;border:1px solid #d8e5dc;border-radius:16px;padding:5px 10px}@media(max-width:800px){.design-catalog-grid{grid-template-columns:1fr}.catalog-link{display:none}}
 
 .generation-report-control{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:16px 0 24px}.generation-report-control small{color:var(--muted);font-size:12px}.generation-report-formats{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Task switching is in normal document flow; native select popups are avoided. */
+.deck-session-controls{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:12px;margin:0 0 20px;max-width:800px}
+.deck-session-controls .new-topic-button{min-height:44px;align-self:start;white-space:nowrap}
+.saved-task-picker{min-width:0;border:1px solid var(--line);border-radius:8px;background:white}
+.saved-task-picker>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:10px 14px;cursor:pointer;list-style:none;color:var(--green);font-size:13px;font-weight:600;box-sizing:border-box}
+.saved-task-picker>summary::-webkit-details-marker{display:none}
+.saved-task-picker>summary>span{display:flex;align-items:center;gap:8px;min-width:0}
+.saved-task-picker>summary small{font-size:11px;font-weight:400;color:var(--muted);white-space:nowrap}
+.saved-task-picker>summary[aria-disabled=true]{opacity:.5;cursor:default}
+.saved-task-picker>summary:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+.saved-task-picker[open]>summary{border-bottom:1px solid var(--line)}
+.saved-task-picker[open]>summary>svg{transform:rotate(180deg)}
+.saved-task-panel{padding:12px;min-width:0}
+.saved-task-panel>p{margin:0 0 10px;font-size:12px;color:var(--muted);line-height:1.6}
+.saved-task-panel ul{list-style:none;margin:0;padding:0;max-height:280px;overflow:auto;display:grid;gap:8px}
+.saved-task-panel li{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg,#f7faf8)}
+.saved-task-panel li>div{min-width:0;flex:1;display:grid;gap:4px}
+.saved-task-panel li strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.saved-task-panel li small{font-size:11px;color:var(--muted)}
+.saved-task-panel li .button{flex-shrink:0;align-self:center;padding:8px 12px;color:var(--green);border-color:var(--green)}
+@media(max-width:600px){.deck-session-controls{grid-template-columns:minmax(0,1fr)}.deck-session-controls .new-topic-button{justify-self:start}.saved-task-panel li{gap:8px}}
+
+.saved-task-panel li>.saved-task-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+.saved-task-panel li .saved-task-delete{color:#a43f37;border-color:#dfb9b5;background:#fff}
+.saved-task-panel li .saved-task-delete:hover:not(:disabled){background:#fff3f1;border-color:#a43f37}
+@media(max-width:480px){.saved-task-panel li{flex-wrap:wrap}.saved-task-panel li>div:first-child{flex-basis:100%}.saved-task-panel li>.saved-task-actions{margin-left:auto}}

@@ -53,7 +53,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
         const original=state.pages.find(p=>p.url===row.url&&p.opened),verified=!!original&&quoteExists(row.originalText,original.text);
         if(row.originalText&&!verified)state.warnings.push({questionId:question.questionId,url:row.url,reason:"인용 대조 실패 · originalText를 비우고 원문 미확인 상태로 보존했습니다."});
         const context=row.contextChecks?classifyContext(analysis.publicContext,row.contextChecks):{contextMatch:row.contextMatch,contextReason:row.contextReason};
-        const item:Evidence={...row,...context,id:String(state.evidence.length+1),questionIds:[question.questionId],originalText:verified?row.originalText:"",originalVerified:verified,verificationStatus:verified?"원문 확인":"원문 미확인",checkedAt:new Date().toISOString(),publishedAt:original&&publicationDateExists(row.publishedAt,original.text)?row.publishedAt:"",contextReason:context.contextReason+(verified?"":" · 원문 미확인")};
+        const item:Evidence={...row,...context,id:String(state.evidence.length+1),questionIds:[question.questionId],originalText:verified?row.originalText:"",originalVerified:verified,verificationStatus:verified?"원문 확인":"원문 미확인",checkedAt:new Date().toISOString(),publishedAt:original&&publicationDateExists(row.publishedAt,original.text)?row.publishedAt:"",contextReason:context.contextReason.slice(0,500-(verified?0:" · 원문 미확인".length))+(verified?"":" · 원문 미확인")};
         if(!state.evidence.some(e=>e.url===item.url&&e.claim===item.claim))state.evidence.push(item);accepted++;
        }
        if(accepted)break;

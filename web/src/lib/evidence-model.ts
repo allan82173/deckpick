@@ -17,7 +17,9 @@ export const evidenceSchema = z.object({
   materialType: z.enum(materialTypes).optional(),
   contextMatch: z.enum(contextMatchValues).optional(),
   contextChecks:z.array(contextCheckSchema).optional(),
-  contextReason: z.string().max(500).optional(),
+  // Stored explanations may include verification annotations after classification.
+  // Keep historical/cached explanations readable without rejecting the entire record.
+  contextReason: z.string().optional(),
   questionIds: z.array(z.string()).max(4).optional(),
   originalVerified: z.boolean().optional(),
   verificationStatus:z.enum(["원문 확인","원문 미확인"]).optional(),

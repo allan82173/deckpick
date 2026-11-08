@@ -1,4 +1,6 @@
 "use client";
+import {DeckSessionControls} from "./deck-session-controls";
+import {hasDeckContext,appendSessionMessages} from "@/lib/deck-session";
 import { activeRunDeck } from "@/lib/client-run-context";
 import { mapConcurrent } from "@/lib/concurrency";
 import { GenerationReportButton } from "./generation-report-button";
@@ -228,7 +230,7 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
   );
 }
 function Home() {
-  const { deck, setDeck } = useStudio();
+  const { deck, startNewTopic } = useStudio();
   const router = useRouter();
   return (
     <main className="home">
@@ -250,11 +252,11 @@ function Home() {
               if (
                 deck?.outline.length &&
                 !confirm(
-                  "기존 덱 대신 새 덱을 만들까요? 필요한 PPTX를 먼저 내려받아 주세요.",
+                  "기존 작업을 보관하고 새 덱을 만들까요?",
                 )
               )
                 return;
-              setDeck(freshDeck());
+              startNewTopic();
               router.push("/new");
             }}
           >
@@ -381,29 +383,15 @@ function Palette({
   );
 }
 function Setup({ onError }: { onError: (s: string) => void }) {
-  const { deck, setDeck, credentials } = useStudio(),
+  const { deck, setDeck, credentials, changeInput,startNewTopic,restoreDeck,deleteArchive,archivedDecks } = useStudio(),
     router = useRouter();
+  const [renameOnly,setRenameOnly]=useState(false);
+  useEffect(()=>setRenameOnly(false),[deck?.id]);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<"settings" | "chat">("settings");
   if (!deck) return null;
   const input = deck.input;
-  const update = (patch: Partial<DeckInput>) =>
-    setDeck((d) =>
-      d
-        ? {
-            ...d,
-            input: { ...d.input, ...patch },
-            ...("designSystemId" in patch || "customPrimary" in patch
-              ? {
-                  designSystem: design(
-                    patch.designSystemId ?? d.input.designSystemId,
-                    patch.customPrimary ?? d.input.customPrimary,
-                  ),
-                }
-              : {}),
-          }
-        : d,
-    );
+  const update=(patch:Partial<DeckInput>)=>changeInput(patch,renameOnly);
   async function generate() {
     if (!deck) return;
     const valid = deckInputSchema.safeParse(input);
@@ -443,7 +431,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
       setDeck((d) =>
         d?.id === deck.id && JSON.stringify(d.input) === JSON.stringify(input) ? { ...d, outline, researchRecord, research: researchSources, candidates: {}, picked: {}, edited: {}, review: undefined } : d,
       );
-      router.push(`/deck/${deck.id}/pick`);
+      if(activeRunDeck()===deck.id)router.push(`/deck/${deck.id}/pick`);
     } catch (e) {
       onError(errorMessage(e));
     } finally {
@@ -457,6 +445,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
         title={step === "settings" ? "어떤 발표 자료를 만들까요?" : "AI와 발표 흐름을 잡아보세요"}
         sub={step === "settings" ? "덱 유형과 디자인을 선택하고 기본 정보를 입력하세요." : "자료와 요청을 전달한 뒤, 준비되면 전체 초안을 만드세요."}
       />
+      <DeckSessionControls key={deck.id} archives={archivedDecks.filter(d=>d.id!==deck.id)} disabled={busy} onNew={()=>{onError("");setStep("settings");startNewTopic();}} onRestore={id=>{onError("");setStep("settings");restoreDeck(id);}} onDelete={deleteArchive}/>
       <nav className="setup-steps" aria-label="자료·대화 단계">
         <button type="button" className={cx("step", step === "settings" && "active")} aria-current={step === "settings" ? "step" : undefined} disabled={busy} onClick={() => setStep("settings")}><span>1</span> 덱 설정</button>
         <button type="button" className={cx("step", step === "chat" && "active")} aria-current={step === "chat" ? "step" : undefined} disabled={busy} onClick={() => setStep("chat")}><span>2</span> AI와 대화</button>
@@ -565,6 +554,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
                 onChange={(e) => update({ topic: e.target.value })}
               />
             </label>
+            {hasDeckContext(deck)?<label className="generation-checkbox"><input type="checkbox" checked={renameOnly} onChange={e=>setRenameOnly(e.target.checked)}/><span>이전 대화를 유지하고 제목만 수정</span></label>:<p className="hint">새 주제의 대화는 별도로 시작합니다. 이전 작업은 보관된 작업에서 다시 열 수 있습니다.</p>}
             <label>
               목적 <span className="required">*</span>
               <input
@@ -613,7 +603,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
       <ResearchGate context="setup" mode="generate" busy={busy} onBusy={setBusy} onAttach={() => setStep("chat")} onError={onError}/>
       {deck.generation?.status==="failed"&&!deck.demo&&<div className="notice warning" role="status">마지막 저장 단계: {deck.generation.lastCompletedStage??"시작 전"}. 완료한 단계는 재사용합니다. <button className="button" disabled={busy} onClick={()=>void generate()}>이어서 생성</button></div>}
       <div className="setup-conversation-page" hidden={step !== "chat"}>
-        <ChatPanel context="setup" onError={onError} />
+        <ChatPanel key={deck.id} context="setup" onError={onError} />
           <button
             className="button outline-button"
             disabled={busy}
@@ -667,16 +657,18 @@ async function requestAPI(
   return data;
 }
 async function callAPI(action: string, payload: Record<string, unknown>, credentials: { provider: string; key: string; model: string }, onResearch?: (record: z.infer<typeof researchRecordSchema>, sources: Source[]) => void): Promise<Record<string, unknown>> {
+  const origin=activeRunDeck();
+  const request=(name:string,data:Record<string,unknown>,auth:typeof credentials)=>{if(activeRunDeck()!==origin)throw Error("주제가 바뀌어 이전 요청의 후속 작업을 중단했습니다.");return requestAPI(name,data,auth);};
   if ((action === "outline" || action === "chat") && payload.context !== "slide") {
-    const prepared = await requestAPI("research/prepare", payload, credentials);
+    const prepared = await request("research/prepare", payload, credentials);
     onResearch?.(researchRecordSchema.parse(prepared.researchRecord), []);
-    const researched = await requestAPI("research/run", { ...payload, researchRecord: prepared.researchRecord }, credentials);
+    const researched = await request("research/run", { ...payload, researchRecord: prepared.researchRecord }, credentials);
     const record = researchRecordSchema.parse(researched.researchRecord);
     onResearch?.(record, z.array(sourceSchema).parse(researched.sources));
     if (record.requiresReview) return { ...researched, reply: record.notice, outlineDraft: [], needsResearchReview: true };
-    return requestAPI("storyline", { ...payload, researchRecord: record, sources: researched.sources }, credentials);
+    return request("storyline", { ...payload, researchRecord: record, sources: researched.sources }, credentials);
   }
-  return requestAPI(action, payload, credentials);
+  return request(action, payload, credentials);
 }
 
 function ResearchGate({ context, mode, busy = false, onBusy, onAttach, onError }: { context: "setup" | "outline"; mode: "generate" | "proposal"; busy?: boolean; onBusy?: (value: boolean) => void; onAttach?: () => void; onError: (text: string) => void }) {
@@ -704,7 +696,7 @@ function ResearchGate({ context, mode, busy = false, onBusy, onAttach, onError }
         if (mode === "generate") return { ...next, outline, candidates: {}, picked: {}, edited: {}, review: undefined };
         return { ...next, chat: { ...next.chat, [context]: [...next.chat[context], { role: "assistant" as const, text: String(result.reply) + "\n" + nextRecord.notice, outlineDraft: outline, sources, createdAt: new Date().toISOString() }] } };
       });
-      if (!result.needsResearchReview && mode === "generate") router.push(`/deck/${snapshot.id}/pick`);
+      if (activeRunDeck()===snapshot.id && !result.needsResearchReview && mode === "generate") router.push(`/deck/${snapshot.id}/pick`);
     } catch (error) { onError(errorMessage(error)); }
     finally { setWorking(false); onBusy?.(false); }
   }
@@ -774,17 +766,7 @@ function ChatPanel({
   }, [messages.length, busy]);
   if (!deck) return null;
   function append(newMessages: ChatMessage[]) {
-    setDeck((d) => {
-      if (!d) return d;
-      const chat = { ...d.chat };
-      if (context === "slide")
-        chat.slides = {
-          ...chat.slides,
-          [index]: [...(chat.slides[index] ?? []), ...newMessages],
-        };
-      else chat[context] = [...chat[context], ...newMessages];
-      return { ...d, chat };
-    });
+    if(deck)setDeck(d=>appendSessionMessages(d,deck.id,context,index,newMessages));
   }
   async function check() {
     setKeyBusy(true);
@@ -884,14 +866,15 @@ function ChatPanel({
             createdAt: new Date().toISOString(),
           },
         ]);
-        setDeck((d) => (d ? { ...d, research: sources, researchRecord: researchRecordSchema.parse(r.researchRecord), input: requestInput } : d));
+        setDeck((d) => (d?.id===deck.id ? { ...d, research: sources, researchRecord: researchRecordSchema.parse(r.researchRecord), input: requestInput } : d));
       }
     } catch (e) {
+      if(activeRunDeck()!==deck.id)return;
       onError(errorMessage(e));
       append([
         {
           role: "assistant",
-          text: "요청을 완료하지 못했습니다. 오류 안내를 확인하고 다시 보내 주세요.",
+          text: "요청을 완료하지 못했습니다.\n" + errorMessage(e),
           createdAt: new Date().toISOString(),
         },
       ]);
@@ -1321,7 +1304,7 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
                   onError("비어 있는 섹션·메시지를 확인해 주세요.");
                   return;
                 }
-                router.push(`/deck/${deck.id}/pick`);
+                if(activeRunDeck()===deck.id)router.push(`/deck/${deck.id}/pick`);
               }}
             >
               전체 초안 만들기 <ArrowRight size={15} />
