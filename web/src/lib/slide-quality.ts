@@ -37,12 +37,12 @@ export function isRendererWarning(warning:string){return /텍스트.*넘|한 줄
 export const HEDGE_HEADLINE_LIMIT = 2;
 export function isHedgeHeadline(text: string): boolean {
   const plain = text.replace(/\*\*/g, "");
-  return /(?:판단|판정|단정|결론|평가|우열)(?:을|를|은|는|이|가)?\s*(?:내리기|짓기|하기)?\s*(?:어렵|할 수 없|내릴 수 없|지을 수 없)|확인되지 않|확인할 수 없|알 수 없|불분명|미확인|근거가 부족|자료가 부족|(?:조사|확인|검증|비교|분석)(?:이|가)?\s*(?:더\s*)?필요|(?:검증|확인)해야|검증 가설|아직\s*(?:판정|판단|확인|검증|입증)/.test(plain);
+  return /(?:판단|판정|단정|진단|확정|설명|입증|결론|평가|우열)(?:을|를|은|는|이|가|까지는?)?\s*(?:내리기|짓기|하기)?\s*(?:어렵|할 수 없|하지\s*(?:않|못)|되지\s*않|내릴 수 없|지을 수 없|짓지\s*못)|확인되지 않|확인할 수 없|알 수 없|불분명|미확인|근거가 부족|자료가 부족|(?:조사|확인|검증|비교|분석)(?:이|가)?\s*(?:더\s*)?필요|(?:검증|확인)해야|검증 가설|검증할 가설|아직\s*(?:판정|판단|확인|검증|입증)|아직\s.{0,20}가설/.test(plain);
 }
 /** 결론 요약 장이 실제 선택·우선순위 대신 판단 보류나 발표 성격만 말하는지. */
 export function isWeakSummaryHeadline(text: string): boolean {
   const plain = text.replace(/\*\*/g, "");
-  return isHedgeHeadline(plain) || /(?:결론|목표|목적)은\s.*(?:아니라|진단|구분)|(?:현황|근거)\s*(?:수준을\s*)?(?:진단|정리|구분)(?:이다|입니다|한다|합니다)?[.\s]*$/.test(plain);
+  return isHedgeHeadline(plain) || /(?:이번|본|오늘)\s*(?:중간\s*|최종\s*)?발표(?:는|에서는|의 초점은)|발표 범위|(?:우선하고|가설로)\s.*다룹니다[.\s]*$|(?:결론|목표|목적)은\s.*(?:아니라|진단|구분)|(?:현황|근거)\s*(?:수준을\s*)?(?:진단|정리|구분)(?:이다|입니다|한다|합니다)?[.\s]*$/.test(plain);
 }
 /** 상한을 넘는 유보형 장의 인덱스. 한계·다음 단계가 놓이는 뒤쪽 장을 남기고 앞쪽부터 고친다. */
 export function excessHedgeIndices(pages: { index: number; text: string }[], limit = HEDGE_HEADLINE_LIMIT): number[] {
@@ -63,7 +63,7 @@ export function isPlanHeadline(text: string): boolean {
   return /(?:하겠습니다|해보겠습니다|보겠습니다|확인합니다|검토합니다|살핍니다|살펴봅니다|분석합니다|비교합니다|정리합니다|판단합니다|점검합니다|검증합니다|제안합니다|제시합니다)[.!。\s]*$/.test(text.replace(/\*\*/g, ""));
 }
 /** 원문 대조·검수 상태는 발표 화면이 아니라 노트·근거표에 둔다. */
-export const QA_STATUS_PATTERN = /원문\s*[·ㆍ]?\s*(?:페이지\s*)?(?:미확인|확인\s*전)|페이지\s*확인\s*전|제공된 자료 요약 수치|검수\s*전/;
+export const QA_STATUS_PATTERN = /원문\s*[·ㆍ]?\s*(?:페이지\s*)?(?:미확인|확인\s*전)|페이지\s*확인\s*전|제공된 자료 요약 수치|검수\s*전|부합\s*출처|(?:출처|근거)\s*개수|(?:출처|근거)\s*\d+\s*(?:건|개)/;
 export function visibleQaStatus(data: unknown): string[] {
   return strings(data).filter(text => QA_STATUS_PATTERN.test(text));
 }
@@ -75,7 +75,8 @@ export function allZeroChart(data: unknown): boolean {
     if (value && typeof value === "object") { for (const [k, v] of Object.entries(value)) { if (typeof v === "number" && /^(value|values|percent|y)$/i.test(k)) numbers.push(v); else walk(v, k); } }
   };
   walk(data);
-  return numbers.length >= 2 && numbers.every(value => value === 0);
+  // 모두 0이거나 해당 여부만 0/1로 표시한 차트는 수치 차트가 아니다.
+  return numbers.length >= 2 && (numbers.every(value => value === 0) || (numbers.length >= 3 && numbers.every(value => value === 0 || value === 1)));
 }
 function strings(value: unknown): string[] {
   if (typeof value === "string") return [value];
@@ -89,8 +90,8 @@ export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInp
   const compositionExempt = item.index === 0 || ["표지", "목차"].includes(item.section);
   const refs = (slide.evidenceRefs ?? []).filter(id => evidence.some(e => e.id === id));
   if (isPlanHeadline(slide.headline)) warnings.push("키메시지가 판단·질문 대신 계획형으로 끝납니다.");
-  if (visibleQaStatus(slide.data).length) warnings.push("본문에 원문 확인·검수 상태 문구가 있습니다. 검수 상태는 노트로 옮기고 화면에는 내용과 기준 연도만 남기세요.");
-  if (allZeroChart(slide.data)) warnings.push("차트 수치가 모두 0입니다. 확인되지 않은 항목은 차트 대신 가설·검증 계획으로 보여 주세요.");
+  if (visibleQaStatus(slide.data).length) warnings.push("본문에 원문 확인·검수 상태나 출처 개수 문구가 있습니다. 검수 상태는 노트로 옮기고 화면에는 내용과 기준 연도만 남기세요.");
+  if (allZeroChart(slide.data)) warnings.push("차트 수치가 모두 0이거나 0/1 표시뿐입니다. 확인되지 않은 항목은 차트 대신 가설·검증 계획으로 보여 주세요.");
   if (!exempt && !refs.length) warnings.push("근거표를 참조하지 않습니다.");
   if (item.role === "사실 제시" && !refs.length && !/\d/.test(JSON.stringify(slide.data))) warnings.push("사실 제시 장에 숫자·근거 참조가 모두 없습니다.");
   const body = strings(slide.data).filter(s => s.trim().length > 8);

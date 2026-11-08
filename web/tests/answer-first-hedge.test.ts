@@ -62,3 +62,17 @@ test("실제 교보문고 실행의 판단 보류형 표현과 형식만 결론�
   assert.equal(isWeakSummaryHeadline("20대 공략 1순위는 서점 공간 × 굿즈, 2순위는 전자책 학생 요금입니다"), false);
   assert.equal(isHedgeHeadline("1순위는 오프라인 서점 × 굿즈이며, 방문 빈도가 낮으면 2순위와 교체합니다"), false);
 });
+
+test("2차 실행의 보류형 표현과 메타 요약을 잡는다", async () => {
+  const { isWeakSummaryHeadline } = await import("../src/lib/slide-quality");
+  for (const text of [
+    "출판유통망의 채널 비중은 도서 판매 구조를 보여줄 뿐, 교보문고 성과나 대학생 수요를 설명하지 않습니다.",
+    "현재 공개 근거로는 20대 대학생의 교보문고 인식을 진단할 수 없습니다.",
+    "디지털 편의성·가격 가치·오프라인 경험은 대학생에게 아직 검증할 가설입니다.",
+    "전자책·디지털 독서를 먼저 검토하되, 대학생 지불 의사와 수익성 확인 전에는 확정하지 않습니다.",
+    "공개 자료는 시장 배경을 보여주지만, 대학생 수요와 사업성은 확정하지 못합니다.",
+  ]) assert.equal(isHedgeHeadline(text), true, text);
+  assert.equal(isHedgeHeadline("20대의 교보 이용은 도서 구매 목적 방문에 집중되고, 비도서 사업 인지는 낮습니다."), false);
+  assert.equal(isWeakSummaryHeadline("이번 중간 발표는 현황 진단을 우선하고, 성장 기회는 가설로 다룹니다."), true);
+  assert.equal(isWeakSummaryHeadline("20대 공략은 전자책 학생 요금이 1순위, 오프라인 프로그램이 2순위라는 가설에서 출발합니다."), false);
+});

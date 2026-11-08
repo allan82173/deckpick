@@ -37,3 +37,10 @@ test("사진 없는 표지에 '이미지 자리' 안내 문구를 내보내지 �
   const text = makeScene({ ...cover, data }, forest, 1, input.topic).nodes.map(node => node.kind === "text" ? node.text : "").join("|");
   assert.doesNotMatch(text, /이미지 자리/);
 });
+
+test("2차 실행에서 새로 나온 편법(0/1 지표 차트, 출처 개수 본문)을 잡는다", () => {
+  assert.equal(allZeroChart({ categories: ["디지털 접근성", "가격 가치", "오프라인 경험"], series: [{ name: "검증할 가설 항목", values: [1, 1, 1] }, { name: "대학생 행동으로 확인된 항목", values: [0, 0, 0] }] }), true);
+  assert.equal(allZeroChart({ series: [{ name: "매출", values: [717.25, 869.89] }] }), false);
+  assert.equal(visibleQaStatus({ rows: [{ label: "직접 부합 출처", value: "0 건" }] }).length, 1);
+  assert.equal(visibleQaStatus({ text: "근거 수준을 구분해 해석" }).length, 0);
+});

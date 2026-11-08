@@ -28,9 +28,15 @@ export const researchPlanSchema = z.object({
   questions: z.array(z.object({
     questionId: z.string(), evidenceNeeded: phrase, preferredMaterials: z.array(z.enum(materialTypes)).min(1).max(4),
     localQuery: phrase, englishQuery: phrase,
+    // 한 가지 회사·지표만 겨냥한 짧은 검색어. 긴 키워드 나열 검색어는 검색 결과가 흐려진다.
+    // 저장된 이전 조사 계획과 호환되도록 선택 항목으로 두고, 모델 응답 스키마에서는 필수로 요구한다.
+    focusQueries: z.array(z.string().min(2).max(60)).max(2).optional(),
   })).min(1).max(4),
 });
 export type ResearchPlan = z.infer<typeof researchPlanSchema>;
+export const researchPlanWire = z.object({
+  questions: z.array(researchPlanSchema.shape.questions.element.extend({ focusQueries: z.array(z.string().min(2).max(60)).max(2) })).min(1).max(4),
+});
 export const decisionSchema = z.object({
   questionId: z.string(),
   candidates: z.array(z.object({ name: phrase, rationale: phrase, evidenceRefs: z.array(z.string()) })).min(2).max(8),

@@ -29,7 +29,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
    const state:QuestionResult={sources:[],evidence:[],pages:[],queries:[],rounds:[],rejectedRows:[],warnings:[],complete:true};
    const excerptedPages=()=>state.pages.map(page=>({...page,text:evidenceExcerpt(page.text,question.localQuery+" "+question.englishQuery)}));
    try{await withBudget("researchQuestion",async()=>{
-    let next=[question.localQuery,question.englishQuery],summary="";
+    let next=[question.localQuery,question.englishQuery,...(question.focusQueries??[])],summary="";
     for(let round=0;round<GENERATION_CONFIG.research.roundsPerQuestion;round++){
      assertBudget();const usedQueries:string[]=[];
      for(const raw of next){const query=redactPrivateQuery(raw,analysis);if(!query||state.queries.some(q=>q.toLowerCase()===query.toLowerCase()))continue;state.queries.push(query);usedQueries.push(query);
@@ -66,7 +66,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
      const usable=deduplicateEvidence(state.evidence).filter(e=>[{...e,questionIds:e.primaryQuestionIds??e.questionIds},...(e.relatedFacts??[])].some(f=>f.questionIds?.includes(question.questionId)&&f.originalVerified&&(f.contextMatch==="일치"||f.contextMatch==="부분 일치"))).length;
      // Stop early on enough exact-context evidence, or on enough verified partial-context evidence. Gaps are still judged on exact matches only.
      if(matched>=GENERATION_CONFIG.research.matchingEvidencePerQuestion||usable>=GENERATION_CONFIG.research.partialStopEvidence||emptyAfterRetry)break;
-     if(round+1<GENERATION_CONFIG.research.roundsPerQuestion){const nextQuery=await structured(c,z.object({localQuery:z.string(),englishQuery:z.string()}),"앞선 공개 조사 결과와 부족한 근거를 보고 과제 언어·영어 후속 검색어를 만듭니다. 공개 맥락만 쓰고 이전 검색어를 반복하지 않습니다.",JSON.stringify({publicContext:analysis.publicContext,questionId:question.questionId,evidenceNeeded:question.evidenceNeeded,previousQueries:state.queries,sources:state.sources,summary:summary.slice(-GENERATION_CONFIG.research.summaryCharactersPerRound)}),undefined,[],"planResearch");next=[nextQuery.localQuery,nextQuery.englishQuery].slice(0,GENERATION_CONFIG.research.followupQueries);}
+     if(round+1<GENERATION_CONFIG.research.roundsPerQuestion){const nextQuery=await structured(c,z.object({localQuery:z.string(),englishQuery:z.string()}),"앞선 공개 조사 결과와 부족한 근거를 보고 과제 언어·영어 후속 검색어를 만듭니다. 검색어는 핵심어 3~7개의 짧은 문장으로 한 가지 대상·지표만 겨냥합니다. 공개 맥락만 쓰고 이전 검색어를 반복하지 않습니다.",JSON.stringify({publicContext:analysis.publicContext,questionId:question.questionId,evidenceNeeded:question.evidenceNeeded,previousQueries:state.queries,sources:state.sources,summary:summary.slice(-GENERATION_CONFIG.research.summaryCharactersPerRound)}),undefined,[],"planResearch");next=[nextQuery.localQuery,nextQuery.englishQuery].slice(0,GENERATION_CONFIG.research.followupQueries);}
     }
    });}catch(error){if(!(error instanceof Error&&"status" in error&&error.status===504))throw error;state.complete=false;state.warnings.push({questionId:question.questionId,url:"",reason:"질문 조사 시간 제한 · 완료한 근거만 보존하고 부족한 질문으로 넘겼습니다."});}
    return structuredClone(state);

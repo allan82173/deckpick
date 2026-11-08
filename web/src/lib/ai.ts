@@ -525,7 +525,7 @@ async function generateCandidateBatch(
       if (kind === "survey-findings" && !evidence.some(row => row.id === s.data.evidenceId && [row.claim,row.originalText,row.locator].filter(Boolean).join(" ").includes(String(s.data.sampleSize)))) throw Error("조사 결과는 제공된 근거에 표본 수가 있어야 합니다. 표본 수·기간을 만들어 채우지 마세요.");
       if (s.layoutId.endsWith("cover")) { delete s.data.photoId; delete s.data.referencePhoto; return s; }
       validateHeadline(s.headline, input.deckType === "consulting");
-      if (allZeroChart(s.data)) throw Error("차트 수치가 모두 0입니다. 확인되지 않은 항목은 0으로 그리지 말고 다른 레이아웃(가설·검증 계획)으로 구성해 주세요.");
+      if (allZeroChart(s.data)) throw Error("차트 수치가 모두 0이거나 해당 여부 0/1뿐입니다. 확인되지 않은 항목은 차트로 그리지 말고 다른 레이아웃(가설·검증 계획)으로 구성해 주세요.");
     return s;
   };
   const checkBatch = (slides: SlideSpec[]) => {
@@ -587,7 +587,7 @@ async function generateCandidateBatch(
       previousSignatures,
       count: planned.length,
       rules:
-        "dataJson은 예시와 같은 구조의 JSON 문자열. slotPlan 순서와 layoutId를 정확히 따른다. claimDesign의 preferredLayouts는 이전 설계 단계의 참고이며 이 호출에서는 slotPlan만 허용된다. 각 layoutSchemas의 필수 필드를 빠짐없이 채운다. 최소 데이터가 없으면 빈 양식이나 임의 숫자로 채우지 않는다. 설문은 실제 표본 수·조사 기간·조사 근거 ID가 있어야 하며 인용을 만들지 않는다. 페르소나는 실제 조사 근거가 없으면 가상으로 표시한다. 화면 주석은 uploadedImages에 있는 실제 경로와 픽셀 크기만 쓴다. 데이터 차트는 같은 단위·분모의 실제 근거 수치 또는 명시된 계산 가정만 쓴다. 같은 핵심 메시지와 근거를 유지하면서 비교 기준·인과·인사이트·실행 순서 등 서로 다른 관점으로 재구성한다. 예시의 샘플 문구를 그대로 복사하지 않는다. 없는 수치를 채워 차이를 만들지 않는다. 계산 장은 근거 변수와 가정 변수를 구분하고 산식과 단위를 함께 보인다. 미산출·빈 입력칸만 나열하지 않는다. 분모·측정 기간·포함 항목이 다른 숫자를 같은 지표처럼 나란히 놓지 않는다. 단위와 비교 조건이 없으면 우열을 단정하지 않는다. 원문 미확인·페이지 확인 전·검수 상태 같은 내부 검증 표시는 화면 본문에 쓰지 않고 notes에 적는다. 화면에는 수치와 기준 연도·출처 이름만 남긴다. 확인되지 않은 값을 0으로 차트에 그리지 않는다. 표지는 한 줄에 읽히는 짧은 제목(가급적 24자 이내)으로 쓴다. 자세한 범위와 설명은 부제로 옮긴다. 표지는 부제만 바꾸지 말고 제목 자체를 서로 다른 관점으로 쓴다. photoId/referencePhoto는 작성하지 않는다. 사진 선택은 사용자가 한다. 나머지는 서로 다른 구조. 목차는 목차내용을 서로 다르게 시각화. 모르는 실적은 만들지 않으며 필요하면 [가정]과 산식을 밝힌 계산 예시나 [가설]로 판단한다. sources는 내용과 직접 관련된 것만.",
+        "dataJson은 예시와 같은 구조의 JSON 문자열. slotPlan 순서와 layoutId를 정확히 따른다. claimDesign의 preferredLayouts는 이전 설계 단계의 참고이며 이 호출에서는 slotPlan만 허용된다. 각 layoutSchemas의 필수 필드를 빠짐없이 채운다. 최소 데이터가 없으면 빈 양식이나 임의 숫자로 채우지 않는다. 설문은 실제 표본 수·조사 기간·조사 근거 ID가 있어야 하며 인용을 만들지 않는다. 페르소나는 실제 조사 근거가 없으면 가상으로 표시한다. 화면 주석은 uploadedImages에 있는 실제 경로와 픽셀 크기만 쓴다. 데이터 차트는 같은 단위·분모의 실제 근거 수치 또는 명시된 계산 가정만 쓴다. 같은 핵심 메시지와 근거를 유지하면서 비교 기준·인과·인사이트·실행 순서 등 서로 다른 관점으로 재구성한다. 예시의 샘플 문구를 그대로 복사하지 않는다. 없는 수치를 채워 차이를 만들지 않는다. 계산 장은 근거 변수와 가정 변수를 구분하고 산식과 단위를 함께 보인다. 미산출·빈 입력칸만 나열하지 않는다. 분모·측정 기간·포함 항목이 다른 숫자를 같은 지표처럼 나란히 놓지 않는다. 단위와 비교 조건이 없으면 우열을 단정하지 않는다. 원문 미확인·페이지 확인 전·검수 상태 같은 내부 검증 표시는 화면 본문에 쓰지 않고 notes에 적는다. 화면에는 수치와 기준 연도·출처 이름만 남긴다. 확인되지 않은 값을 0으로 차트에 그리지 않는다. 출처·근거 개수를 본문 수치로 쓰지 않고, 해당 여부를 0/1로 그린 차트를 만들지 않는다. claimType이 가설이거나 근거가 부족한 장은 '확인되지 않음'을 본문 주제로 삼지 않고, 가설과 근거 → 확인 방법(설문 문항 또는 IDI 질문·대상·필요 표본 수나 데이터) → 판단을 바꿀 기준 순서로 채운다. 표지는 한 줄에 읽히는 짧은 제목(가급적 24자 이내)으로 쓴다. 자세한 범위와 설명은 부제로 옮긴다. 표지는 부제만 바꾸지 말고 제목 자체를 서로 다른 관점으로 쓴다. photoId/referencePhoto는 작성하지 않는다. 사진 선택은 사용자가 한다. 나머지는 서로 다른 구조. 목차는 목차내용을 서로 다르게 시각화. 모르는 실적은 만들지 않으며 필요하면 [가정]과 산식을 밝힌 계산 예시나 [가설]로 판단한다. sources는 내용과 직접 관련된 것만.",
     }),
     (value) => {
       verifyCalls++;
