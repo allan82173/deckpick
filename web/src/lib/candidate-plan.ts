@@ -104,10 +104,59 @@ export function plannedFirstLayouts(input: DeckInput, outline: OutlineItem[]): L
   for (const item of outline) {
     let plan: LayoutId[] = [];
     try { plan = candidatePlan(input, item); } catch { plan = []; }
-    const previous = chosen.at(-1);
-    chosen.push((item.index > 0 ? plan.find(id => id !== previous) : undefined) ?? plan[0]);
+    const first = item.index > 0 ? avoidDeckRepeats(plan, chosen, widerPool(input, item), true, outline.length)[0] : undefined;
+    chosen.push(first ?? plan[0]);
   }
   return chosen;
+}
+
+/* 덱 전체 레이아웃 규칙(2026-11-09, 현대차 협력업체 최종 덱 평가 기반)
+   R1 같은 레이아웃은 덱당 최대 2회, 다시 쓰려면 4장 이상 간격
+   R2 카드형 계열은 합쳐서 5장당 1회(최소 2회) 이하, 연속 금지
+   R3 Executive Summary는 앞쪽(3장 이내)에만, 벤치마킹 카드·포지셔닝 맵은 1회
+   R5 아직 쓰지 않은 레이아웃을 먼저 골라 서로 다른 구성 수를 늘린다 */
+export const DECK_LAYOUT_MAX_USES = 2;
+export const DECK_LAYOUT_MIN_GAP = 4;
+const FREE_FAMILIES = new Set(["cover", "agenda", "evidence-table", "section-divider"]);
+const CARD_FAMILIES = new Set(["parallel", "comparison", "argument-board", "system-compare", "judgment-reversal", "benchmark-cards", "persona-cards", "interview-quotes"]);
+const ONCE_FAMILIES = new Set(["executive-summary", "benchmark-cards", "positioning"]);
+export const layoutFamily = (id: string) => families[id as LayoutId] ?? id.slice(2);
+export const isCardFamily = (id: string) => CARD_FAMILIES.has(layoutFamily(id));
+export const cardFamilyLimit = (deckSize: number) => Math.max(2, Math.ceil(deckSize / 5));
+/** previous는 앞 장들의 레이아웃(0번부터 순서대로). 이 레이아웃을 다음 장에 쓰면 어기는 규칙을 반환한다. */
+export function deckLayoutIssue(id: string, previous: string[], deckSize: number): string | null {
+  const family = layoutFamily(id);
+  if (!id || FREE_FAMILIES.has(family)) return null;
+  const index = previous.length;
+  if (family === "executive-summary" && index > 2) return "Executive Summary는 앞쪽 요약 장에만 씁니다.";
+  const uses = previous.filter(value => value === id).length;
+  if (ONCE_FAMILIES.has(family) && uses >= 1) return "이 구성은 덱에서 한 번만 씁니다.";
+  if (uses >= DECK_LAYOUT_MAX_USES) return `같은 레이아웃은 덱당 ${DECK_LAYOUT_MAX_USES}회까지 씁니다.`;
+  const last = previous.lastIndexOf(id);
+  if (last >= 0 && index - last < DECK_LAYOUT_MIN_GAP) return `같은 레이아웃은 ${DECK_LAYOUT_MIN_GAP}장 이상 간격을 둡니다.`;
+  if (isCardFamily(id)) {
+    if (previous.length && isCardFamily(previous.at(-1)!)) return "카드형 구성이 연속됩니다.";
+    if (previous.filter(isCardFamily).length >= cardFamilyLimit(deckSize)) return "카드형 구성이 덱에서 너무 많습니다.";
+  }
+  return null;
+}
+/** 역할에 맞는 자동 사용 가능 레이아웃 전체. 덱 규칙 때문에 첫 계획을 못 쓸 때 대안으로 쓴다. */
+export function widerPool(input: DeckInput, item: OutlineItem): LayoutId[] {
+  if (!item.role || item.index === 0) return [];
+  return (roleLayouts(input.deckType, item.role) ?? []).filter(autoAllowed);
+}
+/** 덱 규칙을 지키고 아직 쓰지 않은 레이아웃을 앞에 둔다. 지킬 수 있는 후보가 없으면 바로 앞 장 중복만 피한다. */
+export function avoidDeckRepeats(plan: LayoutId[], previous: string[], wider: LayoutId[], single: boolean, deckSize: number): LayoutId[] {
+  if (!plan.length || plan[0].endsWith("cover")) return plan;
+  const pool = [...new Set([...plan, ...wider])];
+  const allowed = pool.filter(id => !deckLayoutIssue(id, previous, deckSize));
+  if (!allowed.length) return avoidPreviousLayout(plan, previous.at(-1), wider, single);
+  const used = new Set(previous);
+  const ordered = [...allowed.filter(id => !used.has(id)), ...allowed.filter(id => used.has(id))];
+  if (single) return [ordered[0]];
+  const result: LayoutId[] = [];
+  for (const id of [...ordered, ...plan]) if (!result.includes(id) && !result.some(r => families[r] === families[id])) { result.push(id); if (result.length === plan.length) break; }
+  return result;
 }
 /** 앞 장과 같은 레이아웃이 첫 후보가 되지 않게 순서를 바꾼다. 다른 후보가 없으면 그대로 둔다. */
 export function avoidPreviousLayout(plan: LayoutId[], previous: string | undefined, wider: LayoutId[], single: boolean): LayoutId[] {

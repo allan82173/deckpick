@@ -9,6 +9,7 @@ import { withBudget, remainingBudgetMs } from "./run-budget";
 import { mapConcurrent } from "./concurrency";
 import { GENERATION_CONFIG } from "./generation-config";
 import { checkpoint } from "./run-checkpoints";
+import { deckLayoutIssue } from "./candidate-plan";
 import { topQuestionEvidence,sourceFactsForPrompt,deduplicateDecisions } from "./evidence-selection";
 import { recordEvidenceScope } from "./execution-scope";
 
@@ -42,6 +43,9 @@ export async function assessDeck(c: Connection, deck: Deck): Promise<DeckReview>
     for (const warning of [...local.warnings, ...textArtifacts(visible, analysis)]) {
       if (!issues.some(issue => issue.index === index && issue.reason === warning)) issues.push({ index, category: "구성", reason: warning, repair: warning });
     }
+    // 덱 단위 레이아웃 규칙(R1~R3). 사유에 '반복'을 넣어 수정 라운드가 다른 구성으로 바꾸게 한다.
+    const layoutIssue = deckLayoutIssue(slide.layoutId, previousLayouts, deck.outline.length);
+    if (layoutIssue) { const reason = `레이아웃 반복: ${layoutIssue}`; if (!issues.some(issue => issue.index === index && issue.reason === reason)) issues.push({ index, category: "구성", reason, repair: "내용은 유지하고 앞 장들에서 쓰지 않은 다른 구성으로 바꾸세요." }); }
     previousLayouts.push(slide.layoutId);
   });
   // 덱 단위 규칙: 판단 보류형 키메시지는 상한까지만 둔다(뒤쪽 한계·다음 단계 장을 남기고 앞쪽부터 수정).

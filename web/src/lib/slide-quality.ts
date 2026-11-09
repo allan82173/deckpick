@@ -23,7 +23,7 @@ export const roleLayoutKinds = {
 } satisfies Record<NonNullable<OutlineItem["role"]>, string[]>;
 export function roleLayouts(type: DeckInput["deckType"], role: NonNullable<OutlineItem["role"]>): LayoutId[] {
   const prefix = type === "consulting" ? "c-" : "m-";
-  return layoutIds.filter(id => id.startsWith(prefix) && ((expandedKind(id) && expandedRegistry[expandedKind(id)!].roles.includes(role)) || id === prefix + "argument-board" || roleLayoutKinds[role].some(kind => id === prefix + kind)));
+  return layoutIds.filter(id => id.startsWith(prefix) && ((expandedKind(id) && expandedRegistry[expandedKind(id)!].roles.includes(role)) || id === prefix + "argument-board" || (roleLayoutKinds[role] ?? []).some(kind => id === prefix + kind)));
 }
 // Occupied text line height / available body text height. Thresholds deliberately
 // vary by layout, since a calendar and a calculation card carry different densities.

@@ -9,7 +9,7 @@ import {estimateRequestInput} from "./usage-estimate";
 import { providerSlot } from "./concurrency";
 import { expandedRegistry, expandedKind } from "./expanded-layouts";
 import { withImageInputs, type VisionImage } from "./vision";
-import { candidatePlan, avoidPreviousLayout, candidateSignature, layoutPurpose } from "./candidate-plan";
+import { candidatePlan, avoidDeckRepeats, widerPool, candidateSignature, layoutPurpose } from "./candidate-plan";
 import { consultingStylePrompt, slideCompositionPrompt, validateHeadline } from "./consulting-style";
 import { z } from "zod";
 import {
@@ -500,7 +500,7 @@ async function generateCandidateBatch(
   const unavailable = hasImage ? [] : ["c-screenshot-notes", "m-screenshot-notes"];
   const firstPlan = candidatePlan(input, item, [...exclude, ...unavailable], rotation, single ? 1 : 3,requestedLayout);
   // 바로 앞 장과 같은 구성이 연속되면 디자인이 단조로워지므로, 사용자가 직접 고른 구성이 아니면 다른 후보를 먼저 둔다.
-  const planned = requestedLayout || item.index === 0 ? firstPlan : avoidPreviousLayout(firstPlan, previousLayouts.at(-1), (() => { try { return candidatePlan(input, item, [...exclude, ...unavailable], rotation, 3); } catch { return []; } })(), single);
+  const planned = requestedLayout || item.index === 0 ? firstPlan : avoidDeckRepeats(firstPlan, previousLayouts, [...(() => { try { return candidatePlan(input, item, [...exclude, ...unavailable], rotation, 3); } catch { return []; } })(), ...widerPool(input, item).filter(id => ![...exclude, ...unavailable].includes(id))], single, Math.max(outline.length, previousLayouts.length + 1));
   const allowedIds = [...new Set(planned)];
   const examples = Object.fromEntries(
     allowedIds.map((id) => [id, sampleData(id, item)]),
@@ -526,6 +526,7 @@ async function generateCandidateBatch(
       const kind = expandedKind(s.layoutId);
       if (kind === "screenshot-notes" && !images.some(image => image.id && s.data.imageSrc === `/api/attachments/${image.id}`)) throw Error("실제 업로드한 이미지 경로만 사용할 수 있습니다.");
       if (kind === "persona-cards" && s.data.basis === "실제 조사" && (!Array.isArray(s.data.evidenceIds) || !s.data.evidenceIds.every(id => evidence.some(row => row.id === id)))) throw Error("실제 조사 페르소나는 확인 가능한 조사 근거 ID가 필요합니다.");
+      if (kind === "metrics-panel" && Array.isArray(s.data.metrics) && s.data.metrics.filter((m: { value?: unknown }) => /\d/.test(String(m?.value ?? ""))).length < 2) throw Error("지표 패널은 숫자 값이 있는 지표가 2개 이상일 때만 씁니다. 수치가 없으면 다른 구성으로 바꾸세요.");
       if (kind === "interview-quotes" && s.data.basis === "실제 조사" && (!Array.isArray(s.data.evidenceIds) || !s.data.evidenceIds.every(id => evidence.some(row => row.id === id)))) throw Error("실제 인터뷰 인용은 확인 가능한 조사 근거 ID가 필요합니다. 아직 조사 전이면 basis를 '조사 예정 예시'로 쓰세요.");
       if (kind === "photo-evidence" && Array.isArray(s.data.photos) && (s.data.photos as { imageSrc?: string }[]).some(photo => photo.imageSrc && !images.some(image => image.id && photo.imageSrc === `/api/attachments/${image.id}`))) throw Error("사진은 실제 업로드한 이미지 경로만 쓸 수 있습니다. 사진이 없으면 imageSrc를 비우고 찍을 장면을 caption에 적으세요.");
       if (kind === "survey-findings" && !evidence.some(row => row.id === s.data.evidenceId && [row.claim,row.originalText,row.locator].filter(Boolean).join(" ").includes(String(s.data.sampleSize)))) throw Error("조사 결과는 제공된 근거에 표본 수가 있어야 합니다. 표본 수·기간을 만들어 채우지 마세요.");

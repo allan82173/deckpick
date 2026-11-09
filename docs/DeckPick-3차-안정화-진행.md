@@ -910,3 +910,25 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
   3. 프로젝트 Settings → Git에서 저장소를 연결했다. Root Directory는 web으로 확인했다.
 - 이 기록 커밋이 첫 자동 배포 확인용이다. 코드 변경이 없어 테스트·빌드는 미실행이다. 유료 AI 호출 0회.
 - 첫 자동 배포(5069105)는 2초 만에 NEXT_NO_VERSION으로 실패했다. 원인은 `web/.vercelignore`의 `web/` 줄이다. 중첩된 빈 폴더 web/web을 빼려던 줄인데, Git 연동 배포에서는 저장소 기준으로 적용돼 앱 폴더(/web) 전체가 제외됐다. 해당 줄을 삭제했다. 중첩 web/web은 빈 scripts 폴더뿐이다.
+
+## 2026-11-09 Claude — 덱 전체 레이아웃 규칙 R1~R6(현대차 협력업체 최종 덱 평가 기반)
+
+사용자 승인("규칙부터 적용해줘")으로 20장 최종 덱에서 보인 레이아웃 반복(3열 카드 4회, Executive Summary·벤치마킹·포지셔닝 2회씩, 출처 구간 재요약)을 덱 단위 규칙으로 막았다. 후보 수(장당 3개)는 늘리지 않았다.
+
+### ① 바꾼 파일과 이유
+- `web/src/lib/candidate-plan.ts`: `deckLayoutIssue`·`avoidDeckRepeats`·`widerPool` 추가. R1 같은 레이아웃 덱당 2회·재사용 간격 4장, R2 카드형 계열(헤더 박스·비교 카드·argument-board·system-compare·judgment-reversal·benchmark-cards·persona-cards·interview-quotes) 5장당 1회(최소 2회)·연속 금지, R3 Executive Summary는 3장 이내만·벤치마킹 카드/포지셔닝 1회, R5 규칙을 지키는 후보 중 아직 안 쓴 구성 우선. 표지·목차·출처 표·구획 장은 예외. 지킬 후보가 없으면 기존처럼 바로 앞 장 중복만 피한다. `plannedFirstLayouts`도 같은 규칙 사용.
+- `web/src/lib/ai.ts`: 후보 생성 시 `avoidPreviousLayout` 대신 `avoidDeckRepeats`(앞 장 전체 레이아웃 + 역할 전체 풀). 사용자가 직접 고른 레이아웃은 그대로. R6: 지표 패널은 숫자 값 지표 2개 이상일 때만 통과(아니면 재시도/다른 구성).
+- `web/src/lib/deck-review.ts`: 자동 덱 검토가 R1~R3 위반 장을 "레이아웃 반복: …" 사유로 올려 수정 라운드가 다른 구성으로 바꾸게 함.
+- `web/src/lib/storyline.ts`: R3·R4 지시 — 결론 요약은 앞쪽 한 장, 벤치마킹 여러 장이면 사례 카드는 1장, 포지셔닝은 실제 축일 때 1회, 출처는 마지막 출처 표 1장으로 끝내고 재요약 장 금지, 남는 장은 실행 조직·리스크·부록 근거.
+- `web/src/lib/expanded-layouts.ts`: R6 avoid 문구(인터뷰 인용은 사람 발언이 아닌 내용 금지, 지표 패널은 수치 없는 문장만일 때 금지).
+- `web/src/lib/slide-quality.ts`: `roleLayouts`가 알 수 없는 역할에서 오류 대신 빈 목록 반환(방어).
+- `web/tests/deck-layout-rules.test.ts` 신규 6개(R1·R2·R3·R5·20장 계획 14종 이상·R6).
+
+### ② 검사 결과
+- Linux 사본: `tsc --noEmit` 통과, `npm test` 227/227 통과. 20장 역할 덱 첫 계획 시뮬레이션: 위반 0, 서로 다른 레이아웃 19종.
+- Windows `verify-build-restart.cmd`: typecheck 통과, 테스트 227/227, `next build` 성공, 3100 서버 재시작. 유료 AI 호출 0회.
+
+### ③ 남은 일
+- 다음 실제 생성에서 레이아웃 분포·반복 수정 라운드가 시간 예산 안에 끝나는지 확인.
+- EY 프레임워크 기반 신규 레이아웃(추천: 가치사슬·허브-스포크·성숙도 계단·조직도)은 사용자 선택 후 진행.
+- '내부 검토용 표시'는 발표본에서 꺼야 근거 코드가 보이지 않는다.
