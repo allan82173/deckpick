@@ -1421,3 +1421,36 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
 - 가벼운 단계(헤드라인 보정·형식 보정)의 저가 모델 분리는 run-report의 단계별 토큰을 보고 정한다.
 - Jev(분류 전용 모델)는 판정 단계가 근거 추출 호출 안에 있어 분리 비용부터 따져야 한다. 논문은 저가 판정 대체로는 쓸 만하지만 LLM 보완(확신 낮은 것만 넘기기)으로는 정확도 이득이 작다고 봤고, 한국어 결과는 없다.
 - 로컬 에이전트(구독 로그인) 연결은 방식과 약관을 사용자와 정한 뒤 진행한다.
+
+## 2026-11-09 Claude — 로컬 에이전트 연결(API 키 없이 Claude Code·Codex CLI로 실행)
+
+사용자 결정은 (가)안이다. PC에서 실행한 DeckPick이 AI 호출을 이 PC에 로그인된 CLI로 보낸다. Ollama 같은 로컬 모델은 쓰지 않는다. 공개 사이트에서는 꺼 둔다(구독 로그인을 외부 서비스가 대신 쓰는 형태를 피함).
+
+### ① 바꾼 파일과 이유
+- `web/src/lib/local-agent.ts`(신규): Anthropic Messages 형식 요청을 `claude -p` 또는 `codex exec`로 실행하고, 같은 형식의 응답으로 바꿔 돌려준다.
+  - 구조화 응답은 return_result 도구 응답으로, 웹 검색은 요약과 web_search_result 출처로 바꾼다. http(s)가 아닌 출처는 버린다.
+  - 긴 지시문은 `--system-prompt-file`과 표준 입력으로 넘긴다(Windows 명령줄 길이·따옴표 문제 회피). JSON Schema는 시스템 지시문에 넣고, 응답에서 JSON만 꺼낸다(`extractJson`).
+  - 켜지는 조건은 `DECKPICK_LOCAL_AGENT=1`이면서 `VERCEL`이 아니고, `--version`으로 CLI 설치가 확인될 때다.
+- `web/src/lib/ai.ts`
+  - Provider에 `claude-code`·`codex`를 추가했다. 로컬 에이전트는 키 없이 연결하고, 기본 모델은 sonnet / default다.
+  - providerCall에서 fetch 대신 CLI를 실행한다. 실패는 CLI 오류 문구를 그대로 보여 준다.
+  - 형식 처리는 Anthropic 경로(tool_use)를 재사용하고, Claude 전용 output_config는 쓰지 않는다.
+- `web/src/lib/run-budget.ts`: CLI는 실행마다 준비 시간이 붙어 API보다 느리므로, 로컬 에이전트 설정을 켠 로컬 서버에서는 호출·단계 시간 제한을 3배로 둔다.
+  - 이 설정을 켜면 같은 서버의 OpenAI 실행에도 3배가 적용된다. 유료 비교 실험 때는 설정을 끄고 돌린다.
+- `web/src/lib/api-request.ts`, `web/src/app/api/config/route.ts`, `web/src/components/store.tsx`, `web/src/components/studio.tsx`, `web/src/lib/ui-messages.ts`
+  - 설치가 확인된 CLI만 'Claude Code (이 PC 로그인)' / 'Codex (이 PC 로그인)' 선택지로 보인다.
+  - 로컬 에이전트를 고르면 키 입력칸을 숨기고, 구독 한도에서 차감된다는 안내를 보여 준다.
+- `web/tests/local-agent.test.ts`(신규): JSON 추출, 공개 사이트·미설정 서버 차단, 가짜 CLI로 구조화 응답·검색 출처·사용량 변환을 확인한다.
+- `web/tests/public-demo.test.ts`: config 응답에 새 키 2개를 반영했다.
+- `output/claude-sync/check-local-agents.cmd`(노트북 전용): CLI 설치 여부를 확인한다.
+
+### ② 검사 결과
+- Linux 사본: tsc 통과, `npm test` 242/242 통과.
+- 실제 Claude Code CLI(이 작업 환경, haiku)로 연결 확인·구조화 응답·웹 조사를 확인했다. 조사 1회는 63초, 입력 11.9만(캐시 9만)·출력 0.8만 토큰이었고, 실제 기사 출처가 돌아왔다.
+- 노트북 확인: `claude`, `codex` CLI 모두 PATH에 없다(Codex 데스크톱 앱만 설치됨). 설치와 로그인은 사용자가 해야 한다.
+- Windows `verify-build-restart.cmd`: typecheck 통과, 테스트 242개 중 241 통과·1 건너뜀(가짜 CLI 테스트는 Windows에서 건너뜀), `next build` 성공, 서버 재시작.
+
+### ③ 남은 일
+- 사용자: Claude Code(`npm i -g @anthropic-ai/claude-code` 후 `claude`로 로그인) 또는 Codex CLI(`npm i -g @openai/codex` 후 `codex login`)를 설치한다. 그다음 `.env.local`에 `DECKPICK_LOCAL_AGENT=1`을 추가하고 서버를 재시작한다.
+- Codex 경로는 실제 로그인 환경에서 아직 확인하지 않았다(가짜 CLI 테스트는 Claude 경로만 했다).
+- 첨부 이미지는 로컬 에이전트로 보내지 않는다(텍스트만).

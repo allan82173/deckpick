@@ -41,7 +41,7 @@ export function freshDeck(): Deck {
   };
 }
 type Credentials = {
-  provider: "openai" | "anthropic";
+  provider: "openai" | "anthropic" | "claude-code" | "codex";
   key: string;
   model: string;
   connected: boolean;
@@ -58,7 +58,7 @@ type State = {
   storageError: string;
   credentials: Credentials;
   setCredentials: Dispatch<SetStateAction<Credentials>>;
-  serverKeys: { openai: boolean; anthropic: boolean };
+  serverKeys: { openai: boolean; anthropic: boolean; "claude-code": boolean; codex: boolean };
 };
 const Context = createContext<State | null>(null);
 export function StudioProvider({ children }: { children: ReactNode }) {
@@ -94,6 +94,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [serverKeys, setServerKeys] = useState({
     openai: false,
     anthropic: false,
+    "claude-code": false,
+    codex: false,
   });
   useEffect(() => {
     const controller = new AbortController();
@@ -105,6 +107,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
             serverKeys: z.object({
               openai: z.boolean(),
               anthropic: z.boolean(),
+              "claude-code": z.boolean().default(false),
+              codex: z.boolean().default(false),
             }),
           })
           .safeParse(value);
@@ -136,7 +140,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
           "key" in v &&
           typeof v.key === "string" &&
           "provider" in v &&
-          ["openai", "anthropic"].includes(String(v.provider)) &&
+          ["openai", "anthropic", "claude-code", "codex"].includes(String(v.provider)) &&
           "model" in v &&
           typeof v.model === "string"
         )

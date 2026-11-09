@@ -9,6 +9,7 @@ import {estimateRequestInput} from "./usage-estimate";
 import { providerSlot } from "./concurrency";
 import { expandedRegistry, expandedKind } from "./expanded-layouts";
 import { withImageInputs, type VisionImage } from "./vision";
+import { isLocalAgent, localAgentCall, localAgentAvailable, localAgentsEnabled, type LocalAgent } from "./local-agent";
 import { candidatePlan, avoidDeckRepeats, widerPool, candidateSignature, layoutPurpose } from "./candidate-plan";
 import { consultingStylePrompt, slideCompositionPrompt, validateHeadline } from "./consulting-style";
 import { z } from "zod";
@@ -35,7 +36,7 @@ import { slideRoles, type Evidence } from "./evidence-model";
 import { inspectSlide, evidenceNotes, includeScenario, textArtifacts, MAX_QUALITY_RETRIES,isRendererWarning, allZeroChart, swappedSeriesChart } from "./slide-quality";
 import type { ResearchRecord } from "./evidence-model";
 
-export type Provider = "openai" | "anthropic";
+export type Provider = "openai" | "anthropic" | LocalAgent;
 type Connection = { provider: Provider; key: string; model: string; language?: "ko" | "en" };
 const object = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -53,6 +54,13 @@ export function connection(
   body: { provider?: Provider; model?: string; input?: {language?: "ko" | "en"} },
 ): Connection {
   const provider = body.provider ?? "openai";
+  if (isLocalAgent(provider)) {
+    if (!localAgentsEnabled()) throw new AIError("로컬 에이전트 연결은 PC에서 실행한 DeckPick에서만 쓸 수 있습니다. 공개 사이트에서는 API 키를 연결해 주세요.", 400);
+    if (!localAgentAvailable(provider)) throw new AIError(`${provider === "claude-code" ? "Claude Code" : "Codex"} CLI를 찾지 못했습니다. 이 PC에 설치하고 로그인한 뒤 다시 연결해 주세요.`, 400);
+    const model = body.model || (provider === "claude-code" ? "sonnet" : "default");
+    if (!/^[a-zA-Z0-9_.:-]{1,100}$/.test(model)) throw new AIError("모델 이름을 확인해 주세요.", 400);
+    return { provider, key: "", model, language: body.input?.language ?? "ko" };
+  }
   const key =
     request.headers.get("x-user-api-key") ||
     (provider === "openai"
@@ -84,7 +92,7 @@ function cacheClaudePrefix(payload: Record<string, unknown>) {
 /** Claude에서는 덱 공통 앞부분(item 앞)까지를 캐시 블록으로 표시한다. 이어 붙이면 원래 JSON과 같다. */
 export function markDeckCommon(c: { provider: string }, json: string) {
   const at = json.indexOf(',"item":');
-  return c.provider === "anthropic" && at > 0 ? json.slice(0, at) + CACHE_SPLIT + json.slice(at) : json;
+  return c.provider !== "openai" && at > 0 ? json.slice(0, at) + CACHE_SPLIT + json.slice(at) : json;
 }
 export async function providerCall(
   c: Connection,
@@ -105,7 +113,7 @@ export async function providerCall(
     headers["anthropic-version"] = "2023-06-01";
   }
   const settings=stageSettings(stage);
-  const payload:Record<string,unknown>={...withImageInputs(c.provider,body,images),model:c.model,...(c.provider==="anthropic"?{max_tokens:body.max_tokens??settings.maxOutputTokens,...(/claude-(sonnet|opus|haiku|fable|mythos)-5/.test(c.model)?{output_config:{...(object(body.output_config)?body.output_config:{}),effort:settings.effort}}:{})}:{store:false,...(/^(?:gpt-[56](?:[.-]|$)|o[134](?:-|$))/.test(c.model)||body.reasoning?{reasoning:body.reasoning??{effort:settings.effort}}:{}),max_output_tokens:body.max_output_tokens??settings.maxOutputTokens})};
+  const payload:Record<string,unknown>={...withImageInputs(c.provider==="openai"?"openai":"anthropic",body,isLocalAgent(c.provider)?[]:images),model:c.model,...(c.provider!=="openai"?{max_tokens:body.max_tokens??settings.maxOutputTokens,...(/claude-(sonnet|opus|haiku|fable|mythos)-5/.test(c.model)?{output_config:{...(object(body.output_config)?body.output_config:{}),effort:settings.effort}}:{})}:{store:false,...(/^(?:gpt-[56](?:[.-]|$)|o[134](?:-|$))/.test(c.model)||body.reasoning?{reasoning:body.reasoning??{effort:settings.effort}}:{}),max_output_tokens:body.max_output_tokens??settings.maxOutputTokens})};
   const languageRule = generationLanguageInstruction(c.language);
   if (c.provider === "openai") payload.instructions = `${typeof payload.instructions === "string" ? payload.instructions : ""}\n${languageRule}`;
   else {
@@ -121,7 +129,13 @@ export async function providerCall(
   const startedAt=new Date().toISOString(), started=Date.now();
   try {
     const signal=providerSignal(stage);
-    const received=await providerSlot(async()=>{const response = await fetch(url, {
+    const received=await providerSlot(async()=>{
+      if(isLocalAgent(c.provider)){
+        // 로컬 에이전트: CLI 실행 결과를 Anthropic 응답 형식으로 받는다. 실패는 HTTP 오류처럼 다뤄 아래 공통 처리로 보낸다.
+        try{const value=await localAgentCall(c.provider,c.model,payload,signal);return {response:new Response(JSON.stringify(value),{status:200}),value};}
+        catch(error){const status=(error as {status?:number}).status??502,message=error instanceof Error?error.message:"로컬 에이전트 실행 실패";if(status===504)throw error;const value={error:{message}};return {response:new Response(JSON.stringify(value),{status}),value};}
+      }
+      const response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -143,7 +157,7 @@ export async function providerCall(
   const tokens=(key:string)=>typeof usage[key]==="number"?usage[key] as number:undefined;
   const details=object(usage.output_tokens_details)?usage.output_tokens_details:{},cached=object(usage.input_tokens_details)?usage.input_tokens_details:{};
   // Anthropic의 input_tokens는 캐시 읽기·쓰기 분을 빼고 세므로, OpenAI와 같은 기준(전체 입력)으로 합쳐 기록한다.
-  const anthropicInput=c.provider==="anthropic"&&tokens("input_tokens")!==undefined?(tokens("input_tokens")??0)+(tokens("cache_read_input_tokens")??0)+(tokens("cache_creation_input_tokens")??0):undefined;
+  const anthropicInput=c.provider!=="openai"&&tokens("input_tokens")!==undefined?(tokens("input_tokens")??0)+(tokens("cache_read_input_tokens")??0)+(tokens("cache_creation_input_tokens")??0):undefined;
   recordCall({...retryMetadata,id:crypto.randomUUID(),stage,model:c.model,provider:c.provider,effort:object(payload.reasoning)?String(payload.reasoning.effort):object(payload.output_config)&&typeof payload.output_config.effort==="string"?payload.output_config.effort:"unsupported",maxOutputTokens:Number(c.provider==="openai"?payload.max_output_tokens:payload.max_tokens),startedAt,durationMs:Date.now()-started,status:response.status,truncated,inputTokens:anthropicInput??tokens("input_tokens"),outputTokens:tokens("output_tokens"),totalTokens:tokens("total_tokens")??(anthropicInput!==undefined?anthropicInput+(tokens("output_tokens")??0):undefined),cachedInputTokens:typeof cached.cached_tokens==="number"?cached.cached_tokens:tokens("cache_read_input_tokens"),reasoningTokens:typeof details.reasoning_tokens==="number"?details.reasoning_tokens:undefined});
   if(!response.ok&&(response.status===408||(response.status>=500&&response.status<600))&&networkAttempt<GENERATION_CONFIG.reliability.networkRetries){await retryDelay(networkAttempt++);continue;}
   if(response.ok&&truncated){
@@ -152,6 +166,10 @@ export async function providerCall(
     throw new AIError("AI 출력 한도를 늘려 재시도했지만 응답이 잘렸습니다. 장 수나 자료량을 줄이거나 출력 한도를 조정해 주세요.",502);
   }
   break;
+  }
+  if (!response.ok && isLocalAgent(c.provider)) {
+    const message = object(value) && object(value.error) && typeof value.error.message === "string" ? value.error.message : "로컬 에이전트 실행에 실패했습니다.";
+    throw new AIError(message, response.status === 401 ? 401 : response.status === 400 ? 400 : 502, response.status === 401 || response.status === 400 ? "configuration" : "transient");
   }
   if (!response.ok) {
     const status = response.status;
@@ -329,7 +347,7 @@ export async function structured<T>(
   const jsonSchema = z.toJSONSchema(options.wireSchema??schema, { unrepresentable: "any" });
   let repair = "";
   let lastIssue = "";
-  const nativeClaude = /claude-(sonnet|opus|haiku|fable|mythos)-5/.test(
+  const nativeClaude = c.provider === "anthropic" && /claude-(sonnet|opus|haiku|fable|mythos)-5/.test(
     c.model,
   );
   for (let attempt = 0; attempt < (options.formatAttempts??GENERATION_CONFIG.formatAttempts); attempt++) {
@@ -377,7 +395,7 @@ export async function structured<T>(
     );
     let raw: unknown;
     if (
-      c.provider === "anthropic" &&
+      c.provider !== "openai" &&
       !nativeClaude &&
       Array.isArray(r.content)
     ) {

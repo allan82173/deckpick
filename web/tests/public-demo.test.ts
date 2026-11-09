@@ -12,6 +12,6 @@ test('public demo rejects provider and file routes before parsing or using crede
   assert.equal(response.status,403);
   assert.equal((await upload(new Request('https://demo.example/api/attachments',{method:'POST'}))).status,403);
   assert.equal((await image(new Request('https://demo.example/api/attachments/example'),{params:Promise.resolve({id:'example'})})).status,404);
-  assert.deepEqual((await (await config()).json()).serverKeys,{openai:false,anthropic:false});
+  assert.deepEqual((await (await config()).json()).serverKeys,{openai:false,anthropic:false,"claude-code":false,codex:false});
  }finally{if(prior===undefined)delete process.env.NEXT_PUBLIC_DEMO_ONLY;else process.env.NEXT_PUBLIC_DEMO_ONLY=prior;}
 });
