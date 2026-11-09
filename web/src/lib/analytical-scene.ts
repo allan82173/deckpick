@@ -43,27 +43,55 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
       break;
     }
     case "comparison-table": {
-      const d = schemas[kind].parse(slide.data);
-      const w = 10.29 / d.alternatives.length;
-      cell("비교 기준", .42, 1.95, 2.2, .55, true);
-      d.alternatives.forEach((a, i) => cell(a.name, 2.62 + i * w, 1.95, w, .55, true));
-      const h = 3.5 / d.criteria.length;
+      // 대안 카드 비교: 기준은 가로 띠, 대안은 세로 카드(머리에 A·B·C 표식). 칸 글자는 하나의 크기로 가운데 정렬한다.
+      const d = schemas[kind].parse(slide.data), lw = 2.0, gap = .2, n = d.alternatives.length, w = (12.49 - lw - gap * n) / n, top = 1.95, hh = .72, rh = (6.12 - top - hh - .1) / d.criteria.length, cw = w - .3;
+      const size = Math.min(...d.alternatives.flatMap(a => a.values.map(v => fitStack([v], cw, rh - .26, 15, 12))));
       d.criteria.forEach((label, r) => {
-        cell(label, .42, 2.5 + r * h, 2.2, h);
-        d.alternatives.forEach((a, i) => cell(a.values[r], 2.62 + i * w, 2.5 + r * h, w, h));
+        const y = top + hh + .1 + r * rh;
+        box(.42, y, 12.49, rh, r % 2 ? "#FFFFFF" : c.panel);
+        g.nodes.push({ kind: "rect", x: .42, y: y + .14, w: .06, h: rh - .28, fill: c.primary });
+        const lh = textHeight(label, 13, lw - .3);
+        txt(label, .6, y + (rh - lh) / 2, lw - .3, lh + .04, 13, c.primary, true);
+      });
+      d.alternatives.forEach((a, i) => {
+        const x = .42 + lw + gap + i * (w + gap);
+        box(x, top, w, hh, c.primary);
+        g.nodes.push({ kind: "ellipse", x: x + .14, y: top + .16, w: .4, h: .4, fill: c.tint });
+        txt(String.fromCharCode(65 + i), x + .14, top + .23, .4, .28, 13, c.primary, true, "center");
+        txt(a.name, x + .64, top + .2, w - .78, .32, 14, "#FFFFFF", true);
+        a.values.forEach((v, r) => {
+          const y = top + hh + .1 + r * rh, th = textHeight(v, size, cw);
+          box(x, y + .08, w, rh - .16, "#FFFFFF", c.connector);
+          txt(v, x + .15, y + (rh - th) / 2, cw, th + .04, size, c.darkest, false, "center");
+        });
       });
       conclusion(d.takeaway);
       break;
     }
     case "calendar": {
-      const d = schemas.calendar.parse(slide.data), w = 10.29 / d.periods.length;
-      cell("구분", .42, 1.95, 2.2, .55, true);
-      d.periods.forEach((p, i) => cell(p, 2.62 + i * w, 1.95, w, .55, true));
-      const h = 3.5 / d.events.length;
+      // 달력 표 대신 기간 축 위의 막대로 그린다. 같은 내용이 이어지는 칸은 한 막대로 합치고, 빈 칸('—')은 비워 둔다. 검증 전·가정 일정은 연한 막대.
+      const d = schemas.calendar.parse(slide.data), lw = 2.0, left = .42 + lw + .1, gw = 12.91 - left, w = gw / d.periods.length, top = 1.95, rh = (5.9 - top - .45) / d.events.length;
+      d.periods.forEach((p, i) => { txt(p, left + i * w, top, w, .3, 13, c.primary, true, "center"); g.nodes.push({ kind: "line", x: left + i * w, y: top + .38, w: 0, h: 5.9 - top - .38, fill: c.tint, stroke: c.tint, strokeWidth: 1 }); });
+      g.line?.(left, top + .38, gw, c.primary, 1.5);
+      const tentative = (v: string) => /검증|예시|가정|미정|확인|예정|후보/.test(v);
       d.events.forEach((event, r) => {
-        cell(event.name, .42, 2.5 + r * h, 2.2, h);
-        event.cells.forEach((value, i) => cell(value || "—", 2.62 + i * w, 2.5 + r * h, w, h));
+        const y = top + .45 + r * rh, mid = y + rh / 2;
+        const lh = textHeight(event.name, 13, lw - .2);
+        txt(event.name, .42, mid - lh / 2, lw - .2, lh + .04, 13, c.darkest, true);
+        g.line?.(left, mid, gw, c.connector, 1);
+        const blank = (v: string) => !v.trim() || /^[—–-]+$/.test(v.trim());
+        for (let i = 0; i < event.cells.length;) {
+          const v = event.cells[i]; if (blank(v)) { i++; continue; }
+          let j = i + 1; while (j < event.cells.length && event.cells[j] === v) j++;
+          const x = left + i * w + .06, bw = (j - i) * w - .12, bh = Math.min(.62, rh - .2), soft = tentative(v);
+          box(x, mid - bh / 2, bw, bh, soft ? c.tint : c.primary, soft ? c.primary : undefined);
+          const size = fitStack([v], bw - .2, bh - .08, 13, 11), th = textHeight(v, size, bw - .2);
+          txt(v, x + .1, mid - th / 2, bw - .2, th + .03, size, soft ? c.primary : "#FFFFFF", true, "center");
+          i = j;
+        }
       });
+      box(left, 5.95, .3, .16, c.primary); txt("확정 일정", left + .38, 5.92, 1.2, .24, 11, c.muted);
+      box(left + 1.6, 5.95, .3, .16, c.tint, c.primary); txt("검증 전·가정", left + 1.98, 5.92, 1.5, .24, 11, c.muted);
       conclusion(d.takeaway);
       break;
     }
@@ -84,15 +112,26 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
       break;
     }
     case "contract-bars": {
-      const d = schemas[kind].parse(slide.data), w = 10.45 / d.periods.length;
-      txt(d.assumption, .42, 1.78, 12.49, .38, 11, c.muted);
-      d.periods.forEach((p, i) => cell(p, 2.46 + i * w, 2.28, w, .5, true));
-      const h = 3.1 / d.rooms.length;
-      d.rooms.forEach((room, i) => {
-        const y = 2.85 + i * h;
-        cell(room.name, .42, y, 1.94, h - .08);
-        box(2.46, y, 10.45, h - .08, c.panel, c.tint);
-        room.contracts.forEach(contract => cell(contract.label, 2.46 + contract.start * w, y, (contract.end - contract.start) * w, h - .08, !/미정|확인 필요/.test(contract.label)));
+      // 굵은 칸 대신 타임라인처럼 가는 막대로 계약 기간을 그리고, 막대 위에 라벨, 빈 구간에는 '공실' 표시를 둔다.
+      const d = schemas[kind].parse(slide.data), lw = 1.94, left = .42 + lw + .1, gw = 12.91 - left, w = gw / d.periods.length, top = 2.25, rh = (6.0 - top - .45) / d.rooms.length;
+      txt(d.assumption, .42, 1.78, 12.49, .34, 12, c.muted);
+      d.periods.forEach((p, i) => { txt(p, left + i * w, top, w, .3, 12, c.primary, true, "center"); g.nodes.push({ kind: "line", x: left + i * w, y: top + .38, w: 0, h: 6.0 - top - .38, fill: c.tint, stroke: c.tint, strokeWidth: 1 }); });
+      g.line?.(left, top + .38, gw, c.primary, 1.5);
+      d.rooms.forEach((room, r) => {
+        const y = top + .45 + r * rh, mid = y + rh * .62;
+        txt(room.name, .42, mid - .17, lw - .1, .3, 13, c.darkest, true);
+        g.line?.(left, mid, gw, c.connector, 1);
+        let cursor = 0;
+        const vacancy = (from: number, to: number) => { if (to > from) txt(`공실 ${to - from}`, left + from * w, mid - .32, (to - from) * w, .24, 11, c.muted, false, "center"); };
+        room.contracts.forEach(contract => {
+          vacancy(cursor, contract.start);
+          const x = left + contract.start * w + .04, bw = (contract.end - contract.start) * w - .08, soft = /미정|확인 필요/.test(contract.label);
+          box(x, mid - .09, bw, .18, soft ? c.tint : c.primary, soft ? c.primary : undefined);
+          g.nodes.push({ kind: "ellipse", x: x - .05, y: mid - .07, w: .14, h: .14, fill: soft ? c.primary : c.darkest });
+          txt(contract.label, x, mid - .38, bw, .26, 12, c.primary, true);
+          cursor = contract.end;
+        });
+        vacancy(cursor, d.periods.length);
       });
       conclusion(d.takeaway);
       break;
@@ -113,14 +152,21 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
       break;
     }
     case "evidence-table": {
-      const d = schemas[kind].parse(slide.data), widths = [1, 5.1, 6.39], xs = [.42, 1.42, 6.52];
-      ["근거 ID", "주장", "판단 가능한 범위"].forEach((value, i) => cell(value, xs[i], 1.95, widths[i], .55, true));
-      const h = 3.5 / d.rows.length;
-      d.rows.forEach((v, r) => [v.id, v.claim, v.scope].forEach((value, i) => {
-        const y = 2.5 + r * h;
-        box(xs[i], y, widths[i], h, c.panel, c.tint);
-        txt(value, xs[i] + .08, y + .035, widths[i] - .16, h - .05, 12, c.darkest);
-      }));
+      // 표 대신 근거 카드 목록: ID 표식 · 주장(굵게) · 판단 범위(연한 띠). 4개 이상이면 2열로 놓는다.
+      const d = schemas[kind].parse(slide.data), cols = d.rows.length >= 4 ? 2 : 1, rowsN = Math.ceil(d.rows.length / cols), gap = .2, cw = (12.49 - gap * (cols - 1)) / cols, top = 1.95, ch = (6.12 - top - gap * (rowsN - 1)) / rowsN, tw = cw - 1.15;
+      const cSize = Math.min(...d.rows.map(v => fitStack([v.claim], tw, ch * .45, 16, 12))), sSize = Math.min(...d.rows.map(v => fitStack([v.scope], tw - .2, ch * .38 - .1, 13, 11)));
+      d.rows.forEach((v, i) => {
+        const x = .42 + (i % cols) * (cw + gap), y = top + Math.floor(i / cols) * (ch + gap);
+        box(x, y, cw, ch, c.panel, c.tint);
+        box(x, y, .82, ch, c.darkest);
+        txt(v.id, x + .05, y + ch / 2 - .17, .72, .32, 14, "#FFFFFF", true, "center");
+        const clh = textHeight(v.claim, cSize, tw);
+        txt(v.claim, x + 1.0, y + .14, tw, clh + .04, cSize, c.darkest, true);
+        const sy = y + ch - ch * .38 - .1;
+        box(x + 1.0, sy, tw, ch * .38, "#FFFFFF", c.tint);
+        txt("판단 범위", x + 1.1, sy + .06, 1.2, .22, 10, c.primary, true);
+        txt(v.scope, x + 1.1, sy + .28, tw - .2, ch * .38 - .32, sSize, c.primary);
+      });
       conclusion(d.takeaway);
       break;
     }

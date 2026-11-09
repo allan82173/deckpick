@@ -38,6 +38,6 @@ export function expandedSample(id:string,variant=0):Record<string,unknown>|undef
  case "evidence-convergence":return {...common,evidences:["시장","경쟁","고객","자사"].slice(0,variant?4:3).map((label,i)=>({label,fact:short(`${label} 관점의 핵심 사실`),tag:i?"추론":"공개 사실"})),conclusion:{title:"종합 결론",detail:short("근거가 함께 가리키는 방향")}};
  case "kpi-tree":return {...common,goal:{name:"최종 목표",target:"목표값 ○○%"},drivers:["매출","원가","관계"].slice(0,variant?3:2).map(name=>({name:`${name} 동인`,kpis:[1,2].slice(0,variant?2:2).map(i=>({name:`${name} 지표 ${i}`,target:"목표 ○○"}))}))};
  case "executive-summary":return {...common,rows:["과제 배경","문제 정의","해결 방향","실행 계획"].slice(0,variant?4:3).map(section=>({section,finding:short(`${section}의 핵심 내용을 한 문장으로 요약한 예시`),implication:"다음 판단에 주는 시사점"}))};
- case "screenshot-notes":return {...common,imageSrc:sampleScreen,imageAlt:"직접 만든 가상 화면",imageWidth:900,imageHeight:520,annotations:[{x:.1,y:.3,title:"탐색 목록",description:short("현재 위치를 확인하는 영역")},{x:.6,y:.25,title:"주요 현황",description:"근거와 상태를 요약한 영역"},{x:.65,y:.7,title:"상세 결과",description:"변경할 판단을 확인하는 영역"}]};
+ case "screenshot-notes":return {...common,imageSrc:sampleScreen,imageAlt:"직접 만든 가상 화면",imageWidth:900,imageHeight:520,annotations:[{x:.035,y:.19,title:"탐색 목록",description:short("현재 위치를 확인하는 영역")},{x:.32,y:.19,title:"주요 현황",description:"근거와 상태를 요약한 영역"},{x:.32,y:.5,title:"상세 결과",description:"변경할 판단을 확인하는 영역"}]};
  }
 }

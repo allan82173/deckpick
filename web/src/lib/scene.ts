@@ -452,48 +452,27 @@ export function makeScene(
       break;
     }
     case "c-compare": {
+      // 머리행은 낮게(0.55in) 두고 나머지 높이를 기준 행에 나눈다. 칸 글자는 하나의 크기로 가운데 정렬, 추천 대안은 진한 머리와 연한 칸으로 강조한다.
       const d = dataSchemas["c-compare"].parse(slide.data),
-        w = 9.89 / d.options.length,
-        rh = 4.5 / (d.criteria.length + 1);
-      box(0.42, 1.9, 2.6, rh, c.primary);
+        w = 9.89 / d.options.length, hh = 0.55, top = 1.95,
+        rh = (6.15 - top - hh) / d.criteria.length, cw = w - 0.3,
+        size = Math.min(...d.cells.flat().map(t => fitStack([t], cw, rh - 0.2, 15, 12)));
+      box(0.42, top, 2.6, hh, c.primary);
       d.options.forEach((s, j) => {
-        box(3.02 + j * w, 1.9, w, rh, c.primary);
-        txt(
-          s,
-          3.12 + j * w,
-          2.08,
-          w - 0.2,
-          rh - 0.2,
-          14,
-          "#FFFFFF",
-          true,
-          "center",
-        );
+        const rec = j === d.recommended;
+        box(3.02 + j * w, top, w, hh, rec ? c.darkest : c.primary);
+        txt(s + (rec ? "  · 추천" : ""), 3.12 + j * w, top + 0.14, w - 0.2, 0.3, 14, "#FFFFFF", true, "center");
       });
       d.criteria.forEach((s, i) => {
-        const y = 1.9 + (i + 1) * rh;
-        box(0.42, y, 2.6, rh, c.tint, "#FFFFFF");
-        txt(s, 0.62, y + 0.18, 2.2, rh - 0.2, 13, c.primary, true);
+        const y = top + hh + i * rh;
+        box(0.42, y, 2.6, rh, c.panel, c.connector);
+        nodes.push({ kind: "rect", x: 0.42, y: y + 0.14, w: 0.06, h: rh - 0.28, fill: c.primary });
+        const lh = textHeight(s, 13, 2.2);
+        txt(s, 0.62, y + (rh - lh) / 2, 2.2, lh + 0.04, 13, c.primary, true);
         d.options.forEach((_, j) => {
-          box(
-            3.02 + j * w,
-            y,
-            w,
-            rh,
-            j === d.recommended ? c.panel : "#FFFFFF",
-            c.connector,
-          );
-          txt(
-            d.cells[i][j],
-            3.18 + j * w,
-            y + 0.18,
-            w - 0.32,
-            rh - 0.22,
-            13,
-            c.darkest,
-            j === d.recommended,
-            "center",
-          );
+          const rec = j === d.recommended, th = textHeight(d.cells[i][j], size, cw);
+          box(3.02 + j * w, y, w, rh, rec ? c.tint : "#FFFFFF", c.connector);
+          txt(d.cells[i][j], 3.17 + j * w, y + (rh - th) / 2, cw, th + 0.04, size, c.darkest, rec, "center");
         });
       });
       break;
