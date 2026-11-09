@@ -40,9 +40,12 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
     let next=[question.localQuery,question.englishQuery,...(question.focusQueries??[])],summary="";
     for(let round=0;round<GENERATION_CONFIG.research.roundsPerQuestion;round++){
      assertBudget();const usedQueries:string[]=[];
-     for(const raw of next){const query=redactPrivateQuery(raw,analysis);if(!query||state.queries.some(q=>q.toLowerCase()===query.toLowerCase()))continue;state.queries.push(query);usedQueries.push(query);
-      try{const found=await searchOnce(query);assertBudget();summary+="\n"+found.text;for(const s of found.sources)if(!state.sources.some(existing=>existing.url===s.url))state.sources.push(s);}
-      catch(error){if(!(error instanceof AIError)||error.status!==502)throw error;state.warnings.push({questionId:question.questionId,url:"",reason:error.message});}
+     for(const raw of next){const query=redactPrivateQuery(raw,analysis);if(!query||state.queries.some(q=>q.toLowerCase()===query.toLowerCase()))continue;state.queries.push(query);usedQueries.push(query);}
+     // 한 라운드의 검색어는 2개씩 동시에 보낸다(검색 4개를 순서대로 기다리다 질문당 시간 제한 240초를 넘기던 문제). 결과는 검색어 순서대로 합친다.
+     const searched=await mapConcurrent(usedQueries,query=>searchOnce(query),GENERATION_CONFIG.research.parallelSearches);assertBudget();
+     for(const outcome of searched){
+      if(outcome.status==="fulfilled"){const found=outcome.value;summary+="\n"+found.text;for(const s of found.sources)if(!state.sources.some(existing=>existing.url===s.url))state.sources.push(s);continue;}
+      const error=outcome.reason;if(!(error instanceof AIError)||error.status!==502)throw error;state.warnings.push({questionId:question.questionId,url:"",reason:error.message});
      }
      // 원문 열기는 순서대로 기다리지 않고 한 번에 연다(질문당 3개 × 최대 20초가 순차로 쌓여 시간 제한에 걸리던 문제).
      {assertBudget();const room=Math.max(0,GENERATION_CONFIG.research.originalsPerQuestion-state.pages.length);const pending=state.sources.filter(source=>!state.pages.some(p=>p.url===source.url)).slice(0,room).map(source=>readOnce(source.url)).filter((p):p is Promise<Page>=>!!p);const opened=await Promise.all(pending);assertBudget();for(const page of opened)if(!state.pages.some(p=>p.url===page.url))state.pages.push(page);}
