@@ -24,12 +24,12 @@ export const GENERATION_CONFIG = {
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
     deadlines: { researchQuestion: 240000, storyline: 480000, candidate: 180000, review: 300000 } },
   // 2026-11-08: 핵심 질문 4개를 한 번에 조사하도록 3→4. 제공자 동시 호출 상한도 같이 4가 된다.
-  efficiency:{concurrency:4,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:5000,adjacentParagraphs:1,paragraphChunkCharacters:900},
+  efficiency:{concurrency:4,evidencePerQuestion:8,factsPerSourceInPrompt:3,excerptCharactersPerPage:6000,adjacentParagraphs:1,paragraphChunkCharacters:900},
   benchmark: { minimumVerifiedClaimRatio: .8, maxDurationMs: 900000, minimumTimeReduction: .40, maxInputRatioToBaseline: 1/3, externalRunRetries: 1 },
   measurement: { encoding:"o200k_base", imageInputFallbackTokens:3000 },
   /** 2026-11-08 사용자 결정: 근거가 부족한 질문이 있어도 사용할 근거(공개 또는 첨부)가 하나라도 있으면 확인 화면 없이 현재 범위로 진행하고, 부족한 범위는 안내·덱 한계로 남긴다. */
   autoProceedLimitedEvidence: true,
-  research: { roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, originalsPerDeck: 12, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
+  research: { roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, citedOriginalsPerQuestion: 3, originalsPerDeck: 20, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
   attachments: { chunkCharacters: 12000, rowsPerChunk: 80, extractVersion: "3", imagesPerExtraction: 4, contextTokens: 2400, researchTokens: 7200 },
   candidates: { maximum: 3 },
   /** 자동 후보에서 빼는 레이아웃(사용자가 직접 고를 때만 사용). 4단계 사람 평가에서 장표 점수가 가장 낮았다: calculation-flow 평균 2.38(16덱 중 11덱이 2점 이하), system-flow 2.14(7덱 중 5덱). */

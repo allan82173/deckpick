@@ -81,6 +81,28 @@ export function quoteExists(quote: string, text: string): boolean {
   const excerpt = quote.trim().replace(/^[“\"'「『]+|[”\"'」』]+$/g, "");
   return excerpt.length >= 8 && normalize(text).includes(normalize(excerpt));
 }
+/** PDF 표·줄바꿈에서 구두점·기호 간격이 달라 정확 대조가 실패하는 경우를 위한 대조: 글자·숫자만 남기고 비교한다(조각을 이어 붙이지 않는다). */
+export function looseQuoteExists(quote: string, text: string): boolean {
+  const normalize = (value: string) => value.normalize("NFKC").toLowerCase().replace(/(\d),(?=\d{3})/g, "$1").replace(/(\d)\.(?=\d)/g, "$1d").replace(/[^\p{L}\p{N}%]+/gu, "");
+  const excerpt = normalize(quote);
+  return excerpt.length >= 12 && normalize(text).includes(excerpt);
+}
+const numberTokens = (value: string) => [...new Set((value.normalize("NFKC").match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map(n => n.replace(/,/g, "")).filter(n => n.replace(/\D/g, "").length >= 2 && !/^(19|20)\d{2}$/.test(n)))];
+/** 원문 인용이 맞지 않을 때의 보조 확인: 주장 속 연도가 아닌 수치가 2개 이상이고, 모두 원문의 한 구간(약 2,500자) 안에 함께 나오면 원문으로 확인된 것으로 본다. */
+export function numbersExist(claim: string, text: string, window = 2500): boolean { return !!numbersSnippet(claim, text, window); }
+/** numbersExist가 성립하면 수치들이 함께 나오는 원문 구간(최대 400자)을 그대로 돌려준다. 화면·노트의 '원문'에는 이 실제 원문 구간을 쓴다. */
+export function numbersSnippet(claim: string, text: string, window = 2500): string | undefined {
+  const numbers = numberTokens(claim);
+  if (numbers.length < 2) return undefined;
+  const body = text.normalize("NFKC").replace(/(\d),(?=\d{3})/g, "$1");
+  const positions = numbers.map(n => { const found: number[] = []; const re = new RegExp(`(?<![\\d.])${n.replace(/\./g, "\\.")}(?![\\d]|\\.\\d)`, "g"); let m: RegExpExecArray | null; while ((m = re.exec(body)) && found.length < 200) found.push(m.index); return found; });
+  if (positions.some(p => !p.length)) return undefined;
+  for (const start of positions[0]) {
+    const near = positions.map(list => list.find(i => Math.abs(i - start) <= window));
+    if (near.every(i => i !== undefined)) { const from = Math.min(...(near as number[])), to = Math.max(...(near as number[])); const a = Math.max(0, from - 80), b = Math.min(body.length, Math.max(to + 80, a + 160)); return body.slice(a, Math.min(b, a + 400)).replace(/\s+/g, " ").trim(); }
+  }
+  return undefined;
+}
 
 async function readPage(value: string, signal: AbortSignal): Promise<OriginalPage> {
   const checkedAt = new Date().toISOString();

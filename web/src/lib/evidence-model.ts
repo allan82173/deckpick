@@ -23,6 +23,8 @@ export const evidenceSchema = z.object({
   questionIds: z.array(z.string()).max(4).optional(),
   originalVerified: z.boolean().optional(),
   verificationStatus:z.enum(["원문 확인","원문 미확인"]).optional(),
+  /** 원문 확인 방식: 인용(연속 문구 일치), 수치(인용 불일치 시 수치 동시 출현으로 확인). */
+  verificationMethod:z.enum(["인용","수치"]).optional(),
   attachmentType: z.enum(["내부 전제", "일정", "조건", "목표", "제약", "기타"]).optional(),
   aliasIds:z.array(z.string()).optional(),
   primaryQuestionIds:z.array(z.string()).optional(),
