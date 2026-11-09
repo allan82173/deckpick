@@ -42,6 +42,9 @@ export const expandedSchemas = {
   "flywheel": z.object({ center: label, steps: z.array(z.object({ name: label, detail: body })).min(3).max(5), ...common }),
   "evidence-convergence": z.object({ evidences: z.array(z.object({ label, fact: body, tag: natureTag })).min(3).max(4), conclusion: z.object({ title: label, detail: body }), ...common }),
   "kpi-tree": z.object({ goal: z.object({ name: label, target: label }), drivers: z.array(z.object({ name: label, kpis: z.array(z.object({ name: label, target: label })).min(1).max(3) })).min(2).max(4), ...common }).refine(d => d.drivers.reduce((n, v) => n + v.kpis.length, 0) <= 8, "하위 KPI는 모두 합쳐 8개 이하로 씁니다."),
+  "tam-sam-som": z.object({ levels: z.array(z.object({ name: label, value: z.string().min(1).max(14), definition: body, basis: body })).length(3), ...common }),
+  "risk-matrix": z.object({ risks: z.array(z.object({ id: z.string().min(1).max(3), name: label, impact: z.enum(["높음", "중간", "낮음"]), likelihood: z.enum(["높음", "중간", "낮음"]), response: body })).min(3).max(6), ...common }).refine(d => new Set(d.risks.map(r => r.id)).size === d.risks.length, "리스크 ID가 겹칩니다."),
+  "key-number": z.object({ number: z.string().min(1).max(12), numberLabel: label, context: body, points: z.array(z.object({ title: label, detail: body })).min(2).max(3), ...common }),
 };
 export type ExpandedKind = keyof typeof expandedSchemas;
 export const expandedKinds = Object.keys(expandedSchemas) as ExpandedKind[];
@@ -85,6 +88,9 @@ export const expandedRegistry: Record<ExpandedKind, Meta> = {
   "flywheel": { name: "선순환 고리", stage: 4, reference: 58, roles: ["흐름", "판단", "마무리"], use: "3~5개 활동이 서로를 강화하며 다시 처음으로 돌아오는 플라이휠·선순환 구조를 보여 줄 때", avoid: "시작과 끝이 있는 일회성 절차일 때(흐름형을 쓴다), 단계 사이 강화 관계를 설명할 수 없을 때", minimum: "핵심1, 단계3~5(이름·다음 단계를 강화하는 방식)" },
   "evidence-convergence": { name: "근거 수렴 → 결론", stage: 4, reference: 59, roles: ["판단", "근거", "우선순위"], use: "시장·경쟁·고객·자사 등 서로 다른 근거 3~4개가 하나의 결론으로 모이는 논리를 보여 줄 때", avoid: "근거끼리 같은 내용을 반복할 때, 결론이 근거보다 강하게 단정될 때", minimum: "근거3~4(구분·핵심 사실·성격 표시), 결론1(제목·설명)" },
   "kpi-tree": { name: "KPI 트리", stage: 4, reference: 60, roles: ["계산", "일정", "합의 사항"], use: "최종 목표 하나를 2~4개 동인과 하위 KPI·목표값으로 나눠 성과 관리 체계를 보여 줄 때", avoid: "목표값을 정할 근거가 없는데 수치를 확정처럼 쓸 때(가설로 표시), 지표끼리 상하 관계가 없을 때", minimum: "최종 목표1(이름·목표값), 동인2~4, 하위 KPI 합계 8개 이하(이름·목표값)" },
+  "tam-sam-som": { name: "시장 규모 TAM·SAM·SOM", stage: 2, reference: 61, roles: ["사실 제시", "계산", "판단"], use: "전체 시장(TAM)에서 접근 가능한 시장(SAM), 실제로 얻을 수 있는 시장(SOM)으로 좁혀 사업 기회의 크기를 보여 줄 때", avoid: "시장 정의나 산출 근거를 밝힐 수 없을 때(추정은 가정·계산으로 표시), 세 단계가 포함 관계가 아닐 때", minimum: "TAM·SAM·SOM 3단계(이름·규모 값·정의·산출 근거)" },
+  "risk-matrix": { name: "리스크 매트릭스와 대응", stage: 4, reference: 62, roles: ["판단", "우선순위", "합의 사항"], use: "실행 리스크 3~6개를 영향도×발생 가능성으로 배치하고 리스크별 대응 방안을 함께 보여 줄 때", avoid: "리스크마다 대응이 없을 때, 영향도·가능성을 구분할 근거나 합의된 기준이 없을 때", minimum: "리스크3~6(ID·이름·영향도·가능성 높음/중간/낮음·대응)" },
+  "key-number": { name: "핵심 수치 인사이트", stage: 2, reference: 63, roles: ["사실 제시", "판단", "근거"], use: "판단을 이끄는 숫자 하나를 크게 보여 주고, 그 숫자의 기준과 시사점 2~3개를 붙일 때", avoid: "숫자의 출처·기준을 밝힐 수 없을 때, 여러 숫자를 비교해야 할 때(차트를 쓴다)", minimum: "핵심 수치1(12자 이내)·무엇을 잰 값인지, 기준·비교 설명, 시사점2~3" },
 };
 export const expandedNames = Object.fromEntries(expandedIds.map(id => [id, expandedRegistry[id.slice(2) as ExpandedKind].name])) as Record<ExpandedId, string>;
 export function dateRange(data: { rows?: { periods: { start: string; end: string }[] }[]; milestones?: { date: string }[]; highlight?: { start: string; end: string } }) {

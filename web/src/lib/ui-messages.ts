@@ -643,6 +643,7 @@ export const englishMessages: Record<string, string> = {
   "장 역할": "Slide role",
   "직접 선택 전용": "Manual pick only",
   "점검 반영 11.09": "Revised 11/09",
+  "신규 11.09": "New 11/09",
   "쓰지 않을 때": "Avoid when",
   "최소 데이터": "Minimum data",
   "기존에 지원하던 구성입니다.": "An existing supported layout.",

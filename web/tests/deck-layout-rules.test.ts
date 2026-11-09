@@ -52,12 +52,12 @@ test("R6 레이아웃 설명이 내용 맞춤 조건을 담는다", () => {
   assert.match(expandedRegistry["metrics-panel"].avoid, /수치 지표 없이/);
 });
 
-test("EY 기반 레이아웃 7종은 샘플·스키마·장면이 맞물린다", async () => {
+test("EY 기반 레이아웃 7종과 컨설팅 보강 3종은 샘플·스키마·장면이 맞물린다", async () => {
   const { expandedSchemas } = await import("../src/lib/expanded-layouts");
   const { expandedSample } = await import("../src/lib/expanded-samples");
   const { makeScene } = await import("../src/lib/scene");
   const { design } = await import("../src/lib/design");
-  for (const kind of ["value-chain", "hub-spoke", "maturity-steps", "org-chart", "flywheel", "evidence-convergence", "kpi-tree"] as const) for (const variant of [0, 1]) {
+  for (const kind of ["value-chain", "hub-spoke", "maturity-steps", "org-chart", "flywheel", "evidence-convergence", "kpi-tree", "tam-sam-som", "risk-matrix", "key-number"] as const) for (const variant of [0, 1]) {
     const data = expandedSample(`c-${kind}`, variant)!;
     assert.equal(expandedSchemas[kind].safeParse(data).success, true, kind);
     const nodes = makeScene({ layoutId: `c-${kind}`, headline: "예시", section: "본문", sources: [], data } as never, design("ict-forest" as never), 3, "주제").nodes;
@@ -65,6 +65,10 @@ test("EY 기반 레이아웃 7종은 샘플·스키마·장면이 맞물린다",
   }
   assert.equal(expandedSchemas["value-chain"].safeParse({ ...expandedSample("c-value-chain")!, primary: (expandedSample("c-value-chain")!.primary as { focus: boolean }[]).map(p => ({ ...p, focus: false })) }).success, false);
   assert.equal(expandedSchemas["maturity-steps"].safeParse({ ...expandedSample("c-maturity-steps")!, current: 2, target: 1 }).success, false);
+  const risks = expandedSample("c-risk-matrix")!.risks as { id: string }[];
+  assert.equal(expandedSchemas["risk-matrix"].safeParse({ ...expandedSample("c-risk-matrix")!, risks: risks.map(r => ({ ...r, id: "R1" })) }).success, false, "리스크 ID 중복");
+  assert.equal(expandedSchemas["tam-sam-som"].safeParse({ ...expandedSample("c-tam-sam-som")!, levels: (expandedSample("c-tam-sam-som")!.levels as unknown[]).slice(0, 2) }).success, false, "TAM·SAM·SOM 3단계");
+  assert.equal(expandedSchemas["key-number"].safeParse({ ...expandedSample("c-key-number")!, number: "1,234,567,890원" }).success, false, "핵심 수치 12자 이내");
 });
 
 test("포지셔닝 맵은 경쟁 구도 장에서만 자동 후보가 되고 판단·우선순위 역할에서 빠진다", async () => {

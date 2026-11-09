@@ -190,6 +190,41 @@ break;}
   const kc:number[]=[];v.kpis.forEach((k,j)=>{const ky=y+j*(rh+gap);box(kx,ky,kw,rh,c.panel,c.connector);txt(k.name,kx+.16,ky+rh/2-.15,kw*.58,.3,13,c.darkest);txt(k.target,kx+kw*.6,ky+rh/2-.16,kw*.4-.16,.32,14,c.primary,true,"right");kc.push(ky+rh/2);line(t2,ky+rh/2,kx-t2,c.connector,1.5);});
   line(dx+dw,y+h/2,t2-dx-dw,c.connector,1.5);if(kc.length>1)vline(t2,kc[0],kc[kc.length-1]-kc[0]);y+=h+dgap;});
  line(X+gw,(Y+6.1)/2,t1-X-gw,c.connector,1.5);dc.forEach(cy0=>line(t1,cy0,dx-t1,c.connector,1.5));vline(t1,Math.min(dc[0],(Y+6.1)/2),Math.max(dc[dc.length-1],(Y+6.1)/2)-Math.min(dc[0],(Y+6.1)/2));break;}
+ case "tam-sam-som":{const d=S[kind].parse(slide.data),fills=[c.tint,c.accent,c.darkest],ink=[c.primary,"#FFFFFF","#FFFFFF"],D=[4.1,2.85,1.6],bottom=6.06,cx=X+2.35;
+ // 포함 관계: 바깥(연함)→안(진함)으로 겹친 원. 이름·규모는 각 원의 위쪽 띠(가장 안쪽은 원 가운데)에 둔다.
+ D.forEach((dd,i)=>nodes.push({kind:"ellipse",x:cx-dd/2,y:bottom-dd,w:dd,h:dd,fill:fills[i]}));
+ d.levels.forEach((v,i)=>{const top=bottom-D[i],mid=i<2?(top+bottom-D[i+1])/2:top+D[2]/2,yy=mid-.31;txt(v.name,cx-1,yy,2,.26,11,i?c.onDarkSub:c.primary,true,"center");txt(v.value,cx-1.3,yy+.25,2.6,.38,17,ink[i],true,"center");});
+ const rx=X+5.05,rw=X+W-rx,gap=.14,rh=(6.1-Y-gap*2)/3,tw=rw-.48;
+ d.levels.forEach((v,i)=>{const y=Y+i*(rh+gap),basis=`산출 근거 · ${v.basis}`;box(rx,y,rw,rh,c.panel,c.connector);box(rx,y,.14,rh,fills[i],i?undefined:c.primary);
+  txt(`${v.name}  ${v.value}`,rx+.32,y+.12,tw,.3,14,c.primary,true);
+  const size=fitStack([v.definition,basis],tw,rh-.56-.1,13,11,.06),h1=textHeight(v.definition,size,tw);
+  txt(v.definition,rx+.32,y+.5,tw,h1+.03,size,c.darkest);txt(basis,rx+.32,y+.5+h1+.06,tw,textHeight(basis,size-1,tw)+.03,size-1,c.muted);});break;}
+ case "risk-matrix":{const d=S[kind].parse(slide.data),lv=["낮음","중간","높음"] as const,cs=1.1,gx=X+.62,gy=Y+.32,score=(r:{impact:string;likelihood:string})=>lv.indexOf(r.impact as never)+lv.indexOf(r.likelihood as never);
+ // 영향도(세로, 위가 높음)×발생 가능성(가로, 오른쪽이 높음). 위험할수록 진한 칸, 리스크는 ID 배지로 칸에 놓는다.
+ const sev=(n:number)=>n>=4?c.darkest:n===3?c.primary:n===2?c.tint:c.panel;
+ for(let ii=0;ii<3;ii++)for(let li=0;li<3;li++){const x=gx+li*cs,y=gy+(2-ii)*cs,n=ii+li;box(x+.03,y+.03,cs-.06,cs-.06,sev(n));
+  const here=d.risks.filter(r=>lv.indexOf(r.impact)===ii&&lv.indexOf(r.likelihood)===li),k=here.length;if(!k)continue;
+  const bs=k<=2?.44:.34,per=k<=4?2:3,rows=Math.ceil(k/per),g=.06;
+  here.forEach((r,j)=>{const row=Math.floor(j/per),inRow=Math.min(per,k-row*per),col=j%per,bx=x+cs/2-(inRow*bs+(inRow-1)*g)/2+col*(bs+g),by=y+cs/2-(rows*bs+(rows-1)*g)/2+row*(bs+g);
+   nodes.push({kind:"ellipse",x:bx,y:by,w:bs,h:bs,fill:n>=3?"#FFFFFF":c.darkest});txt(r.id,bx,by+bs/2-.11,bs,.22,bs>.4?11:9,n>=3?c.darkest:"#FFFFFF",true,"center");});}
+ txt("영향도 ↑",X,Y,1.6,.26,11,c.primary,true);txt("발생 가능성 →",gx+3*cs-1.6,gy+3*cs+.28,1.6,.24,11,c.primary,true,"right");
+ lv.forEach((v,i)=>{txt(v,X,gy+(2-i)*cs+cs/2-.12,gx-X-.08,.24,11,c.muted,true,"right");txt(v,gx+i*cs,gy+3*cs+.05,cs,.24,11,c.muted,true,"center");});
+ const lx=gx+3*cs+.35,lw=X+W-lx,n=d.risks.length,gap=.1,rh=(6.1-Y-gap*(n-1))/n,nw=2.35,rw=lw-.62-nw-.3,sorted=[...d.risks].sort((a,b)=>score(b)-score(a));
+ let rs=13;while(rs>10.5&&sorted.some(r=>textHeight(r.response,rs,rw)>rh-.1))rs-=.5;
+ sorted.forEach((r,i)=>{const y=Y+i*(rh+gap),n2=score(r);box(lx,y,lw,rh,c.panel,c.connector);nodes.push({kind:"ellipse",x:lx+.12,y:y+rh/2-.19,w:.38,h:.38,fill:n2>=4?c.darkest:n2===3?c.primary:c.accent});txt(r.id,lx+.12,y+rh/2-.1,.38,.22,10,"#FFFFFF",true,"center");
+  let ns=13;while(ns>11&&textHeight(r.name,ns,nw)+.24>rh-.08)ns-=.5;const nh=textHeight(r.name,ns,nw),top=y+(rh-nh-.22)/2;
+  txt(r.name,lx+.62,top,nw,nh+.02,ns,c.primary,true);txt(`영향 ${r.impact} · 가능성 ${r.likelihood}`,lx+.62,top+nh+.02,nw,.2,10,c.muted);
+  const th=textHeight(r.response,rs,rw);txt(r.response,lx+.62+nw+.3,y+(rh-th)/2,rw,th+.03,rs,c.darkest);});break;}
+ case "key-number":{const d=S[kind].parse(slide.data),lw=5.2,ph=6.1-Y,iw=lw-.7;box(X,Y,lw,ph,c.darkest);
+ // 판단을 이끄는 숫자 하나를 크게, 무엇을 잰 값인지와 비교 기준을 아래에 둔다. 오른쪽은 시사점 카드.
+ let ns=88;while(ns>40&&richLines(d.number,ns,iw).length>1)ns-=4;const nh=ns*1.25/72,lh=textHeight(d.numberLabel,16,iw),cs=fitStack([d.context],iw,1.3,13,11),ch=textHeight(d.context,cs,iw),total=.3+nh+.2+lh+.36+ch;
+ let y=Y+Math.max(.25,(ph-total)/2);txt("핵심 수치",X+.35,y,iw,.26,11,c.onDarkSub,true);y+=.3;txt(d.number,X+.35,y,iw,nh,ns,"#FFFFFF",true);y+=nh+.2;
+ txt(d.numberLabel,X+.35,y,iw,lh+.03,16,"#FFFFFF",true);y+=lh+.18;line(X+.35,y,iw,c.onDarkSub,1);y+=.18;txt(d.context,X+.35,y,iw,ch+.03,cs,c.onDarkSub);
+ const px=X+lw+.25,pw=X+W-px,n=d.points.length,gap=.14,hh=(ph-gap*(n-1))/n,tw=pw-1.1;
+ d.points.forEach((p,i)=>{const yy=Y+i*(hh+gap);box(px,yy,pw,hh,c.panel,c.connector);box(px,yy,.1,hh,c.primary);
+  const ds=fitStack([p.detail],tw,hh-.3-.5,15,12),th=textHeight(p.title,16,tw),dh=textHeight(p.detail,ds,tw),top=yy+(hh-th-.12-dh)/2;
+  nodes.push({kind:"ellipse",x:px+.32,y:top-.03,w:.42,h:.42,fill:c.primary});txt(String(i+1),px+.32,top+.06,.42,.26,12,"#FFFFFF",true,"center");
+  txt(p.title,px+.92,top,tw,th+.02,16,c.primary,true);txt(p.detail,px+.92,top+th+.12,tw,dh+.03,ds,c.darkest);});break;}
  case "executive-summary":{const d=S[kind].parse(slide.data),w1=2.1,w2=6.2,w3=W-w1-w2,top=Y+.42,rh=(6.1-top)/d.rows.length;
  header("구분",X,Y,w1,true);header("핵심 내용",X+w1,Y,w2);header("시사점",X+w1+w2,Y,w3);
  d.rows.forEach((r,i)=>{const y=top+i*rh;cell(r.section,X,y,w1,rh,true,true);cell(r.finding,X+w1,y,w2,rh);cell(r.implication,X+w1+w2,y,w3,rh,false,true);});break;}
