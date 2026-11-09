@@ -1,4 +1,6 @@
 "use client";
+import {useUiText, useUiLanguage, LanguageSwitcher} from "@/lib/ui-language";
+
 import {generationFlow,canResumeStoryline} from "@/lib/generation-flow";
 import {applyResearchCoverage} from "@/lib/research-coverage";
 import {ResearchScopeNotice} from "./research-scope-notice";
@@ -110,6 +112,8 @@ function IconButton({
   );
 }
 export function Studio({ stage, id }: { stage: Stage; id?: string }) {
+  const ui = useUiText();
+
   const { deck, setDeck, ready, storageError } = useStudio(),
     router = useRouter();
   const [error, setError] = useState("");
@@ -134,7 +138,7 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
           Deck<span>Pick</span>
           <span className="wordmark-dot" />
         </Link>
-        <nav aria-label="진행 단계">
+        <nav aria-label={ui("진행 단계")}>
           {steps.map((s, i) => {
             const enabled =
               i === 0 ||
@@ -160,42 +164,38 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
                 key={s}
               >
                 <span>{active > i ? <Check size={12} /> : i + 1}</span>
-                {s}
+                {ui(s)}
               </Link>
             );
           })}
         </nav>
-        <Link href="/catalog" target="_blank" className="catalog-link">디자인 유형 · {catalogCounts.physical}</Link>
-        <span className="local-badge">{publicDemoOnly?"PUBLIC DEMO":"LOCAL WORKSPACE"}</span>
+        <Link href="/catalog" target="_blank" className="catalog-link">{ui("디자인 유형 ·")}{catalogCounts.physical}</Link>
+        <LanguageSwitcher/><span className="local-badge">{publicDemoOnly?"DEMO":"WORKSPACE"}</span>
       </header>
-      {publicDemoOnly && <div className="notice" role="status">공개 데모 · API 키 없이 예시 슬라이드를 만들고 편집·다운로드할 수 있습니다. 실제 AI 대화·자료 분석·파일 첨부는 제공하지 않습니다. 작업은 현재 브라우저에 저장됩니다.</div>}
+      {publicDemoOnly && <div className="notice" role="status">{ui("공개 데모 · API 키 없이 예시 슬라이드를 만들고 편집·다운로드할 수 있습니다. 실제 AI 대화·자료 분석·파일 첨부는 제공하지 않습니다. 작업은 현재 브라우저에 저장됩니다.")}</div>}
       {storageError && (
         <div className="notice warning" role="status">
-          {storageError}
+          {ui(storageError)}
         </div>
       )}
       {error && (
         <div className="notice error" role="alert">
-          {error}
-          <button onClick={() => setError("")}>닫기</button>
+          {ui(error)}
+          <button onClick={() => setError("")}>{ui("닫기")}</button>
         </div>
       )}
       {!ready ? (
         <div className="loading-page">
-          <LoaderCircle className="spin" /> 작업 공간을 준비하고 있습니다.
-        </div>
+          <LoaderCircle className="spin" /> {ui("작업 공간을 준비하고 있습니다.")}</div>
       ) : stage === "home" ? (
         <Home />
       ) : !hasDeck ? (
         <main className="empty">
-          <h1>저장된 덱을 찾을 수 없습니다.</h1>
+          <h1>{ui("저장된 덱을 찾을 수 없습니다.")}</h1>
           <p>
-            덱은 이 브라우저에 저장됩니다. 사용하던 브라우저에서 열거나 새 덱을
-            만들어 주세요.
-          </p>
+            {ui("덱은 이 브라우저에 저장됩니다. 사용하던 브라우저에서 열거나 새 덱을 만들어 주세요.")}</p>
           <Link className="button primary" href="/new">
-            새 덱 만들기
-          </Link>
+            {ui("새 덱 만들기")}</Link>
         </main>
       ) : (
         <>
@@ -203,8 +203,8 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
             <span>
               <i />
               {deck.demo
-                ? "데모 모드 · AI 호출 없이 준비된 예시로 체험합니다. 수치·출처를 생성하지 않습니다."
-                : "AI 모드 · 입력 내용은 선택한 AI 제공자에게 전송됩니다."}
+                ? ui("데모 모드 · AI 호출 없이 준비된 예시로 체험합니다. 수치·출처를 생성하지 않습니다.")
+                : ui("AI 모드 · 입력 내용은 선택한 AI 제공자에게 전송됩니다.")}
             </span>
             {stage === "new" && !publicDemoOnly && process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE!=="1" && (
               <button
@@ -212,7 +212,7 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
                   setDeck((d) => (d ? { ...d, demo: !d.demo } : d))
                 }
               >
-                {deck.demo ? "실제 AI 연결하기" : "데모로 체험하기"}{" "}
+                {deck.demo ? ui("실제 AI 연결하기") : ui("데모로 체험하기")}{" "}
                 <ArrowRight size={12} />
               </button>
             )}
@@ -230,13 +230,15 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
       )}
       <footer className="app-footer">
         <span>DeckPick</span>
-        <span>전체 초안을 보고, 필요한 장만 다듬으세요.</span>
-        <span>초안은 브라우저에 자동 저장됩니다.</span>
+        <span>{ui("전체 초안을 보고, 필요한 장만 다듬으세요.")}</span>
+        <span>{ui("초안은 브라우저에 자동 저장됩니다.")}</span>
       </footer>
     </div>
   );
 }
 function Home() {
+  const ui = useUiText();
+
   const { deck, startNewTopic } = useStudio();
   const router = useRouter();
   return (
@@ -244,14 +246,10 @@ function Home() {
       <div className="home-copy">
         <span className="eyebrow">FROM MESSAGE TO SLIDE</span>
         <h1>
-          내용을 전달하면,
-          <br />
-          전체 초안부터 확인하세요.
-        </h1>
+          {ui("내용을 전달하면,")}<br />
+          {ui("전체 초안부터 확인하세요.")}</h1>
         <p>
-          AI가 내용과 구성을 채운 전체 덱을 먼저 만듭니다.
-          <br className="desktop" /> 마음에 들지 않는 장만 다른 후보로 바꾼 뒤 PPTX로 가져가세요.
-        </p>
+          {ui("AI가 내용과 구성을 채운 전체 덱을 먼저 만듭니다.")}<br className="desktop" /> {ui("마음에 들지 않는 장만 다른 후보로 바꾼 뒤 PPTX로 가져가세요.")}</p>
         <div className="home-actions">
           <button
             className="primary button"
@@ -259,7 +257,7 @@ function Home() {
               if (
                 deck?.outline.length &&
                 !confirm(
-                  "기존 작업을 보관하고 새 덱을 만들까요?",
+                  ui("기존 작업을 보관하고 새 덱을 만들까요?"),
                 )
               )
                 return;
@@ -267,58 +265,53 @@ function Home() {
               router.push("/new");
             }}
           >
-            새 덱 만들기 <ArrowRight size={17} />
+            {ui("새 덱 만들기")}<ArrowRight size={17} />
           </button>
           {!!deck?.outline.length && (
             <Link className="button" href={`/deck/${deck.id}/outline`}>
-              이어서 작업하기
-            </Link>
+              {ui("이어서 작업하기")}</Link>
           )}
         </div>
         <div className="home-meta">
           <span>
-            <CheckCircle2 size={15} /> 컨설팅·마케팅 14개 레이아웃
-          </span>
+            <CheckCircle2 size={15} /> {ui("컨설팅·마케팅 레이아웃")}</span>
           <span>
-            <CheckCircle2 size={15} /> 편집 가능한 PPTX
-          </span>
+            <CheckCircle2 size={15} /> {ui("편집 가능한 PPTX")}</span>
         </div>
       </div>
       {process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE!=="1"&&<div className="home-art">
         <div className="floating-label">
-          <Sparkles size={14} /> 컨설팅 장표 포지셔닝 맵 예시
-        </div>
+          <Sparkles size={14} /> {ui("컨설팅 장표 포지셔닝 맵 예시")}</div>
         <div className="stack back" />
         <div className="stack middle" />
         <div className="stack front">
           <img
             className="home-positioning-preview"
             src="/examples/positioning-map-blurred.png"
-            alt="컨설팅 장표 포지셔닝 맵 예시. 우리 솔루션·플레이어 이름과 범례는 선명하게 표시했습니다. 원래 키메시지, 국내 해외 분류와 설명을 포함한 맵 안의 나머지 내용은 블러 처리했습니다."
+            alt={ui("컨설팅 장표 포지셔닝 맵 예시. 우리 솔루션·플레이어 이름과 범례는 선명하게 표시했습니다. 원래 키메시지, 국내 해외 분류와 설명을 포함한 맵 안의 나머지 내용은 블러 처리했습니다.")}
             width={1400}
             height={788}
           />
           <div className="art-caption">
             <span>
-              <CheckCircle2 size={14} /> 발표 사례
-            </span>
+              <CheckCircle2 size={14} /> {ui("발표 사례")}</span>
             <span>POSITIONING MAP</span>
           </div>
         </div>
         <div className="mini-card">
           <Layers size={18} />
           <div>
-            <strong>PowerPoint에서 계속 편집</strong>
-            <small>텍스트와 도형을 그대로</small>
+            <strong>{ui("PowerPoint에서 계속 편집")}</strong>
+            <small>{ui("텍스트와 도형을 그대로")}</small>
           </div>
         </div>
       </div>}
       <div className="home-process">
         {[
-          "주제와 목적을 알려주세요",
-          "내용을 채운 전체 덱을 확인하세요",
-          "마음에 들지 않는 장만 바꾸세요",
-          "PPTX로 이어서 작업하세요",
+          ui("주제와 목적을 알려주세요"),
+          ui("내용을 채운 전체 덱을 확인하세요"),
+          ui("마음에 들지 않는 장만 바꾸세요"),
+          ui("PPTX로 이어서 작업하세요"),
         ].map((s, i) => (
           <div key={s}>
             <b>0{i + 1}</b>
@@ -345,11 +338,12 @@ function Heading({
   sub: string;
   tag: string;
 }) {
+  const ui = useUiText();
   return (
     <div className="page-heading">
       <span className="eyebrow">{tag}</span>
       <h1>{title}</h1>
-      <p>{sub}</p>
+      <p>{ui(sub)}</p>
     </div>
   );
 }
@@ -366,6 +360,7 @@ function Palette({
   label: string;
   desc: string;
 }) {
+  const ui = useUiText();
   const ds = design(id);
   return (
     <button
@@ -374,10 +369,10 @@ function Palette({
       onClick={onClick}
     >
       <span className="option-title">
-        {label}
+        {ui(label)}
         {selected && <CheckCircle2 size={15} />}
       </span>
-      <small>{desc}</small>
+      <small>{ui(desc)}</small>
       <div className="swatches">
         {["primary", "darkest", "accent", "tint", "panel"].map((k) => (
           <i
@@ -390,6 +385,8 @@ function Palette({
   );
 }
 function Setup({ onError }: { onError: (s: string) => void }) {
+  const ui = useUiText();
+
   const { deck, setDeck, credentials, changeInput,startNewTopic,restoreDeck,deleteArchive,archivedDecks } = useStudio(),
     router = useRouter();
   const [renameOnly,setRenameOnly]=useState(false);
@@ -450,18 +447,18 @@ function Setup({ onError }: { onError: (s: string) => void }) {
     <main className="workspace">
       <Heading
         tag="01 — INPUT & CONVERSATION"
-        title={step === "settings" ? "어떤 발표 자료를 만들까요?" : "AI와 발표 흐름을 잡아보세요"}
-        sub={step === "settings" ? "덱 유형과 디자인을 선택하고 기본 정보를 입력하세요." : "자료와 요청을 전달한 뒤, 준비되면 전체 초안을 만드세요."}
+        title={step === "settings" ? ui("어떤 발표 자료를 만들까요?") : ui("AI와 발표 흐름을 잡아보세요")}
+        sub={step === "settings" ? ui("덱 유형과 디자인을 선택하고 기본 정보를 입력하세요.") : ui("자료와 요청을 전달한 뒤, 준비되면 전체 초안을 만드세요.")}
       />
       <DeckSessionControls key={deck.id} archives={archivedDecks.filter(d=>d.id!==deck.id)} disabled={busy} onNew={()=>{onError("");setStep("settings");startNewTopic();}} onRestore={id=>{onError("");setStep("settings");restoreDeck(id);}} onDelete={deleteArchive}/>
-      <nav className="setup-steps" aria-label="자료·대화 단계">
-        <button type="button" className={cx("step", step === "settings" && "active")} aria-current={step === "settings" ? "step" : undefined} disabled={busy} onClick={() => setStep("settings")}><span>1</span> 덱 설정</button>
-        <button type="button" className={cx("step", step === "chat" && "active")} aria-current={step === "chat" ? "step" : undefined} disabled={busy} onClick={() => setStep("chat")}><span>2</span> AI와 대화</button>
+      <nav className="setup-steps" aria-label={ui("자료·대화 단계")}>
+        <button type="button" className={cx("step", step === "settings" && "active")} aria-current={step === "settings" ? "step" : undefined} disabled={busy} onClick={() => setStep("settings")}><span>1</span> {ui("덱 설정")}</button>
+        <button type="button" className={cx("step", step === "chat" && "active")} aria-current={step === "chat" ? "step" : undefined} disabled={busy} onClick={() => setStep("chat")}><span>2</span> {ui("AI와 대화")}</button>
       </nav>
       <div className="setup-settings-page" hidden={step !== "settings"}>
         <section className="settings">
           <div className="setting-section">
-            <h2>덱 유형</h2>
+            <h2>{ui("덱 유형")}</h2>
             <div className="two-options">
               {(["consulting", "marketing"] as const).map((v, i) => (
                 <button
@@ -473,43 +470,43 @@ function Setup({ onError }: { onError: (s: string) => void }) {
                   onClick={() => update({ deckType: v })}
                 >
                   <span className="option-title">
-                    {i ? "마케팅 / 피치" : "컨설팅 / 보고서"}
+                    {i ? ui("마케팅 / 피치") : ui("컨설팅 / 보고서")}
                     {input.deckType === v && <CheckCircle2 size={15} />}
                   </span>
                   <small>
                     {i
-                      ? "짧은 카피, 큰 이미지와 숫자 중심"
-                      : "결론형 헤드라인, 박스·표·흐름도 중심"}
+                      ? ui("짧은 카피, 큰 이미지와 숫자 중심")
+                      : ui("결론형 헤드라인, 박스·표·흐름도 중심")}
                   </small>
                 </button>
               ))}
             </div>
           </div>
           <div className="setting-section">
-            <h2>디자인 시스템</h2>
+            <h2>{ui("디자인 시스템")}</h2>
             <div className="two-options">
               <Palette
                 id="ict-forest"
                 selected={input.designSystemId === "ict-forest"}
                 onClick={() => update({ designSystemId: "ict-forest" })}
-                label="숲녹색 컨설팅"
-                desc="기본값 · 내 ICT 덱 스타일"
+                label={ui("숲녹색 컨설팅")}
+                desc={ui("기본값 · 내 ICT 덱 스타일")}
               />
               <Palette
                 id="navy"
                 selected={input.designSystemId === "navy"}
                 onClick={() => update({ designSystemId: "navy" })}
-                label="네이비 리포트"
-                desc="차분한 보고서용"
+                label={ui("네이비 리포트")}
+                desc={ui("차분한 보고서용")}
               />
               <Palette
                 id="coral"
                 selected={input.designSystemId === "coral"}
                 onClick={() => update({ designSystemId: "coral" })}
-                label="코랄 브랜드"
-                desc="마케팅 제안용"
+                label={ui("코랄 브랜드")}
+                desc={ui("마케팅 제안용")}
               />
-              {(["lemonade", "sand", "charcoal"] as const).map((id) => <Palette key={id} id={id} selected={input.designSystemId === id} onClick={() => update({ designSystemId: id })} label={design(id).name} desc={id === "lemonade" ? "아이디어·신사업 제안" : id === "sand" ? "소비재·라이프스타일" : "절제된 범용 보고서"} />)}
+              {(["lemonade", "sand", "charcoal"] as const).map((id) => <Palette key={id} id={id} selected={input.designSystemId === id} onClick={() => update({ designSystemId: id })} label={design(id).name} desc={id === "lemonade" ? ui("아이디어·신사업 제안") : id === "sand" ? ui("소비재·라이프스타일") : ui("절제된 범용 보고서")} />)}
               <div
                 role="group"
                 className={cx(
@@ -526,16 +523,16 @@ function Setup({ onError }: { onError: (s: string) => void }) {
                     })
                   }
                 >
-                  주색 직접 입력{" "}
+                  {ui("주색 직접 입력")}{" "}
                   {input.designSystemId === "custom" && (
                     <CheckCircle2 size={15} />
                   )}
                 </button>
-                <small>한 가지 색에서 나머지를 만듭니다</small>
+                <small>{ui("한 가지 색에서 나머지를 만듭니다")}</small>
                 <label className="custom-color">
                   <input
                     type="color"
-                    aria-label="사용자 지정 주색"
+                    aria-label={ui("사용자 지정 주색")}
                     value={input.customPrimary ?? "#2F6FB0"}
                     onChange={(e) =>
                       update({
@@ -549,22 +546,22 @@ function Setup({ onError }: { onError: (s: string) => void }) {
               </div>
             </div>
             <p className="hint">
-              초안을 확인한 뒤에도 색을 다시 바꿀 수 있어요.
-            </p>
+              {ui("초안을 확인한 뒤에도 색을 다시 바꿀 수 있어요.")}</p>
           </div>
           <div className="setting-section">
-            <h2>기본 정보</h2>
+            <h2>{ui("기본 정보")}</h2>
+            <label>{ui("발표자료 언어")}<select value={input.language ?? "ko"} onChange={e => update({language: e.target.value as "ko" | "en"})}><option value="ko">한국어</option><option value="en">English</option></select><small>{ui("화면 언어와 별도로 적용됩니다. 기존 장표는 자동 번역하지 않습니다.")}</small></label>
             <label>
-              주제 <span className="required">*</span>
+              {ui("주제")}<span className="required">*</span>
               <input
                 value={input.topic}
                 maxLength={250}
                 onChange={(e) => update({ topic: e.target.value })}
               />
             </label>
-            {hasDeckContext(deck)?<label className="generation-checkbox"><input type="checkbox" checked={renameOnly} onChange={e=>setRenameOnly(e.target.checked)}/><span>이전 대화를 유지하고 제목만 수정</span></label>:<p className="hint">새 주제의 대화는 별도로 시작합니다. 이전 작업은 보관된 작업에서 다시 열 수 있습니다.</p>}
+            {hasDeckContext(deck)?<label className="generation-checkbox"><input type="checkbox" checked={renameOnly} onChange={e=>setRenameOnly(e.target.checked)}/><span>{ui("이전 대화를 유지하고 제목만 수정")}</span></label>:<p className="hint">{ui("새 주제의 대화는 별도로 시작합니다. 이전 작업은 보관된 작업에서 다시 열 수 있습니다.")}</p>}
             <label>
-              목적 <span className="required">*</span>
+              {ui("목적")}<span className="required">*</span>
               <input
                 value={input.purpose}
                 maxLength={500}
@@ -573,28 +570,26 @@ function Setup({ onError }: { onError: (s: string) => void }) {
             </label>
             <div className="form-row">
               <label>
-                청중 <span className="optional">선택</span>
+                {ui("청중")}<span className="optional">{ui("선택")}</span>
                 <input
                   value={input.audience ?? ""}
                   onChange={(e) => update({ audience: e.target.value })}
                 />
               </label>
               <label className="count-field">
-                발표 단계
-                <select
+                {ui("발표 단계")}<select
                   value={input.stage ?? "interim"}
                   onChange={(e) => {
                     const stage = e.target.value as PresentationStage;
                     update({ stage, ...(stage === "final" && input.slideCount < 16 ? { slideCount: FINAL_DEFAULT_SLIDES } : {}) });
                   }}
                 >
-                  <option value="interim">중간 발표 · 진단·가설</option>
-                  <option value="final">최종 발표 · 컨셉·로드맵</option>
+                  <option value="interim">{ui("중간 발표 · 진단·가설")}</option>
+                  <option value="final">{ui("최종 발표 · 컨셉·로드맵")}</option>
                 </select>
               </label>
               <label className="count-field">
-                슬라이드 수
-                <select
+                {ui("슬라이드 수")}<select
                   value={input.slideCount}
                   onChange={(e) =>
                     update({ slideCount: Number(e.target.value) })
@@ -602,21 +597,21 @@ function Setup({ onError }: { onError: (s: string) => void }) {
                 >
                   {Array.from({ length: MAX_DECK_SLIDES - 4 }, (_, i) => (
                     <option key={i} value={i + 5}>
-                      {i + 5}장{input.stage === "final" && i + 5 >= 20 ? " · 최종 발표 권장" : ""}
+                      {i + 5}{ui("장")}{input.stage === "final" && i + 5 >= 20 ? ui(" · 최종 발표 권장") : ""}
                     </option>
                   ))}
                 </select>
               </label>
             </div>
             <label>
-              공개 검색 주제 <span className="optional">선택 · 외부에 검색해도 되는 내용만 입력</span>
-              <input value={input.publicSearchTopic ?? ""} onChange={e => update({ publicSearchTopic: e.target.value })} placeholder="외부 검색에 사용할 지역·시장·기관·대상" />
+              {ui("공개 검색 주제")}<span className="optional">{ui("선택 · 외부에 검색해도 되는 내용만 입력")}</span>
+              <input value={input.publicSearchTopic ?? ""} onChange={e => update({ publicSearchTopic: e.target.value })} placeholder={ui("외부 검색에 사용할 지역·시장·기관·대상")} />
             </label>
-            <label className="generation-checkbox"><input type="checkbox" checked={input.appendSources ?? false} onChange={e => update({ appendSources: e.target.checked })} /><span>마지막 장에 출처·근거 범위 포함<small>선택한 전체 장 수에 포함됩니다.</small></span></label>
-            <label className="generation-checkbox"><input type="checkbox" checked={input.internalReview ?? false} onChange={e => update({ internalReview: e.target.checked })} /><span>내부 검토용 표시</span></label>
+            <label className="generation-checkbox"><input type="checkbox" checked={input.appendSources ?? false} onChange={e => update({ appendSources: e.target.checked })} /><span>{ui("마지막 장에 출처·근거 범위 포함")}<small>{ui("선택한 전체 장 수에 포함됩니다.")}</small></span></label>
+            <label className="generation-checkbox"><input type="checkbox" checked={input.internalReview ?? false} onChange={e => update({ internalReview: e.target.checked })} /><span>{ui("내부 검토용 표시")}</span></label>
           </div>
           <button type="button" className="button primary" onClick={() => setStep("chat")}>
-            AI와 대화로 이동 <ArrowRight size={15} />
+            {ui("AI와 대화로 이동")}<ArrowRight size={15} />
           </button>
         </section>
       </div>
@@ -624,7 +619,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
       <RequestProgress deckId={deck.id} busy={busy}/>
       <ResearchScopeNotice record={deck.researchRecord}/>
       <ResearchGate context="setup" mode="generate" busy={busy} onBusy={setBusy} onAttach={() => setStep("chat")} onError={onError}/>
-      {deck.generation?.status==="failed"&&!deck.demo&&<div className="notice warning" role="status">{busy?"저장된 작업을 확인하고 이어서 생성 중입니다.":`마지막 저장 단계: ${deck.generation.lastCompletedStage??"시작 전"}. 완료한 단계는 재사용합니다.`} <button className="button" disabled={busy} onClick={()=>void generate()}>{busy?"진행 중…":canResumeStoryline(deck.researchRecord,deck.generation)?"스토리라인만 다시 생성":"이어서 생성"}</button></div>}
+      {deck.generation?.status==="failed"&&!deck.demo&&<div className="notice warning" role="status">{busy?ui("저장된 작업을 확인하고 이어서 생성 중입니다."):ui("마지막 저장 단계: {0}. 완료한 단계는 재사용합니다.", [deck.generation.lastCompletedStage??ui("시작 전")])} <button className="button" disabled={busy} onClick={()=>void generate()}>{busy?ui("진행 중…"):canResumeStoryline(deck.researchRecord,deck.generation)?ui("스토리라인만 다시 생성"):ui("이어서 생성")}</button></div>}
       </>}
       <div className="setup-conversation-page" hidden={step !== "chat"}>
         <ChatPanel key={deck.id} context="setup" onError={onError} />
@@ -638,7 +633,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
             ) : (
               <FileText size={15} />
             )}
-            {busy ? "공개 조사·근거표·스토리라인 작성 중" : deck.generation?.status==="failed" ? "이어서 생성" : "전체 초안 만들기"}
+            {busy ? ui("공개 조사·근거표·스토리라인 작성 중") : deck.generation?.status==="failed" ? ui("이어서 생성") : ui("전체 초안 만들기")}
             <ArrowRight size={15} />
           </button>
       </div>
@@ -697,6 +692,8 @@ async function callAPI(action: string, payload: Record<string, unknown>, credent
 }
 
 function ResearchGate({ context, mode, busy = false, onBusy, onAttach, onError }: { context: "setup" | "outline"; mode: "generate" | "proposal"; busy?: boolean; onBusy?: (value: boolean) => void; onAttach?: () => void; onError: (text: string) => void }) {
+  const ui = useUiText();
+
   const { deck, setDeck, credentials } = useStudio();
   const router = useRouter();
   const [working, setWorking] = useState(false);
@@ -728,15 +725,17 @@ function ResearchGate({ context, mode, busy = false, onBusy, onAttach, onError }
     } catch (error) { onError(errorMessage(error)); }
     finally { setWorking(false); onBusy?.(false); }
   }
-  return <section ref={gateRef} className="research-gate" role="status"><h3>{record.requiresReview?"사용할 공개 자료의 범위를 선택해 주세요.":"확인된 공개 자료로 초안을 계속할 수 있습니다."}</h3>
+  return <section ref={gateRef} className="research-gate" role="status"><h3>{record.requiresReview?ui("사용할 공개 자료의 범위를 선택해 주세요."):ui("확인된 공개 자료로 초안을 계속할 수 있습니다.")}</h3>
     <p>{record.notice}</p><ul>{record.gaps?.map(gap => <li key={gap.questionId}><strong>{gap.question}</strong><br />{gap.missing}</li>)}</ul>
-    <div className="research-gate-actions"><button className="button" disabled={working || busy} onClick={() => void proceed(true)}>추가 조사</button>
-      {onAttach && <button className="button" disabled={working || busy} onClick={onAttach}>자료 첨부로 보완</button>}
-      <button className="button primary" disabled={working || busy} onClick={() => void proceed(false)}>{working ? "진행 중" : "현재 자료 범위로 초안 만들기"}</button></div>
+    <div className="research-gate-actions"><button className="button" disabled={working || busy} onClick={() => void proceed(true)}>{ui("추가 조사")}</button>
+      {onAttach && <button className="button" disabled={working || busy} onClick={onAttach}>{ui("자료 첨부로 보완")}</button>}
+      <button className="button primary" disabled={working || busy} onClick={() => void proceed(false)}>{working ? ui("진행 중") : ui("현재 자료 범위로 초안 만들기")}</button></div>
   </section>;
 }
 
 function Sources({ sources }: { sources: Source[] }) {
+  const ui = useUiText();
+
   return (
     <div className="sources">
       {sources.length ? (
@@ -747,7 +746,7 @@ function Sources({ sources }: { sources: Source[] }) {
           </a>
         ))
       ) : (
-        <span>외부 자료 없음</span>
+        <span>{ui("외부 자료 없음")}</span>
       )}
     </div>
   );
@@ -763,6 +762,8 @@ function ChatPanel({
   onError: (s: string) => void;
   onRegenerate?: (instruction: string) => Promise<void>;
 }) {
+  const ui = useUiText();
+
   const { deck, setDeck, credentials, setCredentials, serverKeys } =
       useStudio(),
     router = useRouter();
@@ -940,15 +941,14 @@ function ChatPanel({
         "chat-panel",
         context === "setup" ? "setup-chat" : "compact-chat",
       )}
-      aria-label="AI 채팅"
+      aria-label={ui("AI 채팅")}
       onPasteCapture={(e) => { const photos = Array.from(e.clipboardData.items).filter((item) => item.kind === "file" && item.type.startsWith("image/")).map((item) => item.getAsFile()).filter((file): file is File => file !== null); if (photos.length) { e.preventDefault(); void uploads.upload(photos); } }}
       onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
       onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); void uploads.upload(Array.from(e.dataTransfer.files)); } }}
     >
       <div className="chat-heading">
         <span>
-          <Sparkles size={15} /> AI와 대화
-        </span>
+          <Sparkles size={15} /> {ui("AI와 대화")}</span>
         <span
           className={cx(
             "connection-badge",
@@ -956,19 +956,19 @@ function ChatPanel({
           )}
         >
           {deck.demo
-            ? "데모 모드"
+            ? ui("데모 모드")
             : credentials.connected
-              ? "연결됨"
+              ? ui("연결됨")
               : hasServerKey
-                ? "서버 키 설정됨"
-                : "API 키 미연결"}
+                ? ui("서버 키 설정됨")
+                : ui("API 키 미연결")}
         </span>
       </div>
-      {!publicDemoOnly && <details className="api-settings">
-        <summary>AI 연결 설정</summary>
+      {!publicDemoOnly && <details className="api-settings" open={!credentials.key && !hasServerKey}>
+        <summary>{ui("AI 연결 설정")}</summary>
         <div className="key-row">
           <select
-            aria-label="AI 제공자"
+            aria-label={ui("AI 제공자")}
             value={credentials.provider}
             onChange={(e) =>
               setCredentials((c) => ({
@@ -987,8 +987,8 @@ function ChatPanel({
             <option value="anthropic">Claude</option>
           </select>
           <input
-            aria-label="API 키"
-            placeholder={hasServerKey ? "저장된 서버 키 사용" : "API 키"}
+            aria-label={ui("API 키")}
+            placeholder={hasServerKey ? ui("저장된 서버 키 사용") : ui("API 키")}
             type="password"
             autoComplete="off"
             value={credentials.key}
@@ -1008,16 +1008,15 @@ function ChatPanel({
             {keyBusy ? (
               <LoaderCircle size={13} className="spin" />
             ) : hasServerKey && !credentials.key ? (
-              "연결 확인"
+              ui("연결 확인")
             ) : (
-              "연결"
+              ui("연결")
             )}
           </button>
         </div>
         <label className="model-label">
-          모델
-          <input
-            aria-label="모델 이름"
+          {ui("모델")}<input
+            aria-label={ui("모델 이름")}
             value={credentials.model}
             onChange={(e) =>
               setCredentials((c) => ({
@@ -1030,8 +1029,8 @@ function ChatPanel({
         </label>
         <p className="hint">
           {hasServerKey && !credentials.key
-            ? "API 키가 서버에 설정돼 있습니다. 키를 다시 입력하지 않아도 됩니다. 연결 확인과 채팅에는 API 크레딧이 필요합니다."
-            : "직접 입력한 키는 이 브라우저 세션에만 저장하며, 선택한 AI 제공자의 연결 확인과 생성 요청에 사용합니다."}
+            ? ui("API 키가 서버에 설정돼 있습니다. 키를 다시 입력하지 않아도 됩니다. 연결 확인과 채팅에는 API 크레딧이 필요합니다.")
+            : ui("직접 입력한 키는 이 브라우저 세션에만 저장하며, 선택한 AI 제공자의 연결 확인과 생성 요청에 사용합니다.")}
         </p>
         {credentials.key && (
           <button
@@ -1040,18 +1039,17 @@ function ChatPanel({
               setCredentials((c) => ({ ...c, key: "", connected: false }))
             }
           >
-            저장된 키 지우기
-          </button>
+            {ui("저장된 키 지우기")}</button>
         )}
       </details>}
       <Attachments state={uploads} collapseList />
       <div className="chat-log" ref={logRef}>
         <div className="bubble assistant">
           {context === "setup"
-            ? "주제와 참고 내용을 알려주세요. 자료를 조사해서 목차와 키메시지를 먼저 잡아 드릴게요."
+            ? ui("주제와 참고 내용을 알려주세요. 자료를 조사해서 목차와 키메시지를 먼저 잡아 드릴게요.")
             : context === "outline"
-              ? "구성에서 바꾸고 싶은 부분을 알려주세요. 제안을 확인한 뒤 반영할 수 있습니다."
-              : "선택한 장표에서 바꾸고 싶은 내용을 알려주세요. 세 후보를 다시 제안합니다."}
+              ? ui("구성에서 바꾸고 싶은 부분을 알려주세요. 제안을 확인한 뒤 반영할 수 있습니다.")
+              : ui("선택한 장표에서 바꾸고 싶은 내용을 알려주세요. 세 후보를 다시 제안합니다.")}
         </div>
         {messages.map((m, i) => {
           const newPhotos = (m.imageIds ?? []).filter((id) => {
@@ -1062,14 +1060,14 @@ function ChatPanel({
           return (
           <div className={cx("message", m.role)} key={i}>
             <span className="message-role">
-              {m.role === "user" ? "나" : "DeckPick"}
+              {m.role === "user" ? ui("나") : "DeckPick"}
             </span>
-            <div className={cx("bubble", m.role)}>{newPhotos.length ? <div className="message-photos">{newPhotos.map((id) => <a key={id} href={`/api/attachments/${id}`} target="_blank" rel="noopener noreferrer"><img src={`/api/attachments/${id}`} alt="대화에 첨부한 사진" width={120} height={90} /></a>)}</div> : null}{m.text}</div>
+            <div className={cx("bubble", m.role)}>{newPhotos.length ? <div className="message-photos">{newPhotos.map((id) => <a key={id} href={`/api/attachments/${id}`} target="_blank" rel="noopener noreferrer"><img src={`/api/attachments/${id}`} alt={ui("대화에 첨부한 사진")} width={120} height={90} /></a>)}</div> : null}{m.text}</div>
             {m.outlineDraft && (
               <div className="draft-card">
                 <div className="draft-label">
-                  <FileText size={13} /> 구성 제안{" "}
-                  <small>{m.outlineDraft.length}장</small>
+                  <FileText size={13} /> {ui("구성 제안")}{" "}
+                  <small>{m.outlineDraft.length}{ui("장")}</small>
                 </div>
                 {m.outlineDraft.map((o, j) => (
                   <div className="draft-row" key={j}>
@@ -1085,7 +1083,7 @@ function ChatPanel({
                   className="button primary"
                   onClick={() => apply(m.outlineDraft!)}
                 >
-                  {context === "setup" ? "이 구성으로 진행" : "이 제안 반영"}
+                  {context === "setup" ? ui("이 구성으로 진행") : ui("이 제안 반영")}
                   <ArrowRight size={14} />
                 </button>
               </div>
@@ -1096,7 +1094,7 @@ function ChatPanel({
         {busy && (
           <div className="bubble assistant pending">
             <LoaderCircle size={14} className="spin" />{" "}
-            {deck.demo ? "예시를 준비하고 있어요" : "구성을 검토하고 있어요…"}
+            {deck.demo ? ui("예시를 준비하고 있어요") : ui("구성을 검토하고 있어요…")}
           </div>
         )}
       </div>
@@ -1104,9 +1102,9 @@ function ChatPanel({
         {context === "setup" && (
           <div className="chips">
             {[
-              "조사부터 해줘",
-              "결론을 앞에 두는 흐름으로",
-              "슬라이드 6장 안으로",
+              ui("조사부터 해줘"),
+              ui("결론을 앞에 두는 흐름으로"),
+              ui("슬라이드 6장 안으로"),
             ].map((s) => (
               <button key={s} disabled={busy} onClick={() => void send(s)}>
                 {s}
@@ -1114,16 +1112,16 @@ function ChatPanel({
             ))}
           </div>
         )}
-        <input type="file" ref={photoInput} hidden multiple accept="image/png,image/jpeg,image/webp" aria-label="사진 파일 선택" onChange={(e) => { if (e.target.files) void uploads.upload(Array.from(e.target.files)); e.target.value = ""; }} />
+        <input type="file" ref={photoInput} hidden multiple accept="image/png,image/jpeg,image/webp" aria-label={ui("사진 파일 선택")} onChange={(e) => { if (e.target.files) void uploads.upload(Array.from(e.target.files)); e.target.value = ""; }} />
         <div className="composer">
-          <button type="button" className="photo-attach-button" aria-label="사진 첨부" title="사진 첨부 · 캡처는 Ctrl+V" disabled={uploads.busy || uploads.files.length >= 5} onClick={() => photoInput.current?.click()}><ImagePlus size={18} /></button>
+          <button type="button" className="photo-attach-button" aria-label={ui("사진 첨부")} title={ui("사진 첨부 · 캡처는 Ctrl+V")} disabled={uploads.busy || uploads.files.length >= 5} onClick={() => photoInput.current?.click()}><ImagePlus size={18} /></button>
           <textarea
-            aria-label="메시지"
+            aria-label={ui("메시지")}
             value={text}
             placeholder={
               context === "slide"
-                ? "예: 두 대안을 비교하는 흐름으로"
-                : "추가할 맥락이나 요청을 입력하세요"
+                ? ui("예: 두 대안을 비교하는 흐름으로")
+                : ui("추가할 맥락이나 요청을 입력하세요")
             }
             onChange={(e) => setText(e.target.value)}
             onCompositionStart={() => {
@@ -1147,18 +1145,20 @@ function ChatPanel({
           <button
             className="primary send-button"
             disabled={busy || uploads.busy || (!text.trim() && !photoIds.length)}
-            aria-label="보내기"
+            aria-label={ui("보내기")}
             onClick={() => void send()}
           >
             <Send size={15} />
           </button>
         </div>
-        <small>Ctrl+V 사진 붙여넣기 · Enter 전송 · Shift + Enter 줄바꿈</small>
+        <small>{ui("Ctrl+V 사진 붙여넣기 · Enter 전송 · Shift + Enter 줄바꿈")}</small>
       </div>
     </aside>
   );
 }
 function OutlineEditor({ onError }: { onError: (s: string) => void }) {
+  const ui = useUiText();
+
   const { deck, setDeck } = useStudio(),
     router = useRouter();
   if (!deck) return null;
@@ -1194,19 +1194,18 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
     <main className="workspace">
       <Heading
         tag="02 — OUTLINE"
-        title="먼저, 이야기의 흐름을 맞춰볼까요?"
-        sub="각 장의 섹션과 핵심 메시지를 확인하세요. 장표를 만들기 전 내용을 다듬는 단계입니다."
+        title={ui("먼저, 이야기의 흐름을 맞춰볼까요?")}
+        sub={ui("각 장의 섹션과 핵심 메시지를 확인하세요. 장표를 만들기 전 내용을 다듬는 단계입니다.")}
       />
       <div className="outline-grid">
         <section>
           <div className="section-toolbar">
             <span>
-              <b>{deck.outline.length}장의 슬라이드</b>
-              <small>순서와 문구를 자유롭게 수정하세요.</small>
+              <b>{deck.outline.length}{ui("장의 슬라이드")}</b>
+              <small>{ui("순서와 문구를 자유롭게 수정하세요.")}</small>
             </span>
             <span className="saved">
-              <Check size={13} /> 자동 저장
-            </span>
+              <Check size={13} /> {ui("자동 저장")}</span>
           </div>
           <div className="outline-list">
             {deck.outline.map((o, i) => (
@@ -1216,26 +1215,24 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
                 </span>
                 <div className="outline-content">
                   <label>
-                    섹션
-                    <input
-                      aria-label={`${i + 1}번 섹션`}
+                    {ui("섹션")}<input
+                      aria-label={ui("{0}번 섹션", [i + 1])}
                       maxLength={8}
                       value={o.section}
                       onChange={(e) => change(i, { section: e.target.value })}
                     />
                   </label>
                   <label>
-                    키메시지
-                    <input
-                      aria-label={`${i + 1}번 키메시지`}
+                    {ui("키메시지")}<input
+                      aria-label={ui("{0}번 키메시지", [i + 1])}
                       value={o.message}
                       onChange={(e) => change(i, { message: e.target.value })}
                     />
                   </label>
                   <details>
-                    <summary>포함할 내용</summary>
+                    <summary>{ui("포함할 내용")}</summary>
                     <textarea
-                      aria-label={`${i + 1}번 포함할 내용`}
+                      aria-label={ui("{0}번 포함할 내용", [i + 1])}
                       value={o.contentHint}
                       onChange={(e) =>
                         change(i, { contentHint: e.target.value })
@@ -1245,24 +1242,24 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
                 </div>
                 <div className="outline-controls">
                   <IconButton
-                    label={`${i + 1}번 위로`}
+                    label={ui("{0}번 위로", [i + 1])}
                     disabled={i === 0}
                     onClick={() => move(i, -1)}
                   >
                     <ArrowUp size={14} />
                   </IconButton>
                   <IconButton
-                    label={`${i + 1}번 아래로`}
+                    label={ui("{0}번 아래로", [i + 1])}
                     disabled={i === deck.outline.length - 1}
                     onClick={() => move(i, 1)}
                   >
                     <ArrowDown size={14} />
                   </IconButton>
                   <IconButton
-                    label={`${i + 1}번 삭제`}
+                    label={ui("{0}번 삭제", [i + 1])}
                     disabled={deck.outline.length <= 5}
                     onClick={() => {
-                      if (confirm(`${i + 1}번 슬라이드를 삭제할까요?`))
+                      if (confirm(ui("{0}번 슬라이드를 삭제할까요?", [i + 1])))
                         setDeck((d) =>
                           d
                             ? {
@@ -1301,9 +1298,9 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
                         ...d.outline,
                         {
                           index: d.outline.length,
-                          section: "추가",
-                          message: "새로운 핵심 메시지를 입력해 주세요",
-                          contentHint: "포함할 내용을 입력해 주세요",
+                          section: ui("추가"),
+                          message: ui("새로운 핵심 메시지를 입력해 주세요"),
+                          contentHint: ui("포함할 내용을 입력해 주세요"),
                         },
                       ],
                       candidates: {},
@@ -1314,12 +1311,10 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
               )
             }
           >
-            <Plus size={15} /> 슬라이드 추가
-          </button>
+            <Plus size={15} /> {ui("슬라이드 추가")}</button>
           <div className="page-actions">
             <Link href="/new" className="button">
-              <ArrowLeft size={14} /> 입력으로
-            </Link>
+              <ArrowLeft size={14} /> {ui("입력으로")}</Link>
             <button
               className="button primary"
               onClick={() => {
@@ -1329,13 +1324,13 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
                   .max(MAX_DECK_SLIDES)
                   .safeParse(deck.outline);
                 if (!r.success) {
-                  onError("비어 있는 섹션·메시지를 확인해 주세요.");
+                  onError(ui("비어 있는 섹션·메시지를 확인해 주세요."));
                   return;
                 }
                 if(activeRunDeck()===deck.id)router.push(`/deck/${deck.id}/pick`);
               }}
             >
-              전체 초안 만들기 <ArrowRight size={15} />
+              {ui("전체 초안 만들기")}<ArrowRight size={15} />
             </button>
           </div>
         </section>
@@ -1346,6 +1341,8 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
   );
 }
 function Picker({ onError }: { onError: (s: string) => void }) {
+  const ui = useUiText();
+
   const { deck, setDeck, credentials } = useStudio(),
     router = useRouter();
   const [current, setCurrent] = useState(0),
@@ -1619,13 +1616,13 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     <main className="workspace picker-workspace">
       <Heading
         tag="03 — PICK & EDIT"
-        title="이 장만 다른 표현으로 바꿔보세요."
-        sub="선택된 장표가 현재 초안입니다. 다른 후보를 확인하고 마음에 드는 결과로 교체하세요."
+        title={ui("이 장만 다른 표현으로 바꿔보세요.")}
+        sub={ui("선택된 장표가 현재 초안입니다. 다른 후보를 확인하고 마음에 드는 결과로 교체하세요.")}
       />
       <div className="pick-grid">
         <aside className="slide-sidebar">
           <div className="sidebar-label">
-            슬라이드{" "}
+            {ui("슬라이드")}{" "}
             <span>
               {count}/{deck.outline.length}
             </span>
@@ -1654,12 +1651,12 @@ function Picker({ onError }: { onError: (s: string) => void }) {
             <div>
               <i style={{ width: `${(count / deck.outline.length) * 100}%` }} />
             </div>
-            <small>{count}장 선택 완료</small>
+            <small>{count}{ui("장 선택 완료")}</small>
           </div>
         </aside>
         <section className="pick-center">
           <div className="color-bar">
-            <span>덱 전체 색상</span>
+            <span>{ui("덱 전체 색상")}</span>
             <div className="color-controls">
               {[
                 ["ict-forest", "#244C3C"],
@@ -1671,7 +1668,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
               ].map(([id, hex]) => (
                 <button
                   key={id}
-                  aria-label={`${id} 색상`}
+                  aria-label={ui("{0} 색상", [id])}
                   className={cx(
                     "color-dot",
                     deck.input.designSystemId === id && "active",
@@ -1682,13 +1679,13 @@ function Picker({ onError }: { onError: (s: string) => void }) {
               ))}
               <input
                 type="color"
-                aria-label="덱 사용자 지정 색"
+                aria-label={ui("덱 사용자 지정 색")}
                 value={color}
                 onChange={(e) => setDesign("custom", e.target.value)}
               />
               <input
                 className="hex-field"
-                aria-label="주색 HEX"
+                aria-label={ui("주색 HEX")}
                 value={color}
                 onChange={(e) => {
                   setColor(e.target.value);
@@ -1699,7 +1696,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
             </div>
           </div>
           <div className="current-heading">
-            <button className="text-button draft-back" onClick={()=>{setDeck(d=>d?initializeDraftSelections(d):d);setReviewView("full");}}><ArrowLeft size={14}/> 전체 초안으로 돌아가기</button>
+            <button className="text-button draft-back" onClick={()=>{setDeck(d=>d?initializeDraftSelections(d):d);setReviewView("full");}}><ArrowLeft size={14}/> {ui("전체 초안으로 돌아가기")}</button>
             <span className="section-kicker">
               {String(current + 1).padStart(2, "0")} /{" "}
               {deck.outline[current]?.section}
@@ -1708,44 +1705,41 @@ function Picker({ onError }: { onError: (s: string) => void }) {
             <div className="candidate-meta">
               <span>
                 {busy === current
-                  ? replacing ? "해당 자리의 새 후보를 만들고 있습니다. 나머지는 유지됩니다." : "서로 다른 세 가지 구성을 만들고 있습니다."
-                  : "내용은 같아도, 전달하는 방식은 다릅니다."}
+                  ? replacing ? ui("해당 자리의 새 후보를 만들고 있습니다. 나머지는 유지됩니다.") : ui("서로 다른 세 가지 구성을 만들고 있습니다.")
+                  : ui("내용은 같아도, 전달하는 방식은 다릅니다.")}
               </span>
               <button
                 className="text-button"
                 disabled={running || busy !== null}
                 onClick={() => void regenerate("").catch(() => {})}
               >
-                <RefreshCw size={12} /> 전체 다시 생성
-              </button>
+                <RefreshCw size={12} /> {ui("전체 다시 생성")}</button>
             </div>
           </div>
-          {current === 0 && deck.input.deckType === "consulting" && candidates?.length > 0 && <div className="notice cover-upgrade"><span>표지를 사진 반반형 · 화이트 보고서형 · 큰 제목형으로 비교해 보세요.</span><button className="button small" disabled={running || busy !== null} onClick={() => {
-            if (deck.edited[0] && !confirm("직접 수정한 표지를 기준으로 제목·디자인 3안을 만들고 표지 선택을 해제합니다. 계속할까요?")) return;
+          {current === 0 && deck.input.deckType === "consulting" && candidates?.length > 0 && <div className="notice cover-upgrade"><span>{ui("표지를 사진 반반형 · 화이트 보고서형 · 큰 제목형으로 비교해 보세요.")}</span><button className="button small" disabled={running || busy !== null} onClick={() => {
+            if (deck.edited[0] && !confirm(ui("직접 수정한 표지를 기준으로 제목·디자인 3안을 만들고 표지 선택을 해제합니다. 계속할까요?"))) return;
             setDeck((d) => {
               if (!d?.candidates[0]?.[0]) return d;
               const base = d.edited[0] ?? d.candidates[0][d.picked[0] ?? 0];
               const picked = { ...d.picked }, edited = { ...d.edited }; delete picked[0]; delete edited[0];
               return { ...d, candidates: { ...d.candidates, 0: coverAlternatives(base, d.input.topic) }, picked, edited };
             });
-          }}>표지 디자인 3안 적용 · API 사용 없음</button></div>}
+          }}>{ui("표지 디자인 3안 적용 · API 사용 없음")}</button></div>}
           {failed !== null && (
             <div className="notice warning">
-              {failed.index + 1}번 장표{failed.slot !== undefined ? `의 후보 ${String.fromCharCode(65 + failed.slot)} 교체` : " 후보 생성"}에 실패했습니다. 기존 후보는 유지됩니다.
-              <button
+              {failed.index + 1}{ui("번 장표")}{failed.slot !== undefined ? ui("의 후보 {0} 교체", [String.fromCharCode(65 + failed.slot)]) : ui(" 후보 생성")}{ui("에 실패했습니다. 기존 후보는 유지됩니다.")}<button
                 onClick={() => {
                   setCurrent(failed.index);
                   if(failed.kind==="alternatives")void ensureAlternatives(failed.index);
                   else void generate(failed.index, "", failed.slot,failed.requestedLayout).catch(() => {});
                 }}
               >
-                이 장 다시 시도
-              </button>
+                {ui("이 장 다시 시도")}</button>
             </div>
           )}
           {current>0&&<LayoutLibrary deck={deck} index={current} busy={running||busy!==null} onPick={(id,slot)=>{
-            if(deck.edited[current]&&selected===slot&&!confirm("직접 수정한 후보를 새 구성으로 교체합니다. 다른 후보는 유지됩니다. 계속할까요?"))return;
-            void generate(current,`표현 유형을 ${layoutNames[id]}로 바꾸되 현재 장의 핵심 메시지와 제공된 근거를 유지하세요. 예시 문구와 합성 수치를 실제 근거처럼 복사하지 마세요.`,slot,id).catch(()=>{});
+            if(deck.edited[current]&&selected===slot&&!confirm(ui("직접 수정한 후보를 새 구성으로 교체합니다. 다른 후보는 유지됩니다. 계속할까요?")))return;
+            void generate(current,ui("표현 유형을 {0}로 바꾸되 현재 장의 핵심 메시지와 제공된 근거를 유지하세요. 예시 문구와 합성 수치를 실제 근거처럼 복사하지 마세요.", [layoutNames[id]]),slot,id).catch(()=>{});
           }}/>}
           <div className="candidate-grid" style={{"--candidate-columns":Math.max(1,candidates?.length??3)} as CSSProperties}>
             {[0, 1, 2].map((i) => (
@@ -1755,28 +1749,27 @@ function Picker({ onError }: { onError: (s: string) => void }) {
               >
                 <div className="candidate-top">
                   <span>
-                    후보 {String.fromCharCode(65 + i)}
+                    {ui("후보")}{String.fromCharCode(65 + i)}
                     {candidates?.[i] && (
                       <small>{layoutNames[candidates[i].layoutId]}</small>
                     )}
                   </span>
                   {selected === i && (
                     <span className="picked-tag">
-                      <Check size={11} /> 선택됨
-                    </span>
+                      <Check size={11} /> {ui("선택됨")}</span>
                   )}
                 </div>
                 {candidates?.[i] && <p className="candidate-purpose">{candidates[i].layoutId === "c-cover" ? coverStyleNames[String(candidates[i].data.coverStyle ?? "classic")] : layoutPurpose[candidates[i].layoutId]}</p>}
                 {!candidates?.[i] || (busy === current && (!replacing || replacing.slot === i)) ? (
                   <div className="slide-skeleton">
                     <Layers size={24} />
-                    <span>{replacing?.index === current && replacing.slot === i ? "새 후보 준비 중" : "레이아웃 준비 중"}</span>
+                    <span>{replacing?.index === current && replacing.slot === i ? ui("새 후보 준비 중") : ui("레이아웃 준비 중")}</span>
                   </div>
                 ) : (
                   <>
                     <button
                       className="preview-select"
-                      aria-label={`후보 ${String.fromCharCode(65 + i)} 선택`}
+                      aria-label={ui("후보 {0} 선택", [String.fromCharCode(65 + i)])}
                       onClick={() =>
                         setDeck((d) => {
                           if (!d) return d;
@@ -1819,19 +1812,19 @@ function Picker({ onError }: { onError: (s: string) => void }) {
                         }
                       >
                         {selected === i
-                          ? "선택한 레이아웃"
-                          : "이 레이아웃 선택"}
+                          ? ui("선택한 레이아웃")
+                          : ui("이 레이아웃 선택")}
                       </button>
                       <IconButton
                         className="replace-candidate"
-                        label={`후보 ${String.fromCharCode(65 + i)} 버리고 새 후보 받기`}
+                        label={ui("후보 {0} 버리고 새 후보 받기", [String.fromCharCode(65 + i)])}
                         disabled={busy !== null || running}
                         onClick={() => {
                           if (
                             deck.edited[current] &&
                             selected === i &&
                             !confirm(
-                              "직접 수정한 내용이 초기화됩니다. 다시 만들까요?",
+                              ui("직접 수정한 내용이 초기화됩니다. 다시 만들까요?"),
                             )
                           )
                             return;
@@ -1839,7 +1832,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
                         }}
                       >
                         <Trash2 size={13} />
-                        <span>새 후보로 교체</span>
+                        <span>{ui("새 후보로 교체")}</span>
                       </IconButton>
                     </div>
                   </>
@@ -1861,28 +1854,26 @@ function Picker({ onError }: { onError: (s: string) => void }) {
             <div className="edit-empty">
               <FileText size={18} />
               <span>
-                레이아웃을 선택하면 여기에서 문구를 직접 수정할 수 있어요.
-              </span>
+                {ui("레이아웃을 선택하면 여기에서 문구를 직접 수정할 수 있어요.")}</span>
             </div>
           )}
           <div className="page-actions">
             <Link className="button" href={`/deck/${deck.id}/outline`}>
-              <ArrowLeft size={14} /> 아웃라인
-            </Link>
+              <ArrowLeft size={14} /> {ui("아웃라인")}</Link>
             <div className="action-group">
               <button
                 className="button"
                 disabled={current >= deck.outline.length - 1}
                 onClick={() => {setCurrent(current+1);void ensureAlternatives(current+1);}}
               >
-                다음 장 <ChevronRight size={14} />
+                {ui("다음 장")}<ChevronRight size={14} />
               </button>
               <button
                 className="button primary"
                 disabled={!all}
                 onClick={() => router.push(`/deck/${deck.id}/final`)}
               >
-                다운로드 확인 <ArrowRight size={14} />
+                {ui("다운로드 확인")}<ArrowRight size={14} />
               </button>
             </div>
           </div>
@@ -1959,26 +1950,25 @@ function DirectEditor({
   slide: SlideSpec;
   onChange: (s: SlideSpec) => void;
 }) {
+  const ui = useUiText();
+
   return (
     <section className="direct-editor">
       <div className="editor-heading">
         <span>
-          <FileText size={15} /> 선택한 장표 직접 수정
-        </span>
-        <small>수정하면 미리보기와 PPTX에 함께 반영됩니다.</small>
+          <FileText size={15} /> {ui("선택한 장표 직접 수정")}</span>
+        <small>{ui("수정하면 미리보기와 PPTX에 함께 반영됩니다.")}</small>
       </div>
       <div className="edit-fields">
         <label>
-          섹션
-          <input
+          {ui("섹션")}<input
             value={slide.section}
             maxLength={8}
             onChange={(e) => onChange({ ...slide, section: e.target.value })}
           />
         </label>
         <label className="wide">
-          헤드라인
-          <input
+          {ui("헤드라인")}<input
             value={slide.headline}
             onChange={(e) =>
               onChange({
@@ -2000,10 +1990,10 @@ function DirectEditor({
           >
             {path
               .map((p) =>
-                typeof p === "number" ? `${p + 1}` : (fieldNames[p] ?? p),
+                typeof p === "number" ? `${p + 1}` : ui(fieldNames[p] ?? p),
               )
               .join(" / ")}
-            {kind==="boolean"?<input type="checkbox" checked={value==="true"} onChange={e=>onChange({...slide,data:setAt(slide.data,path,String(e.target.checked))})}/>:kind==="number"?<input type="number" step={path.at(-1)==="x"||path.at(-1)==="y"?.01:1} value={value} onChange={e=>onChange({...slide,data:setAt(slide.data,path,e.target.value)})}/>:path.at(-1)==="status"||path.at(-1)==="mode"?<select value={value} onChange={e=>onChange({...slide,data:setAt(slide.data,path,e.target.value)})}>{(path.at(-1)==="mode"?[["illustrative","합성 데이터"],["observed","실측 데이터"]]:slide.layoutId.endsWith("before-after")?[["proposal","제안·검증 전"],["measured","제공 측정 결과"]]:[["hypothesis","검증 전 가설"],["evidence","제공 근거 기반"]]).map(([v,label])=><option key={v} value={v}>{label}</option>)}</select>:path.at(-1) === "imageSide" ? (
+            {kind==="boolean"?<input type="checkbox" checked={value==="true"} onChange={e=>onChange({...slide,data:setAt(slide.data,path,String(e.target.checked))})}/>:kind==="number"?<input type="number" step={path.at(-1)==="x"||path.at(-1)==="y"?.01:1} value={value} onChange={e=>onChange({...slide,data:setAt(slide.data,path,e.target.value)})}/>:path.at(-1)==="status"||path.at(-1)==="mode"?<select value={value} onChange={e=>onChange({...slide,data:setAt(slide.data,path,e.target.value)})}>{(path.at(-1)==="mode"?[["illustrative",ui("합성 데이터")],["observed",ui("실측 데이터")]]:slide.layoutId.endsWith("before-after")?[["proposal",ui("제안·검증 전")],["measured",ui("제공 측정 결과")]]:[["hypothesis",ui("검증 전 가설")],["evidence",ui("제공 근거 기반")]]).map(([v,label])=><option key={v} value={v}>{label}</option>)}</select>:path.at(-1) === "imageSide" ? (
               <select
                 value={value}
                 onChange={(e) =>
@@ -2013,8 +2003,8 @@ function DirectEditor({
                   })
                 }
               >
-                <option value="left">왼쪽</option>
-                <option value="right">오른쪽</option>
+                <option value="left">{ui("왼쪽")}</option>
+                <option value="right">{ui("오른쪽")}</option>
               </select>
             ) : value.length > 26 || value.includes("\n") ? (
               <textarea
@@ -2042,12 +2032,13 @@ function DirectEditor({
       </div>
       {slide.layoutId === "c-cover" && <CoverEditor slide={slide} onChange={onChange} />}
       <p className="hint">
-        **핵심 단어**처럼 입력하면 강조됩니다. 긴 문구는 줄여 주세요.
-      </p>
+        {ui("**핵심 단어**처럼 입력하면 강조됩니다. 긴 문구는 줄여 주세요.")}</p>
     </section>
   );
 }
 function Final({ onError }: { onError: (s: string) => void }) {
+  const ui = useUiText();
+
   const { deck } = useStudio();
   const [busy, setBusy] = useState(false),
     [feedback, setFeedback] = useState(["", "", ""]),
@@ -2059,8 +2050,8 @@ function Final({ onError }: { onError: (s: string) => void }) {
       <div className="final-heading">
         <Heading
           tag="04 — YOUR DECK"
-          title="이제, 발표를 완성할 차례입니다."
-          sub="전체 흐름과 출처를 한 번 더 확인하고 PowerPoint에서 이어서 편집하세요."
+          title={ui("이제, 발표를 완성할 차례입니다.")}
+          sub={ui("전체 흐름과 출처를 한 번 더 확인하고 PowerPoint에서 이어서 편집하세요.")}
         />
         <button
           className="button primary"
@@ -2083,21 +2074,18 @@ function Final({ onError }: { onError: (s: string) => void }) {
           ) : (
             <Download size={16} />
           )}{" "}
-          PPTX 다운로드
-        </button>
+          {ui("PPTX 다운로드")}</button>
       </div>
       <div className="notice">
         <CheckCircle2 size={15} />
         {complete
-          ? `${deck.outline.length}장 초안 준비 완료 · 텍스트와 도형을 PowerPoint에서 수정할 수 있습니다.`
-          : "아직 준비되지 않은 슬라이드가 있습니다."}
-        <Link href={`/deck/${deck.id}/pick`}>전체 초안·수정으로 돌아가기</Link>
+          ? ui("{0}장 초안 준비 완료 · 텍스트와 도형을 PowerPoint에서 수정할 수 있습니다.", [deck.outline.length])
+          : ui("아직 준비되지 않은 슬라이드가 있습니다.")}
+        <Link href={`/deck/${deck.id}/pick`}>{ui("전체 초안·수정으로 돌아가기")}</Link>
       </div>
       <GenerationReportButton deck={deck}/>
       <p className="font-notice">
-        PowerPoint에서 같은 글꼴로 보려면 PC에 Pretendard를 설치해 주세요.
-        이미지는 설명이 표시된 자리로 내보냅니다.
-      </p>
+        {ui("PowerPoint에서 같은 글꼴로 보려면 PC에 Pretendard를 설치해 주세요. 이미지는 설명이 표시된 자리로 내보냅니다.")}</p>
       <div className="final-slides">
         {deck.outline.map((_, i) => {
           const slide = deck.edited[i] ?? deck.candidates[i]?.[deck.picked[i]];
@@ -2106,7 +2094,7 @@ function Final({ onError }: { onError: (s: string) => void }) {
               <div className="final-slide-label">
                 <span>SLIDE {String(i + 1).padStart(2, "0")}</span>
                 <small>
-                  {slide ? layoutNames[slide.layoutId] : "선택 필요"}
+                  {slide ? layoutNames[slide.layoutId] : ui("선택 필요")}
                 </small>
               </div>
               {slide && (
@@ -2127,14 +2115,13 @@ function Final({ onError }: { onError: (s: string) => void }) {
       </div>
       <section className="feedback">
         <span className="eyebrow">A SMALL RETROSPECTIVE</span>
-        <h2>만드는 과정은 어땠나요?</h2>
+        <h2>{ui("만드는 과정은 어땠나요?")}</h2>
         <p>
-          다음 발표를 위해 짧게 남겨 보세요. 답변은 이 화면에서만 유지됩니다.
-        </p>
+          {ui("다음 발표를 위해 짧게 남겨 보세요. 답변은 이 화면에서만 유지됩니다.")}</p>
         {[
-          "가장 도움이 된 기능은 무엇인가요?",
-          "기대와 달랐던 점은 무엇인가요?",
-          "다음에 만들고 싶은 발표 자료는 무엇인가요?",
+          ui("가장 도움이 된 기능은 무엇인가요?"),
+          ui("기대와 달랐던 점은 무엇인가요?"),
+          ui("다음에 만들고 싶은 발표 자료는 무엇인가요?"),
         ].map((q, i) => (
           <label key={q}>
             {i + 1}. {q}
@@ -2154,17 +2141,17 @@ function Final({ onError }: { onError: (s: string) => void }) {
             try {
               await navigator.clipboard.writeText(
                 feedback
-                  .map((a, i) => `${i + 1}. ${a || "답 없음"}`)
+                  .map((a, i) => `${i + 1}. ${a || ui("답 없음")}`)
                   .join("\n\n"),
               );
               setCopied(true);
             } catch {
-              onError("복사하지 못했습니다. 답변을 직접 선택해 복사해 주세요.");
+              onError(ui("복사하지 못했습니다. 답변을 직접 선택해 복사해 주세요."));
             }
           }}
         >
           <Copy size={14} />
-          {copied ? "복사했습니다" : "답변 복사"}
+          {copied ? ui("복사했습니다") : ui("답변 복사")}
         </button>
       </section>
     </main>

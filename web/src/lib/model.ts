@@ -163,6 +163,7 @@ export type PresentationStage = (typeof presentationStages)[number];
 /** 최종 발표를 고르면 처음 제안하는 장 수 */
 export const FINAL_DEFAULT_SLIDES = 24;
 export const deckInputSchema = z.object({
+  language: z.enum(["ko", "en"]).optional(),
   deckType: z.enum(["consulting", "marketing"]),
   designSystemId: z.enum(["ict-forest", "navy", "coral", "lemonade", "sand", "charcoal", "custom"]),
   customPrimary: z

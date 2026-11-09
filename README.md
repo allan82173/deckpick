@@ -1,103 +1,51 @@
 # DeckPick
 
-## 비공개 배포 및 실행
+**발표의 초안을 만들고, 장별 구성을 비교하며 다듬는 AI 프레젠테이션 도구.**  
+**An AI presentation workspace for drafting, comparing layouts, and refining slides.**
 
-- 서비스: https://deckpick.vercel.app — 접근 권한이 있는 Vercel 계정 로그인 필요.
-- 앱 실행 루트와 Vercel Root Directory: `web`.
-- 현재 `main`의 소스를 Vercel에 비공개로 직접 배포합니다. 자동 배포 연결은 Vercel 계정의 GitHub Login Connection 설정이 추가로 필요합니다. Vercel Root Directory는 `web`으로 준비돼 있습니다.
-- API 키는 사이트의 AI 연결 설정에서 입력하며 키·첨부 원본·실행 기록은 저장소에 올리지 않습니다.
-- 클라우드에서는 비공개 Blob에 첨부·중간 결과를 저장합니다. localhost 작업은 자동 이전되지 않습니다.
-- 판단과 스토리라인은 별도 요청으로 실행하며, 스토리라인 재시도 시 완료된 조사를 다시 실행하지 않습니다.
+[웹에서 사용 / Open app](https://deckpick.vercel.app) · [English ↓](#english)
 
+## 한국어
 
-AI와 발표 흐름을 다듬고, 장별 후보 3개를 선택·수정해 편집 가능한 PPTX로 내려받는 로컬 앱입니다. 앱 실행 루트는 `web/`입니다.
+설치 없이 웹에서 사용할 수 있습니다. **AI 기능에는 본인의 OpenAI 또는 Anthropic API 키가 필요하며, 해당 계정에 비용이 청구됩니다.** ChatGPT·Claude 구독과 API 결제는 별개입니다.
 
-- 기준 명세: [deckpick-spec.md](참고자료/deckpick-spec.md)
-- 목업: https://claude.ai/artifact/Ru8kBCeyW2KEVrBn5pyE1F
-- 검토 메모: [명세 이해와 구현 전 확인사항](docs/명세검토.md)
-- 마케팅 참고 기준: [마케팅 스타일 분석](docs/마케팅스타일분석.md) — 같은 캠페인의 영문 39장·국문 35장 분석. 향후 마케팅 기획·디자인 기준이며 앱 코드 변경과 구분합니다.
+1. **새 덱 만들기**에서 주제·목적·발표자료 언어를 설정합니다.
+2. **AI와 대화 → AI 연결 설정**에 API 키를 입력합니다.
+3. 자료를 첨부하고 초안을 생성한 뒤, 장별 후보 비교·직접 편집·PPTX 다운로드로 완성합니다.
 
-## 확정된 작업 방향
+화면 상단에서 **한국어 / English**를 전환할 수 있습니다. 화면 언어와 생성할 발표자료의 언어는 별도로 선택합니다. 키는 브라우저 세션에 보관되며 서버를 거쳐 선택한 제공자로 전송됩니다. 공유 기기에서는 사용 후 키를 지우세요.
 
-1. 입력·AI 대화 → 아웃라인 확인·수정 → 슬라이드 후보 선택·직접 수정 → 완성본·PPTX 다운로드.
-2. 디자인 시스템은 색·폰트이고, 덱 유형은 구조·문체입니다. 컨설팅/보고서와 마케팅/피치를 모두 지원합니다.
-3. 같은 SlideSpec JSON에서 HTML 미리보기와 PPTX를 각각 렌더링합니다. 글자와 도형은 PowerPoint에서 편집 가능해야 합니다.
-4. 흰 바탕 단일 UI, Pretendard, 기본 ict-forest 색상 토큰을 기준으로 합니다. 선택 중 주색 변경도 전체에 반영합니다.
-5. OpenAI/Anthropic BYOK와 서버 측 LLM 호출, zod 검증, 실제 출처 관리, 수동 수정 보호가 필요합니다.
+주요 기능: 공개 자료 조사와 출처·생성 리포트, 장별 최대 3개 후보, 텍스트·도형 편집, 파일·이미지 첨부, 장별 AI 대화, 편집 가능한 PPTX 내보내기. 작업은 현재 브라우저에 저장됩니다. 생성 결과의 사실·출처는 최종 확인이 필요합니다.
 
-## 로컬 실행
+## English
 
-Node.js 24와 npm을 확인했습니다. `web/`에서 다음 명령을 실행합니다.
+Use the web app without installation. **AI features require your own OpenAI or Anthropic API key and are billed to that account.** ChatGPT/Claude subscriptions do not include API billing.
 
-```powershell
-npm.cmd install
-npm.cmd run dev
+1. Create a deck and set the topic, purpose, and presentation language.
+2. Open **AI chat → AI connection settings** and enter your API key.
+3. Add references, generate a draft, compare layouts, edit slides, and download an editable PPTX.
+
+Switch **한국어 / English** in the header. Interface language and presentation language are independent. Your key stays in browser session storage and is sent through the server to your chosen provider. Clear it after using a shared device.
+
+Features include public-source research, citations and generation reports, up to three candidates per slide, text/shape editing, file/image attachments, slide-level AI chat, and editable PPTX export. Work is saved in the current browser. Verify generated claims and sources before presenting.
+
+## Local development
+
+Node.js 20.9+ and npm are required. Use the app link above if you do not need to modify the code.
+
+```sh
+git clone https://github.com/allan82173/deckpick.git
+cd deckpick/web
+npm ci
+npm run dev
 ```
 
-주소: http://localhost:3100 . 다른 과제의 3000번 서버와 겹치지 않도록 3100번을 사용합니다.
+Open http://localhost:3100. Enter your API key in the app; downloading the code does not remove the API requirement.
 
-```powershell
-npm.cmd run typecheck
-npm.cmd test
-npm.cmd run build
+```sh
+npm test
+npm run typecheck
+npm run build
 ```
 
-## 현재 상태 · 2026-10-28
-
-- 랜딩, 입력·대화, 아웃라인 편집, 후보 선택·직접 수정, 전체 미리보기·PPTX 다운로드를 구현했습니다.
-- 사용자 제공 자료 6종, 총 299장을 로컬에서 분석했습니다. 공통 규칙은 [컨설팅 스타일 분석](docs/컨설팅스타일분석.md)에 정리했습니다. 원본과 추출물은 앱 폴더 밖에 보관합니다.
-- 컨설팅 8종·마케팅 6종이 같은 좌표와 줄바꿈 규칙으로 SVG 미리보기와 편집 가능한 PPTX를 만듭니다. 이미지 자리는 도형과 설명으로 출력됩니다.
-- 실제 AI 모드: OpenAI Responses API, Claude Messages API, 검색 출처 수집, 아웃라인·후보 검증, 실패 시 최대 2회 재시도를 구현했습니다. **실제 API 키로 유료 호출·검색·생성 품질을 검증한 상태는 아닙니다.** 제공자 응답을 대체한 테스트와 오류 처리는 검증했습니다.
-- 데모 모드: 준비한 문구를 사용하는 UI·PPTX 체험입니다. 자연어 요청에 대한 실제 조사·내용 수정은 API 연결 후 가능합니다. 데모에 검색 출처나 확인되지 않은 통계를 만들지 않습니다.
-- 초안은 이 브라우저의 localStorage에 저장합니다. 임시로 비운 편집 값도 보존하며, 내려받기 전 유효성을 다시 확인합니다. 브라우저를 바꾸면 자료가 따라가지 않습니다.
-- Vercel의 `dh-a410/deckpick`에 **프로젝트 연결만** 했습니다. 배포·GitHub 업로드·배포용 환경변수 등록은 하지 않았습니다. 프로젝트 관리: https://vercel.com/dh-a410/deckpick . 대표 배포 URL은 없습니다.
-- 단계별 구현과 검증·미검증 항목은 [구현 확인 기록](docs/구현확인.md)에 있습니다.
-
-## AI API 연결
-
-최신 상태: OpenAI 키 발급·로컬 저장은 완료했습니다. 연결 확인은 `credit_balance_exhausted`(API 크레딧 잔액 부족)를 반환해 실제 생성은 검증하지 못했습니다. [연결 상태 기록](docs/API연결상태.md)을 참고하세요. 아래 초기 구현 시점의 ‘실제 키 미검증’ 기록은 이 상태 기록으로 갱신합니다.
-
-1. OpenAI 또는 Claude 한 곳에서 API 키를 발급하고, 해당 API 계정의 결제·크레딧과 모델 이용 권한을 확인합니다.
-2. 앱의 ‘실제 AI 연결하기’ → ‘AI 연결 설정’에서 제공자를 선택합니다.
-3. 키를 입력하고 ‘연결’을 누릅니다. 연결 확인은 선택한 모델에 작은 요청 1회를 실제 전송하며 사용량이 발생할 수 있습니다. 기본 모델은 OpenAI `gpt-6-luna`, Claude `claude-sonnet-5-5`입니다. 모델 이름은 화면에서 바꿀 수 있습니다.
-4. 연결 후 주제·목적을 입력합니다. ‘조사부터 해줘’는 검색 도구를 호출하며, 바로 아웃라인 만들기는 현재 입력과 대화를 바탕으로 구성합니다. 키가 없으면 AI 모드는 안내 오류를 보여 줍니다.
-5. 아웃라인 제안은 ‘이 구성으로 진행’ 또는 ‘이 제안 반영’을 눌러야 실제 덱에 반영됩니다. 후보는 슬라이드별로 순차 생성합니다. 각 AI 구조화 생성은 최초 호출 후 최대 2회 수정 요청을 하므로, 장 수와 재생성 횟수에 따라 API 사용량이 늘어납니다.
-
-키는 채팅에 붙이지 마세요. 앱의 비밀번호 입력칸에 직접 입력합니다. BYOK는 sessionStorage에만 저장하며 덱·PPTX·DB·서버 로그에 넣지 않습니다. ‘저장된 키 지우기’로 현재 저장 값을 지울 수 있습니다. 요청은 로컬 서버를 거쳐 해당 AI 제공자의 공식 API로만 전송됩니다. 제공자는 입력한 발표 내용과 대화를 처리합니다.
-
-대안으로 기존 `web/.env.local`에 `OPENAI_API_KEY` 또는 `ANTHROPIC_API_KEY`를 추가할 수 있습니다. `.env.example`을 참고하되, Vercel 연결 과정에서 생긴 기존 파일을 덮어쓰지 마세요. `.env.local`은 Git·Vercel 업로드에서 제외합니다. 서버 키가 설정돼 있으면 AI 모드 요청에서 키가 없는 브라우저에도 그 서버 키를 사용하므로, 추후 공개 배포 전에는 인증·사용량 제한을 추가해야 합니다.
-
-공식 안내 (2026-10-28 확인):
-
-- OpenAI: https://developers.openai.com/api/docs/quickstart / https://platform.openai.com/api-keys
-- Claude: https://platform.claude.com/docs/en/get-api-key / https://platform.claude.com/settings/keys
-- 검색: https://developers.openai.com/api/docs/guides/tools-web-search / https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool
-
-Claude 5.5는 강제 tool_choice가 제한되므로 native JSON schema를 사용합니다. 이전 모델의 Tool Use 방식도 어댑터에 남겨 두었습니다. 검색과 구조화 출력을 별도 요청으로 나눠 출처를 먼저 확보합니다.
-
-## 가정과 범위
-
-- 장 수는 명세 모델에 맞춰 5~12장 선택으로 노출했습니다.
-- 상태 저장은 마지막 덱 1개입니다. 새 덱을 만들기 전에 필요한 PPTX를 내려받아 주세요.
-- 기본 화면은 명세의 흰색·숲녹색과 목업의 좌우 구성을 유지했습니다. 모바일에서는 채팅이 아래로 내려갑니다.
-- 본문과 출처를 사용자가 최종 확인해야 합니다. 출처 링크가 존재한다는 것만으로 모든 숫자와 주장의 진위를 자동으로 보장하지 않습니다.
-- PowerPoint와 브라우저는 글자 측정 방식이 달라 일부 줄바꿈·간격 차이가 있을 수 있습니다. 미리 정한 줄바꿈과 좌표를 공유하고 넘침 경고를 표시합니다. Pretendard가 설치돼 있어야 같은 글꼴로 열립니다.
-- 실제 이미지 생성·검색, 기존 PPT 업로드를 통한 자동 스타일 추출, 복잡한 차트 자동화는 현재 MVP 범위 밖입니다.
-
-Claude에서 추출한 컨설팅 PPT 스킬셋은 docs/Claude-PPT-스킬셋-적용기준.md에 정리했습니다. 컨설팅 목차·후보 생성의 키메시지 지침과 75자 검증에 연결했으며, 새 테마·별도 스키마의 전체 지원은 남은 항목으로 구분했습니다.
-
-2026-10-29: PDF·DOCX·PPTX·TXT·MD·CSV 첨부와 발췌 기반 입력량 제한, 승인한 레모네이드 보라·샌드 브라운·차콜 모노를 추가했습니다. 범위와 한계는 docs/파일첨부와-토큰절약.md를 참고하세요.
-
-2026-10-29: 본문 섹션별 추천 다양화와 통찰+근거/2×2 프레임/실행 로드맵, 카드별 ‘새 후보로 교체’를 추가했습니다. 기존 저장 덱은 전체 다시 생성 또는 카드 교체로 적용합니다. 상세: docs/본문후보-다양성과-교체.md.
-
-2026-10-29: 채팅에 PNG·JPG·WebP 사진을 Ctrl+V, 드래그, 사진 버튼으로 첨부할 수 있습니다. 미리보기·사진만 전송·분석 제외·저비용 화질 옵션과 실제 AI 이미지 입력을 연결했습니다. 실제 유료 이미지 분석 품질은 미검증입니다. 상세: [채팅 사진 첨부](docs/채팅-사진첨부.md).
-
-2026-10-29: 컨설팅 표지에 사진 반반형·화이트 보고서형·큰 제목형과 서로 다른 제목 후보, 직접 사진 교체, 사진 포함 PPTX를 추가했습니다. 기존 표지는 ‘표지 디자인 3안 적용 · API 사용 없음’ 버튼으로 전환합니다. 상세: [표지 개선](docs/표지-사진과-제목후보.md).
-
-2026-10-29: 본문 후보에 ‘전체 본문 유형 보기’를 연결했습니다. 고객 여정·원인 트리·인과 검증·포지셔닝·시스템 흐름/비교·역할별 업무·전후 비교·추세 등 새 구조 9종을 양쪽 덱에서 사용할 수 있습니다. 컨설팅 18개·마케팅 14개 본문을 둘러보고 지정한 후보 한 자리만 생성·교체합니다. 상세: [본문 유형 라이브러리](docs/본문-표현유형-라이브러리.md).
-
-2026-10-29 최신 기본 흐름: 자료 입력 뒤 내용과 구성을 채운 **전체 초안을 먼저** 보여 줍니다. 장마다 첫 초안 1개를 자동 적용하고 ‘이 장 다른 후보 보기’를 눌렀을 때만 추가 후보를 만듭니다. 목차·구조 수동 선택은 보조 수정 기능입니다. 상세: [전체 초안 우선](docs/전체초안-우선-작업흐름.md).
-
-## 공개 데모 — 2026-10-30
-
-https://deckpick.vercel.app — API 키 없이 예시 생성·편집·PPTX 다운로드. 실제 AI·파일 첨부는 비활성화. 최신 배포 기록: docs/Vercel-공개데모-배포.md. 이전 배포 보류 기록은 이 공개 데모에 한해 대체한다.
+Built with Next.js, React, TypeScript, Zod and PptxGenJS. Original reference decks, personal work records and credentials are excluded from this repository. Install Pretendard for matching typography in PowerPoint; line breaks may vary between browser and PowerPoint.

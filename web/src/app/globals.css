@@ -1932,3 +1932,6 @@ a.primary:hover {
 @media(max-width:480px){.saved-task-panel li{flex-wrap:wrap}.saved-task-panel li>div:first-child{flex-basis:100%}.saved-task-panel li>.saved-task-actions{margin-left:auto}}
 
 .request-progress{display:flex;align-items:flex-start;gap:12px;border:1px solid #b5c9bf;background:#eff6f2;color:#244c3c}.request-progress p{margin:6px 0;font-variant-numeric:tabular-nums}.request-progress small{line-height:1.5}
+
+.language-switcher{display:flex;gap:2px;border:1px solid var(--border,#d8e5dc);border-radius:8px;padding:3px;flex-shrink:0}.language-switcher button{background:transparent;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;font-size:12px;color:#526158}.language-switcher button[aria-pressed="true"]{background:#244c3c;color:white}.api-settings[open] summary{font-weight:600}.setting-section label small{display:block;color:#526158;font-size:12px;margin-top:5px}
+@media(max-width:700px){.topbar{flex-wrap:wrap}.language-switcher{margin-left:auto}.topbar .local-badge{display:none}}

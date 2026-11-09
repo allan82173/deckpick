@@ -21,9 +21,9 @@ import { z } from "zod";
 export const defaultInput: DeckInput = {
   deckType: "consulting",
   designSystemId: "ict-forest",
-  topic: publicDemoOnly ? "지역 생활 플랫폼 활성화 전략" : "연세대 중고거래 앱 '신촌마켓' 활성화 전략",
-  purpose: publicDemoOnly ? "서비스 개선 제안 발표" : "ICT 경영 수업 중간 발표",
-  audience: "담당 교수님과 수강생",
+  topic: "",
+  purpose: "",
+  audience: "",
   slideCount: 6,
 };
 export function freshDeck(): Deck {
