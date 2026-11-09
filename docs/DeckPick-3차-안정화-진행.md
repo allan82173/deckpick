@@ -909,3 +909,4 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
   2. Vercel 계정의 GitHub Login Connection은 팝업이라 사용자가 직접 연결했다.
   3. 프로젝트 Settings → Git에서 저장소를 연결했다. Root Directory는 web으로 확인했다.
 - 이 기록 커밋이 첫 자동 배포 확인용이다. 코드 변경이 없어 테스트·빌드는 미실행이다. 유료 AI 호출 0회.
+- 첫 자동 배포(5069105)는 2초 만에 NEXT_NO_VERSION으로 실패했다. 원인은 `web/.vercelignore`의 `web/` 줄이다. 중첩된 빈 폴더 web/web을 빼려던 줄인데, Git 연동 배포에서는 저장소 기준으로 적용돼 앱 폴더(/web) 전체가 제외됐다. 해당 줄을 삭제했다. 중첩 web/web은 빈 scripts 폴더뿐이다.
