@@ -901,3 +901,11 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
 ### ③ 남은 일
 - 사용자가 최종 발표 모드(예: 20~24장)로 새 덱을 생성해 4종 레이아웃 사용 여부와 품질을 평가한다.
 - Codex 배포 대상: 최종 발표 모드와 레이아웃 4종 전체.
+
+## 2026-11-09 Claude — Vercel GitHub 자동 배포 연결
+- 사용자 요청으로 Vercel 프로젝트 deckpick에 GitHub 저장소 allan82173/deckpick를 연결했다. 이제 main에 push하면 Vercel이 자동 배포한다.
+- 순서:
+  1. GitHub에 Vercel GitHub App을 설치했다. 권한은 'Only select repositories'로 allan82173/deckpick 하나에만 줬다. GitHub sudo 이메일 인증은 사용자가 직접 했다.
+  2. Vercel 계정의 GitHub Login Connection은 팝업이라 사용자가 직접 연결했다.
+  3. 프로젝트 Settings → Git에서 저장소를 연결했다. Root Directory는 web으로 확인했다.
+- 이 기록 커밋이 첫 자동 배포 확인용이다. 코드 변경이 없어 테스트·빌드는 미실행이다. 유료 AI 호출 0회.
