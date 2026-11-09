@@ -1489,7 +1489,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
   async function inspectWholeDraft(snapshot: Deck) {
     if (snapshot.demo || !snapshot.researchRecord?.analysis || snapshot.outline.some((_, index) => !draftSlide(snapshot, index))) return;
     const result = await callAPI("deck/review", { input: snapshot.input, currentDeck: snapshot }, credentialsRef.current);
-    const replacements = z.array(z.object({ index: z.number().int(), before: slideSchema, slide: slideSchema })).parse(result.replacements);
+    const replacements = z.array(z.object({ index: z.number().int(), before: slideSchema, slide: slideSchema, swapWith: z.number().int().optional() })).parse(result.replacements);
     const review = reviewSchema.parse(result.review);
     if (cancel.current) return;
     setDeck(previous => {
@@ -1500,6 +1500,8 @@ function Picker({ onError }: { onError: (s: string) => void }) {
         if (JSON.stringify(draftSlide(next, replacement.index)) !== JSON.stringify(replacement.before)) { stale = true; continue; }
         const slot = next.picked[replacement.index] ?? 0;
         const candidates = [...next.candidates[replacement.index]];
+        // 레이아웃 반복 수정은 새로 만들지 않고 기존 후보와 자리를 바꾼다(swapWith). 원래 후보는 바꾼 자리로 옮겨 남긴다.
+        if (replacement.swapWith !== undefined && replacement.swapWith !== slot && candidates[replacement.swapWith]) candidates[replacement.swapWith] = candidates[slot];
         candidates[slot] = replacement.slide;
         next = { ...next, candidates: { ...next.candidates, [replacement.index]: candidates } };
       }

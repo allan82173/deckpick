@@ -59,6 +59,6 @@ export const slideQualitySchema = z.object({
   warnings: z.array(z.string()),
   attempts: z.number().int().min(0).max(2),
   fillRatio: z.number().min(0).max(1),
-  visual: z.object({status:z.enum(["passed","issues","failed","disabled"]),warnings:z.array(z.string())}).optional(),
+  visual: z.object({status:z.enum(["passed","issues","failed","disabled","skipped"]),warnings:z.array(z.string())}).optional(),
   rendererWarnings:z.array(z.string()).optional(),
 });

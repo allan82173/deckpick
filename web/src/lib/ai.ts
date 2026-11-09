@@ -572,19 +572,23 @@ async function generateCandidateBatch(
       sourceUrls: sources.length ? z.array(z.enum(sources.map(source=>source.url) as [string,...string[]])) : z.array(z.string()).max(0),
     })).min(1).max(planned.length) }),
     systemFor(input),
+    // 덱 전체에서 같은 값(과제·장 순서·과제 해석·확정 결정·규칙)을 앞에 두고 장별 값은 뒤에 둔다. 앞부분이 같으면 모델 쪽 프롬프트 캐시가 적용돼 비용·지연이 준다(2026-11-09 측정 캐시율 2%).
     JSON.stringify({
       input,
+      deckSequence: outline.map(({ index, section, message }) => ({ index, section, message })),
+      taskAnalysis: generation?.record?.analysis,
+      confirmedDecisions: confirmed,
+      acceptedLimitations: generation?.record?.gaps,
+      rules:
+        "dataJson은 예시와 같은 구조의 JSON 문자열. slotPlan 순서와 layoutId를 정확히 따른다. claimDesign의 preferredLayouts는 이전 설계 단계의 참고이며 이 호출에서는 slotPlan만 허용된다. 각 layoutSchemas의 필수 필드를 빠짐없이 채운다. 최소 데이터가 없으면 빈 양식이나 임의 숫자로 채우지 않는다. 설문은 실제 표본 수·조사 기간·조사 근거 ID가 있어야 하며 인용을 만들지 않는다. 페르소나는 실제 조사 근거가 없으면 가상으로 표시한다. 화면 주석은 uploadedImages에 있는 실제 경로와 픽셀 크기만 쓴다. 데이터 차트는 같은 단위·분모의 실제 근거 수치 또는 명시된 계산 가정만 쓴다. 같은 핵심 메시지와 근거를 유지하면서 비교 기준·인과·인사이트·실행 순서 등 서로 다른 관점으로 재구성한다. 예시의 샘플 문구를 그대로 복사하지 않는다. 없는 수치를 채워 차이를 만들지 않는다. 계산 장은 근거 변수와 가정 변수를 구분하고 산식과 단위를 함께 보인다. 미산출·빈 입력칸만 나열하지 않는다. 분모·측정 기간·포함 항목이 다른 숫자를 같은 지표처럼 나란히 놓지 않는다. 단위와 비교 조건이 없으면 우열을 단정하지 않는다. 원문 미확인·페이지 확인 전·검수 상태 같은 내부 검증 표시는 화면 본문에 쓰지 않고 notes에 적는다. 화면에는 수치와 기준 연도·출처 이름만 남긴다. 확인되지 않은 값을 0으로 차트에 그리지 않는다. 숫자는 읽기 쉬운 단위로 반올림한다: 억 원 단위 금액은 정수(9,770.52억 → 9,771억, −122.50억 → −123억), 비율·증감률은 소수 첫째 자리(2.82% → 2.8%), 원 단위 큰 금액은 억·조 단위로 바꾼다. 원래 정밀 수치는 notes에 남긴다. 표지 제목은 과제·주제명(예: 교보문고 20대 공략 사업 진단)으로 쓰고 주장 문장으로 쓰지 않는다. 포지셔닝 맵·2×2는 두 축이 근거 지표나 명확한 판단 기준일 때만 쓰고, 축이 '낮음→높음'뿐이면 다른 레이아웃을 쓴다. 포지셔닝 맵은 경쟁사·대안의 위치 비교가 그 장의 핵심 질문일 때만 쓰고, 컨셉 설명·우선순위·판단·로드맵 장에는 쓰지 않는다. 각 점의 위치는 근거 지표로 설명할 수 있어야 하며 rationale에 축 기준을 밝힌다. 출처·근거 개수를 본문 수치로 쓰지 않고, 해당 여부를 0/1로 그린 차트를 만들지 않는다. claimType이 가설이거나 근거가 부족한 장은 '확인되지 않음'을 본문 주제로 삼지 않고, 가설과 근거 → 확인 방법(설문 문항 또는 IDI 질문·대상·필요 표본 수나 데이터) → 판단을 바꿀 기준 순서로 채운다. 표지는 한 줄에 읽히는 짧은 제목(가급적 24자 이내)으로 쓴다. 자세한 범위와 설명은 부제로 옮긴다. 표지는 부제만 바꾸지 말고 제목 자체를 서로 다른 관점으로 쓴다. photoId/referencePhoto는 작성하지 않는다. 사진 선택은 사용자가 한다. 나머지는 서로 다른 구조. 목차는 목차내용을 서로 다르게 시각화. 모르는 실적은 만들지 않으며 필요하면 [가정]과 산식을 밝힌 계산 예시나 [가설]로 판단한다. sources는 내용과 직접 관련된 것만.",
       item,
-      narrativeContext: { previous: outline.find((v) => v.index === item.index - 1) ?? null, next:outline.find((v)=>v.index===item.index+1)??null, sequence: outline.map(({ index, section, message }) => ({ index, section, message })) },
+      narrativeContext: { previous: outline.find((v) => v.index === item.index - 1) ?? null, next:outline.find((v)=>v.index===item.index+1)??null },
       instruction,
       attachmentEvidence: attachmentRows.length?undefined:attachmentContext,
       attachmentEvidenceTable:attachmentRows,
       allowedSources: evidence.length ? sources.map(({ title, url }) => ({ title, url })) : sources,
       evidenceTable: sourceFactsForPrompt(evidence),
-      taskAnalysis: generation?.record?.analysis,
-      confirmedDecisions: confirmed,
       sharedJudgments: generation?.record?.decisions?.filter(d=>d.questionId===item.argument?.questionId),
-      acceptedLimitations: generation?.record?.gaps,
       evidenceCoverage: generation?.record?.coverage?.filter(c=>!item.argument?.questionId||c.questionId===item.argument.questionId),
       claimDesign: item.argument,
       calculation: item.calculation,
@@ -594,8 +598,6 @@ async function generateCandidateBatch(
       slotPlan: planned.map((layoutId, i) => ({ slot: i, layoutId, purpose: layoutPurpose[layoutId], ...(expandedKind(layoutId) ? { guidance: expandedRegistry[expandedKind(layoutId)!] } : {}), ...(layoutId === "c-cover" ? { coverStyle: coverStyles[(single ? rotation : i) % 3], titleDirection: ["발표 주제와 범위", "고객 관점과 실행", "브랜드 경험과 제안"][i] } : {}) })),
       previousSignatures,
       count: planned.length,
-      rules:
-        "dataJson은 예시와 같은 구조의 JSON 문자열. slotPlan 순서와 layoutId를 정확히 따른다. claimDesign의 preferredLayouts는 이전 설계 단계의 참고이며 이 호출에서는 slotPlan만 허용된다. 각 layoutSchemas의 필수 필드를 빠짐없이 채운다. 최소 데이터가 없으면 빈 양식이나 임의 숫자로 채우지 않는다. 설문은 실제 표본 수·조사 기간·조사 근거 ID가 있어야 하며 인용을 만들지 않는다. 페르소나는 실제 조사 근거가 없으면 가상으로 표시한다. 화면 주석은 uploadedImages에 있는 실제 경로와 픽셀 크기만 쓴다. 데이터 차트는 같은 단위·분모의 실제 근거 수치 또는 명시된 계산 가정만 쓴다. 같은 핵심 메시지와 근거를 유지하면서 비교 기준·인과·인사이트·실행 순서 등 서로 다른 관점으로 재구성한다. 예시의 샘플 문구를 그대로 복사하지 않는다. 없는 수치를 채워 차이를 만들지 않는다. 계산 장은 근거 변수와 가정 변수를 구분하고 산식과 단위를 함께 보인다. 미산출·빈 입력칸만 나열하지 않는다. 분모·측정 기간·포함 항목이 다른 숫자를 같은 지표처럼 나란히 놓지 않는다. 단위와 비교 조건이 없으면 우열을 단정하지 않는다. 원문 미확인·페이지 확인 전·검수 상태 같은 내부 검증 표시는 화면 본문에 쓰지 않고 notes에 적는다. 화면에는 수치와 기준 연도·출처 이름만 남긴다. 확인되지 않은 값을 0으로 차트에 그리지 않는다. 숫자는 읽기 쉬운 단위로 반올림한다: 억 원 단위 금액은 정수(9,770.52억 → 9,771억, −122.50억 → −123억), 비율·증감률은 소수 첫째 자리(2.82% → 2.8%), 원 단위 큰 금액은 억·조 단위로 바꾼다. 원래 정밀 수치는 notes에 남긴다. 표지 제목은 과제·주제명(예: 교보문고 20대 공략 사업 진단)으로 쓰고 주장 문장으로 쓰지 않는다. 포지셔닝 맵·2×2는 두 축이 근거 지표나 명확한 판단 기준일 때만 쓰고, 축이 '낮음→높음'뿐이면 다른 레이아웃을 쓴다. 포지셔닝 맵은 경쟁사·대안의 위치 비교가 그 장의 핵심 질문일 때만 쓰고, 컨셉 설명·우선순위·판단·로드맵 장에는 쓰지 않는다. 각 점의 위치는 근거 지표로 설명할 수 있어야 하며 rationale에 축 기준을 밝힌다. 출처·근거 개수를 본문 수치로 쓰지 않고, 해당 여부를 0/1로 그린 차트를 만들지 않는다. claimType이 가설이거나 근거가 부족한 장은 '확인되지 않음'을 본문 주제로 삼지 않고, 가설과 근거 → 확인 방법(설문 문항 또는 IDI 질문·대상·필요 표본 수나 데이터) → 판단을 바꿀 기준 순서로 채운다. 표지는 한 줄에 읽히는 짧은 제목(가급적 24자 이내)으로 쓴다. 자세한 범위와 설명은 부제로 옮긴다. 표지는 부제만 바꾸지 말고 제목 자체를 서로 다른 관점으로 쓴다. photoId/referencePhoto는 작성하지 않는다. 사진 선택은 사용자가 한다. 나머지는 서로 다른 구조. 목차는 목차내용을 서로 다르게 시각화. 모르는 실적은 만들지 않으며 필요하면 [가정]과 산식을 밝힌 계산 예시나 [가설]로 판단한다. sources는 내용과 직접 관련된 것만.",
     }),
     (value) => {
       verifyCalls++;
@@ -626,7 +628,7 @@ async function generateCandidatesBody(...args: Parameters<typeof generateCandida
   if (!item.role) return generateCandidateBatch(...args);
   let current = await generateCandidateBatch(c, input, item, sources, instruction, excluded, single,
     outline, attachmentContext, rotation, previousSignatures, images, requestedLayout, evidence, previousLayouts, generation);
-  const visualChecks=new Map<string,Awaited<ReturnType<typeof visualReview>>>();
+  const visualChecks=new Map<string,Awaited<ReturnType<typeof visualReview>>|{status:"skipped";warnings:string[]}>();
   const retries = current.map(() => 0);
   const maximumRetries = generation?.qualityRetries ?? MAX_QUALITY_RETRIES;
   for (let attempt = 0; attempt <= maximumRetries; attempt++) {
@@ -644,10 +646,12 @@ async function generateCandidatesBody(...args: Parameters<typeof generateCandida
       quality.warnings.push(...textArtifacts(JSON.stringify({ headline: slide.headline, data: slide.data }), generation?.record?.analysis));
       return { ...enriched, quality: { ...quality, warnings: [...new Set(quality.warnings)], attempts: retries[index] } };
     });
-    for(const slide of checked){
-      const signature=candidateSignature(slide);
-      const visual=visualChecks.get(signature)??await visualReview(c,slide,(await import("./design")).design(input.designSystemId,input.customPrimary),item.index+1,input.topic,outline.map(i=>i.section));
-      visualChecks.set(signature,visual);
+    // 이미지 시각 검수는 기본 선택 후보(첫 칸)와 좌표 검사에서 경고가 난 후보만 한다. 시각 경고는 재생성 사유가 아니라 표시용이라, 후보 3개 모두를 매 시도마다 보던 비용(호출 109회·10분)을 줄인다.
+    for(const [slot,slide] of checked.entries()){
+      const signature=candidateSignature(slide),needed=slot===0||!!slide.quality.rendererWarnings?.length;
+      const cachedVisual=visualChecks.get(signature);
+      const visual=cachedVisual??(needed?await visualReview(c,slide,(await import("./design")).design(input.designSystemId,input.customPrimary),item.index+1,input.topic,outline.map(i=>i.section)):{status:"skipped" as const,warnings:[]});
+      if(cachedVisual||needed)visualChecks.set(signature,visual);
       slide.quality={...slide.quality,visual,warnings:[...new Set([...slide.quality.warnings,...visual.warnings])]};
     }
     const repairReasons=(slide:typeof checked[number])=>slide.quality.warnings.filter(w=>!slide.quality.rendererWarnings?.includes(w)&&!slide.quality.visual?.warnings.includes(w)&&!isRendererWarning(w));
