@@ -6,7 +6,7 @@ import {deckContextSchema} from "./slide-chat";
 /** Research source counts are variable; the route enforces the total request-byte budget. */
 export const requestSchema = z.object({
   runId:z.string().regex(/^[a-zA-Z0-9_-]{1,120}$/).optional(),
-  provider: z.enum(["openai", "anthropic", "claude-code", "codex"]).default("openai"),
+  provider: z.enum(["openai", "anthropic"]).default("openai"),
   model: z.string().optional(),
   attachmentIds: attachmentIdsSchema,
   lowDetailImageIds: attachmentIdsSchema,

@@ -1454,3 +1454,21 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
 - 사용자: Claude Code(`npm i -g @anthropic-ai/claude-code` 후 `claude`로 로그인) 또는 Codex CLI(`npm i -g @openai/codex` 후 `codex login`)를 설치한다. 그다음 `.env.local`에 `DECKPICK_LOCAL_AGENT=1`을 추가하고 서버를 재시작한다.
 - Codex 경로는 실제 로그인 환경에서 아직 확인하지 않았다(가짜 CLI 테스트는 Claude 경로만 했다).
 - 첨부 이미지는 로컬 에이전트로 보내지 않는다(텍스트만).
+
+## 2026-11-09 Claude — 로컬 에이전트 연결 제거(API 키 방식만 유지)
+
+사용자 결정: 공개 사이트에서는 구조상 작동할 수 없어 기능을 포기한다. 이전에 만든 것도 모두 없애고, API 키로만 작동하게 한다.
+
+### ① 바꾼 파일과 이유
+- 커밋 `6b6c9fa`(로컬 에이전트 연결)의 코드 변경을 되돌렸다(`git revert`). 진행 문서의 기록은 남겼다.
+  - 원복: `ai.ts`, `run-budget.ts`(3배 시간 제한), `api-request.ts`, `api/config/route.ts`, `store.tsx`, `studio.tsx`, `ui-messages.ts`, `tests/public-demo.test.ts`
+  - 저장소에서 삭제: `web/src/lib/local-agent.ts`, `web/tests/local-agent.test.ts`
+- 노트북에서는 삭제 대신 프로젝트 루트 `_to_delete/local-agent/`로 옮겼다(삭제 전 확인 규칙). 옮긴 파일은 `local-agent.ts`, `local-agent.test.ts`, `output/claude-sync/check-local-agents.cmd`, `local-agents.log`이다. 사용자가 확인한 뒤 폴더를 지우면 된다. Git에 올리지 않는다.
+- 같은 날 앞서 넣은 Claude 프롬프트 캐싱, 장 단위 보정, 원문 번갈아 열기는 API 키 경로의 개선이라 그대로 둔다.
+
+### ② 검사 결과
+- Linux 사본: tsc 통과, `npm test` 239/239 통과(로컬 에이전트 도입 전과 같은 상태).
+- Windows `verify-build-restart.cmd`: typecheck 통과, 테스트 239/239, `next build` 성공, 서버 재시작.
+
+### ③ 남은 일
+- `.env.local`은 건드리지 않았다(`DECKPICK_LOCAL_AGENT`를 추가한 적 없음).

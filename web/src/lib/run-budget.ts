@@ -6,13 +6,11 @@ const scope=new AsyncLocalStorage<{signal:AbortSignal;deadline:number}>();
 export class BudgetTimeout extends Error {status=504;constructor(public stage:string){super(`${stage} 단계 시간 제한을 초과했습니다. 중간 저장 지점에서 이어서 생성할 수 있습니다.`);}}
 export function remainingBudgetMs(){const store=scope.getStore();return store?store.deadline-Date.now():Infinity;}
 export function assertBudget(){if(scope.getStore()?.signal.aborted)throw new BudgetTimeout("현재");}
-// 로컬 에이전트(Claude Code·Codex CLI)는 실행마다 에이전트 준비 시간이 붙어 API보다 느리므로, 로컬 실행에서 켜면 시간 제한을 3배로 둔다.
-export const localTimeFactor=()=>process.env.DECKPICK_LOCAL_AGENT==="1"&&process.env.VERCEL!=="1"?3:1;
-export function providerTimeout(stage?:string){const byStage=GENERATION_CONFIG.providerTimeoutMsByStage as Record<string,number|undefined>;return Math.min(((stage&&byStage[stage])||GENERATION_CONFIG.providerTimeoutMs)*localTimeFactor(),process.env.VERCEL==="1"?GENERATION_CONFIG.hosting.stageBudgetMs-GENERATION_CONFIG.hosting.providerReserveMs:Infinity);}
+export function providerTimeout(stage?:string){const byStage=GENERATION_CONFIG.providerTimeoutMsByStage as Record<string,number|undefined>;return Math.min((stage&&byStage[stage])||GENERATION_CONFIG.providerTimeoutMs,process.env.VERCEL==="1"?GENERATION_CONFIG.hosting.stageBudgetMs-GENERATION_CONFIG.hosting.providerReserveMs:Infinity);}
 export function providerSignal(stage?:string){assertBudget();const signal=AbortSignal.timeout(providerTimeout(stage));return scope.getStore()?AbortSignal.any([signal,scope.getStore()!.signal]):signal;}
 export async function retryDelay(attempt:number){assertBudget();await delay(GENERATION_CONFIG.reliability.backoffMs*2**attempt,undefined,{signal:scope.getStore()?.signal});assertBudget();}
 export async function withBudget<T>(name:BudgetName,fn:()=>Promise<T>,overrideMs?:number):Promise<T>{
- const parent=scope.getStore(),deadline=Math.min(parent?.deadline??Infinity,Date.now()+Math.min((overrideMs??GENERATION_CONFIG.reliability.deadlines[name])*localTimeFactor(),process.env.VERCEL==="1"?GENERATION_CONFIG.hosting.stageBudgetMs:Infinity));
+ const parent=scope.getStore(),deadline=Math.min(parent?.deadline??Infinity,Date.now()+Math.min(overrideMs??GENERATION_CONFIG.reliability.deadlines[name],process.env.VERCEL==="1"?GENERATION_CONFIG.hosting.stageBudgetMs:Infinity));
  const controller=new AbortController();let timer:ReturnType<typeof setTimeout>;
  const signal=parent?AbortSignal.any([parent.signal,controller.signal]):controller.signal;
  const expiration=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new BudgetTimeout(name));},Math.max(0,deadline-Date.now()));});

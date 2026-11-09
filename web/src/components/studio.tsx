@@ -775,7 +775,6 @@ function ChatPanel({
   const photoInput = useRef<HTMLInputElement>(null);
   const uploads = useAttachmentUpload();
   const hasServerKey = serverKeys[credentials.provider];
-  const localAgent = credentials.provider === "claude-code" || credentials.provider === "codex";
   const messages = deck
     ? context === "setup"
       ? deck.chat.setup
@@ -974,15 +973,11 @@ function ChatPanel({
             onChange={(e) =>
               setCredentials((c) => ({
                 ...c,
-                provider: e.target.value as typeof c.provider,
+                provider: e.target.value as "openai" | "anthropic",
                 model:
                   e.target.value === "openai"
                     ? "gpt-6-luna"
-                    : e.target.value === "claude-code"
-                      ? "sonnet"
-                      : e.target.value === "codex"
-                        ? "default"
-                        : "claude-sonnet-5-5",
+                    : "claude-sonnet-5-5",
                 key: "",
                 connected: false,
               }))
@@ -990,10 +985,8 @@ function ChatPanel({
           >
             <option value="openai">OpenAI</option>
             <option value="anthropic">Claude</option>
-            {serverKeys["claude-code"] && <option value="claude-code">{ui("Claude Code (이 PC 로그인)")}</option>}
-            {serverKeys.codex && <option value="codex">{ui("Codex (이 PC 로그인)")}</option>}
           </select>
-          {!localAgent && <input
+          <input
             aria-label={ui("API 키")}
             placeholder={hasServerKey ? ui("저장된 서버 키 사용") : ui("API 키")}
             type="password"
@@ -1006,7 +999,7 @@ function ChatPanel({
                 connected: false,
               }))
             }
-          />}
+          />
           <button
             className="primary"
             disabled={keyBusy || (!credentials.key.trim() && !hasServerKey)}
@@ -1035,9 +1028,7 @@ function ChatPanel({
           />
         </label>
         <p className="hint">
-          {localAgent
-            ? ui("API 키 없이 이 PC에 로그인된 CLI로 실행합니다. 사용량은 해당 구독 한도에서 차감되고, 공개 사이트에서는 쓸 수 없습니다.")
-            : hasServerKey && !credentials.key
+          {hasServerKey && !credentials.key
             ? ui("API 키가 서버에 설정돼 있습니다. 키를 다시 입력하지 않아도 됩니다. 연결 확인과 채팅에는 API 크레딧이 필요합니다.")
             : ui("직접 입력한 키는 이 브라우저 세션에만 저장하며, 선택한 AI 제공자의 연결 확인과 생성 요청에 사용합니다.")}
         </p>
