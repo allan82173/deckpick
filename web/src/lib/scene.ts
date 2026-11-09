@@ -48,6 +48,13 @@ function weight(c: string) {
         : 0.55;
 }
 export type RichRun = { text: string; bold: boolean };
+/** 글 높이(인치). 장면 텍스트 기본 줄 간격 1.25 기준. */
+export const textHeight = (text: string, size: number, width: number) => richLines(text, size, width).length * size * 1.25 / 72;
+/** 여러 글을 세로로 쌓을 때(간격 gap) 높이 h 안에 들어가는 가장 큰 글자 크기. 칸을 비워 두지 않도록 max부터 줄여 본다. */
+export function fitStack(texts: string[], width: number, height: number, max: number, min = 12, gap = 0): number {
+  for (let size = max; size >= min; size -= .5) if (texts.reduce((sum, t) => sum + textHeight(t, size, width), 0) + gap * Math.max(0, texts.length - 1) <= height) return size;
+  return min;
+}
 export function richLines(text: string, size: number, width: number, oneLine=false) {
   const max=oneLine?Infinity:Math.max(.1,(width*72)/size),lines:RichRun[][]=[[]];
   if(oneLine)text=text.replace(/\n/g," ");
@@ -279,7 +286,7 @@ export function makeScene(
   if (slide.internalReview) txt("내부 검토용", 10.55, 7.1, 1.5, .22, 9, c.muted, true, "right");
   if (slide.claimType && ["추론", "가설", "계산"].includes(slide.claimType)) txt(`[${slide.claimType}]`, .42, 1.49, 2.3, .25, 10, c.muted, true);
   const bodyStart=nodes.length,warningStart=warnings.length;
-  if (drawExpanded(slide,c,{nodes,box,txt,line}) || drawAnalytical(slide,c,{ nodes,box,txt }) || drawVisual(slide,c,{ nodes,box,txt,line })) {
+  if (drawExpanded(slide,c,{nodes,box,txt,line}) || drawAnalytical(slide,c,{ nodes,box,txt,line }) || drawVisual(slide,c,{ nodes,box,txt,line })) {
     if(needsAdaptiveBody(slide,nodes.slice(bodyStart),warnings.slice(warningStart))){nodes.splice(bodyStart);warnings.splice(warningStart);drawAdaptiveBody(slide,c,{nodes,box,txt});}
     return { nodes:applyCanvasEdits(fitTextNodes(nodes,warnings),slide.canvasEdits),warnings:[...new Set(warnings)] };
   }
@@ -327,35 +334,37 @@ export function makeScene(
       break;
     }
     case "c-toc": {
-      const d = dataSchemas["c-toc"].parse(slide.data);
+      // 목차는 본문 높이를 세로로 나눠 번호·제목을 크게 놓는다(위쪽 한 줄 배치는 아래 절반이 비었다).
+      const d = dataSchemas["c-toc"].parse(slide.data), top = 1.95, rh = (6.15 - top) / d.items.length, size = fitStack(d.items, 9.6, rh - .2, 22, 15);
       d.items.forEach((t, i) => {
-        const x = 0.9 + i * (11.5 / d.items.length);
-        txt(
-          String(i + 1).padStart(2, "0"),
-          x,
-          2.8,
-          1,
-          0.5,
-          24,
-          c.primary,
-          true,
-        );
-        line(x, 3.5, 0.5, c.primary, 1.5);
-        txt(t, x, 3.8, 11.5 / d.items.length - 0.25, 1, 14, c.darkest, true);
+        const y = top + i * rh;
+        txt(String(i + 1).padStart(2, "0"), 0.9, y + rh / 2 - 0.3, 1.2, 0.6, 30, c.primary, true);
+        nodes.push({ kind: "rect", x: 2.2, y: y + rh / 2 - 0.3, w: 0.06, h: 0.6, fill: i === 0 ? c.primary : c.connector });
+        const th = textHeight(t, size, 9.6);
+        txt(t, 2.6, y + (rh - th) / 2, 9.6, th + 0.05, size, c.darkest, true);
+        if (i < d.items.length - 1) line(0.9, y + rh, 11.55, c.connector, 1);
       });
       break;
     }
     case "c-header-boxes": {
+      // 글머리표를 칸 높이에 고르게 나눠 배치하고, 칸을 채우는 하나의 글자 크기로 맞춘다. 점은 첫 줄 높이에 맞춘다.
       const d = dataSchemas["c-header-boxes"].parse(slide.data),
-        w = (12.49 - (d.columns.length - 1) * 0.3) / d.columns.length;
+        w = (12.49 - (d.columns.length - 1) * 0.3) / d.columns.length, top = 2.62, bottom = 5.82, tw = w - 0.68;
+      const most = Math.max(...d.columns.map(v => v.bullets.length)), slot = (bottom - top) / most;
+      const size = Math.min(...d.columns.map(v => Math.min(...v.bullets.map(b => fitStack([b], tw, slot - 0.16, 18, 12)))));
       d.columns.forEach((v, i) => {
         const x = 0.42 + i * (w + 0.3);
         box(x, 2, w, 3.95, "#FFFFFF", c.primary);
-        box(x, 2, w, 0.4, c.primary);
-        txt(v.title, x + 0.15, 2.08, w - 0.3, 0.28, 13, "#FFFFFF", true);
+        box(x, 2, w, 0.46, c.primary);
+        txt(v.title, x + 0.15, 2.09, w - 0.3, 0.3, 15, "#FFFFFF", true);
+        const used = v.bullets.reduce((n, b) => n + textHeight(b, size, tw), 0), gap = Math.min(0.5, (bottom - top - used) / Math.max(1, v.bullets.length));
+        let y = top + Math.max(0, (bottom - top - used - gap * (v.bullets.length - 1)) / 2);
         v.bullets.forEach((b, k) => {
-          txt("•", x + 0.18, 2.75 + k * 0.72, 0.2, 0.4, 14, c.accent, true);
-          txt(b, x + 0.48, 2.72 + k * 0.72, w - 0.68, 0.67, 14, c.darkest);
+          const th = textHeight(b, size, tw);
+          nodes.push({ kind: "ellipse", x: x + 0.22, y: y + size * 1.25 / 72 / 2 - 0.045, w: 0.09, h: 0.09, fill: c.accent });
+          txt(b, x + 0.48, y, tw, th + 0.04, size, c.darkest);
+          if (k < v.bullets.length - 1) line(x + 0.22, y + th + gap / 2, w - 0.44, c.panel, 1);
+          y += th + gap;
         });
       });
       break;
@@ -410,45 +419,19 @@ export function makeScene(
       break;
     }
     case "c-arrow-flow": {
+      // 단계 칸을 결론 줄 위까지 늘리고, 본문은 칸을 채우는 크기로 가운데 둔다.
       const d = dataSchemas["c-arrow-flow"].parse(slide.data),
         gap = 0.45,
-        w = (12.49 - gap * (d.blocks.length - 1)) / d.blocks.length;
+        w = (12.49 - gap * (d.blocks.length - 1)) / d.blocks.length, top = 2.0, h = 4.05, bw = w - 0.5, size = Math.min(...d.blocks.map(s => fitStack([s.body], bw, h - 0.85, 20, 13)));
       d.blocks.forEach((s, i) => {
-        const x = 0.42 + i * (w + gap);
-        box(x, 2.45, w, 2.8, c.panel, c.primary);
-        box(x, 2.45, w, 0.5, c.primary);
-        txt(
-          s.title,
-          x + 0.12,
-          2.57,
-          w - 0.24,
-          0.3,
-          14,
-          "#FFFFFF",
-          true,
-          "center",
-        );
-        txt(
-          s.body,
-          x + 0.25,
-          3.35,
-          w - 0.5,
-          1.25,
-          16,
-          c.darkest,
-          true,
-          "center",
-        );
+        const x = 0.42 + i * (w + gap), th = textHeight(s.body, size, bw);
+        box(x, top, w, h, c.panel, c.primary);
+        box(x, top, w, 0.55, i === d.blocks.length - 1 ? c.darkest : c.primary);
+        txt(`STEP ${i + 1}`, x + 0.14, top + 0.06, 1, 0.2, 10, c.onDarkSub, true);
+        txt(s.title, x + 0.12, top + 0.22, w - 0.24, 0.3, 15, "#FFFFFF", true, "center");
+        txt(s.body, x + 0.25, top + 0.55 + (h - 0.55 - th) / 2, bw, th + 0.05, size, c.darkest, true, "center");
         if (i < d.blocks.length - 1)
-          nodes.push({
-            kind: "triangle",
-            x: x + w + (gap - 0.14) / 2,
-            y: 3.62,
-            w: 0.14,
-            h: 0.322,
-            fill: c.accent,
-            rotate: 90,
-          });
+          nodes.push({ kind: "triangle", x: x + w + (gap - 0.18) / 2, y: top + h / 2 - 0.2, w: 0.18, h: 0.4, fill: c.accent, rotate: 90 });
       });
       break;
     }

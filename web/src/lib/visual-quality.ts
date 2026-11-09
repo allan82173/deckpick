@@ -19,7 +19,9 @@ export function inspectSceneGeometry(scene:Scene, exemptBody=false):string[]{
   const a=ink(texts[i]),b=ink(texts[j]),area=intersection(a,b);if(area>t*t&&area/Math.max(t,Math.min(a.w*a.h,b.w*b.h))>c.overlapAreaFraction)warnings.push(`텍스트끼리 겹칩니다: ${texts[i].text.slice(0,18)} / ${texts[j].text.slice(0,18)}`);
  }
  const shapes=scene.nodes.filter(n=>n.kind!=="text"&&n.kind!=="image"&&n.w*n.h>t&&n.w*n.h<SLIDE.w*SLIDE.h*.5);
- for(const n of texts){const a=ink(n);for(const b of shapes){const overlap=intersection(a,b),fraction=overlap/Math.max(t,a.w*a.h);if(fraction>c.overlapAreaFraction&&fraction<1-c.overlapAreaFraction)warnings.push(`라벨이 도형 경계와 겹칩니다: ${n.text.slice(0,24)}`);}}
+ const nodeIndex=new Map(scene.nodes.map((n,i)=>[n,i]));
+ // 글자가 나중에 그린 칸 안에 완전히 들어 있으면 그 아래 도형(고리·연결선 등)은 가려지므로 경계 겹침으로 보지 않는다. 작은 번호 라벨은 면적 하한을 t²로 둔다.
+ for(const n of texts){const a=ink(n);const covers=shapes.filter(s=>s.kind==="rect"&&intersection(a,s)>=a.w*a.h-t*t);for(const b of shapes){if(covers.some(s=>s!==b&&(nodeIndex.get(s)??0)>(nodeIndex.get(b)??0)))continue;const overlap=intersection(a,b),fraction=overlap/Math.max(t*t,a.w*a.h);if(fraction>c.overlapAreaFraction&&fraction<1-c.overlapAreaFraction)warnings.push(`라벨이 도형 경계와 겹칩니다: ${n.text.slice(0,24)}`);}}
  if(!exemptBody){const content=scene.nodes.filter(n=>(n.kind==="text"&&!!n.text.trim()||n.kind==="image")&&n.y>=c.bodyTop&&n.y<c.bodyBottom);const last=Math.max(c.bodyTop,...content.map(n=>n.y+(n.kind==="text"?ink(n).h:n.h)));if((c.bodyBottom-last)/(c.bodyBottom-c.bodyTop)>=c.emptyBottomFraction)warnings.push(`본문 하단 ${Math.round((c.bodyBottom-last)/(c.bodyBottom-c.bodyTop)*100)}%가 빈 공간입니다.`);}
  return [...new Set(warnings)];
 }

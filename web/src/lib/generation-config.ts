@@ -34,7 +34,7 @@ export const GENERATION_CONFIG = {
   candidates: { maximum: 3 },
   /** 자동 후보에서 빼는 레이아웃(사용자가 직접 고를 때만 사용). 4단계 사람 평가에서 장표 점수가 가장 낮았다: calculation-flow 평균 2.38(16덱 중 11덱이 2점 이하), system-flow 2.14(7덱 중 5덱). */
   // 2026-11-08 사용자 결정: 텍스트 격자형 표(행·열에 문장을 채우는 표)도 자동 후보에서 제외 — comparison-table, validation-plan, cross-matrix, evidence-scope, compare. 출처 장의 evidence-table은 유지.
-  layouts: { autoExcludedKinds: ["calculation-flow", "system-flow", "comparison-table", "validation-plan", "cross-matrix", "evidence-scope", "compare"] as string[] },
+  layouts: { autoExcludedKinds: ["calculation-flow", "system-flow", "comparison-table", "validation-plan", "cross-matrix", "evidence-scope", "compare", "calendar"] as string[] },
   /** Deck review: start another repair round only if this much of the review budget remains (repairs run in parallel, then one re-assessment). */
   review: { roundReserveMs: 120000, repairConcurrency: 3 },
   visual: { enabled: true, width: 1280, minFontPt: 10, overlapAreaFraction: .15, toleranceInches: .025, bodyTop: 1.7, bodyBottom: 6.3, emptyBottomFraction: .30, defaultMinimumFill: .18,

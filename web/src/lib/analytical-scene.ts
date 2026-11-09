@@ -1,11 +1,12 @@
 import { analyticalKind, analyticalSchemas as schemas } from "./analytical-layouts";
 import type { DesignSystem, SlideSpec } from "./model";
-import type { SceneNode } from "./scene";
+import { fitStack, textHeight, type SceneNode } from "./scene";
 
 type Draw = {
   nodes: SceneNode[];
   box: (x: number, y: number, w: number, h: number, fill: string, stroke?: string) => unknown;
   txt: (text: string, x: number, y: number, w: number, h: number, size?: number, color?: string, bold?: boolean, align?: "left" | "center" | "right") => unknown;
+  line?: (x: number, y: number, w: number, color: string, width?: number) => unknown;
 };
 export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: Draw): boolean {
   const kind = analyticalKind(slide.layoutId);
@@ -28,14 +29,15 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
         const h = 2.85 / panel.rows.length;
         const numeric = panel.rows.map(row => Number(row.value.replace(/[^0-9.\-]/g, "")));
         const maximum = Math.max(1, ...numeric.filter(Number.isFinite));
+        const reserve = panel.assumption ? .42 : 0, rowH = (2.95 - reserve) / panel.rows.length, dSize = Math.min(...panel.rows.map(row => fitStack([row.detail], w - .28, rowH - .5, 14, 12)));
         panel.rows.forEach((row, index) => {
-          const y = 2.72 + index * h;
-          txt(row.label, x + .14, y, (w - .28) * .55, .3, 12, c.primary, true);
-          txt(row.value, x + w * .57, y, w * .39, .3, panel.kind === "숫자" ? 16 : 11, c.primary, true, "right");
+          const y = 2.72 + index * rowH;
+          txt(row.label, x + .14, y, (w - .28) * .55, .3, 13, c.primary, true);
+          txt(row.value, x + w * .57, y, w * .39, .3, panel.kind === "숫자" ? 18 : 13, c.primary, true, "right");
           if (panel.kind === "막대" && Number.isFinite(numeric[index])) box(x + .14, y + .34, Math.max(.03, (w - .28) * Math.max(0, numeric[index]) / maximum), .12, c.tint);
-          txt(row.detail, x + .14, y + .36, w - .28, Math.max(.25, h - .42), 11, c.darkest);
+          txt(row.detail, x + .14, y + .44, w - .28, Math.max(.25, rowH - .5), dSize, c.darkest);
         });
-        if (panel.assumption) txt(panel.assumption, x + .14, 5.7, w - .28, .28, 9, c.muted);
+        if (panel.assumption) { g.line?.(x + .14, 5.55, w - .28, c.tint, 1); txt(panel.assumption, x + .14, 5.62, w - .28, .34, 11, c.muted); }
       });
       conclusion(d.takeaway);
       break;
@@ -68,10 +70,14 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
     case "quadrants": {
       const d = schemas.quadrants.parse(slide.data);
       txt(d.yAxis, .42, 1.7, 12.49, .3, 12, c.primary, true);
+      // 사분면 칸 높이를 축 라벨 위까지 채우고, 본문은 칸을 채우는 크기로 가운데 둔다.
+      const qh = 1.62, size = Math.min(...d.cells.map(v => fitStack([v.body], 5.9, qh - .62, 17, 12)));
       d.cells.forEach((v, i) => {
-        const x = .42 + (i % 2) * 6.35, y = 2.08 + Math.floor(i / 2) * 1.73;
-        cell(v.title, x, y, 6.14, .48, true);
-        cell(v.body, x, y + .48, 6.14, 1.12);
+        const x = .42 + (i % 2) * 6.35, y = 2.08 + Math.floor(i / 2) * (qh + .12);
+        cell(v.title, x, y, 6.14, .46, true);
+        box(x, y + .46, 6.14, qh - .46, c.panel, c.tint);
+        const th = textHeight(v.body, size, 5.9);
+        txt(v.body, x + .12, y + .46 + (qh - .46 - th) / 2, 5.9, th + .04, size, c.darkest);
       });
       txt(d.xAxis, .42, 5.69, 12.49, .35, 12, c.primary, true, "center");
       conclusion(d.takeaway);
