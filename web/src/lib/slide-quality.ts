@@ -59,6 +59,28 @@ export function answerFirstError(type: DeckInput["deckType"], outline: { section
   const index = answerFirstIndex(outline), role = outline[index]?.role;
   return role && (ANSWER_FIRST_ROLES as readonly string[]).includes(role) ? null : `${index + 1}장(표지·목차 다음 첫 본문)은 덱 전체 결론 요약으로 두고 role을 판단 또는 우선순위로 지정해 주세요.`;
 }
+/**
+ * 장별 설계의 장 수·결론 요약 역할을 고칠 수 있는 범위에서 결정적으로 맞춘다(모델 재요청 비용을 줄이고, 모델별 편차로 덱이 멈추지 않게).
+ * - 넘친 장(최대 2장): 8장 미만 덱의 목차부터, 그다음 마지막 결론(출처 장이 있으면 그 앞 결론) 바로 앞 본문부터 뺀다. 표지·결론 요약 장은 남긴다.
+ * - 결론 요약 장의 role이 판단·우선순위가 아니면 판단으로 바꾸고, 헤드라인을 결론 요약으로 다시 쓰도록 forcedSummary를 돌려준다.
+ * 고칠 수 없으면(모자란 장, 3장 이상 넘침) 현재 장 수를 담은 오류 문구를 돌려준다.
+ */
+export function fitStoryOutline(outline: { section?: string; role?: string | null }[], input: Pick<DeckInput, "slideCount" | "deckType" | "appendSources">): { error: string | null; forcedSummary: number | null } {
+  const extra = outline.length - input.slideCount;
+  if (extra > 0 && extra <= 2) for (let k = 0; k < extra; k++) {
+    const toc = input.slideCount < 8 ? outline.findIndex((item, index) => index > 0 && item.section === "목차") : -1;
+    const tail = outline.length - (input.appendSources ? 3 : 2);
+    const remove = toc > 0 ? toc : tail;
+    if (remove <= answerFirstIndex(outline)) break;
+    outline.splice(remove, 1);
+  }
+  if (outline.length !== input.slideCount) return { error: `정확히 ${input.slideCount}장을 반환해 주세요. 지금 ${outline.length}장입니다. 흐름 단계가 본문 장 수보다 많으면 단계를 묶어 장 수를 맞추고, 10장 미만이면 목차를 넣지 않습니다.`, forcedSummary: null };
+  if (input.deckType !== "consulting" || outline.length < 6) return { error: null, forcedSummary: null };
+  const index = answerFirstIndex(outline), item = outline[index];
+  if (!item || (ANSWER_FIRST_ROLES as readonly string[]).includes(item.role ?? "")) return { error: null, forcedSummary: null };
+  item.role = "판단";
+  return { error: null, forcedSummary: index };
+}
 export function isPlanHeadline(text: string): boolean {
   return /(?:하겠습니다|해보겠습니다|보겠습니다|확인합니다|검토합니다|살핍니다|살펴봅니다|분석합니다|비교합니다|정리합니다|판단합니다|점검합니다|검증합니다|제안합니다|제시합니다)[.!。\s]*$/.test(text.replace(/\*\*/g, ""));
 }
