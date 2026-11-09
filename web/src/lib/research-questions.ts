@@ -32,6 +32,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
  let originalsUsed=0;const queryCache=new Map<string,ReturnType<typeof research>>(),pageCache=new Map<string,Promise<Page>>();
  const searchOnce=(query:string)=>{const key=query.toLowerCase();let found=queryCache.get(key);if(!found){found=search(c,query);queryCache.set(key,found);}return found;};
  const readOnce=(url:string)=>{let found=pageCache.get(url);if(!found&&originalsUsed<GENERATION_CONFIG.research.originalsPerDeck){originalsUsed++;found=readPage(url);pageCache.set(url,found);}return found;};
+ // 질문 조사는 2개씩 돌린다. 4개를 동시에 돌리면 검색 응답이 느려져 질문당 시간 제한(240초)에 걸렸다(2026-11-09 확인 실행). 검색어 수는 줄이지 않는다(사용자 결정: 시간보다 검색 성능 우선).
  const outcomes=await mapConcurrent(planned,async question=>{
   const result=await checkpoint(`research-question:${question.questionId}`,{model:c.model,input,analysis,plan:question},async()=>{
    const state:QuestionResult={sources:[],evidence:[],pages:[],queries:[],rounds:[],rejectedRows:[],warnings:[],complete:true};
@@ -92,7 +93,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
   },value=>value.complete);
   for(const page of result.pages)if(!pageCache.has(page.url))pageCache.set(page.url,Promise.resolve(page));
   return result;
- });
+ },GENERATION_CONFIG.research.questionConcurrency);
  const parts=outcomes.map(outcome=>{if(outcome.status==="rejected")throw outcome.reason;return outcome.value;});
  const sources=[...new Map(parts.flatMap(p=>p.sources).map(s=>[s.url,s])).values()];
  const rawEvidence=[...record.evidence,...parts.flatMap(p=>p.evidence)].map((e,index)=>({...e,id:String(index+1)}));

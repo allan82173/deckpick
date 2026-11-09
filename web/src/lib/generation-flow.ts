@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {GENERATION_CONFIG} from "./generation-config";
 import {researchRecordSchema,type ResearchRecord} from "./evidence-model";
 import {sourceSchema,type Source} from "./model";
 import {mapConcurrent} from "./concurrency";
@@ -42,7 +43,7 @@ export async function generationFlow(payload:Result,request:Request,options:{clo
  let researched:Result;
  if(options.cloud){
   const questions=record.plan?.questions.filter(q=>record.analysis?.questions.some(a=>a.id===q.questionId&&a.needsPublicEvidence))??[];
-  const outcomes=await mapConcurrent(questions,q=>request("research/run",{...payload,researchRecord:record,sources:[],researchQuestionId:q.questionId}));
+  const outcomes=await mapConcurrent(questions,q=>request("research/run",{...payload,researchRecord:record,sources:[],researchQuestionId:q.questionId}),GENERATION_CONFIG.research.questionConcurrency);
   const parts=outcomes.map(r=>{if(r.status==="rejected")throw r.reason;return r.value;});researched=mergeQuestionResearch(record,parts);
  }else researched=await request("research/run",{...payload,researchRecord:record});
  record={...researchRecordSchema.parse(researched.researchRecord),requestContext:contextKey};const sources=z.array(sourceSchema).parse(researched.sources??[]);options.onResearch?.(record,sources);
