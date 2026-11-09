@@ -35,6 +35,10 @@ export const expandedSchemas = {
   "photo-evidence": z.object({ photos: z.array(z.object({ imageSrc: z.string().refine(s => /^\/api\/attachments\/[a-f0-9]{64}$/.test(s) || /^data:image\/(png|jpeg|webp);base64,/.test(s), "업로드한 이미지만 쓸 수 있습니다.").optional(), caption: label, observation: body })).min(1).max(3), ...common }),
   "benchmark-cards": z.object({ cases: z.array(z.object({ company: label, region: label, what: body, result: body, lesson: body })).min(2).max(3), application: body, ...common }),
   "executive-summary": z.object({ rows: z.array(z.object({ section: label, finding: body, implication: body })).min(3).max(6), ...common }),
+  "value-chain": z.object({ primary: z.array(z.object({ name: label, detail: body, focus: z.boolean() })).min(3).max(6).refine(a => a.filter(p => p.focus).length >= 1 && a.filter(p => p.focus).length <= 2, "집중 단계는 1~2개로 표시합니다."), support: z.array(z.object({ name: label, detail: body })).min(1).max(3), goal: z.object({ name: label, detail: body }), ...common }),
+  "hub-spoke": z.object({ hub: z.object({ name: label, detail: body }), spokes: z.array(z.object({ name: label, detail: body })).min(4).max(6), ...common }),
+  "maturity-steps": z.object({ levels: z.array(z.object({ name: label, state: body })).min(3).max(5), current: z.number().int().min(0).max(4), target: z.number().int().min(1).max(4), ...common }).refine(d => d.current < d.target && d.target < d.levels.length, "목표 단계는 현재 단계보다 높고 단계 수 안이어야 합니다."),
+  "org-chart": z.object({ top: z.object({ name: label, role: body }), advisors: z.array(z.object({ name: label, role: body })).max(1), units: z.array(z.object({ name: label, role: body, members: label })).min(2).max(5), ...common }),
 };
 export type ExpandedKind = keyof typeof expandedSchemas;
 export const expandedKinds = Object.keys(expandedSchemas) as ExpandedKind[];
@@ -71,6 +75,10 @@ export const expandedRegistry: Record<ExpandedKind, Meta> = {
   "photo-evidence": { name: "현장 사진과 관찰", stage: 4, reference: 51, roles: ["근거", "사실 제시"], use: "매장·현장·제품 사진과 관찰 포인트를 나란히 보여 줄 때. 업로드 사진이 없으면 사진 삽입 자리와 찍을 장면을 표시한다", avoid: "사진 없이 관찰 내용도 없을 때", minimum: "사진1~3(업로드 이미지 또는 삽입 자리), 캡션·관찰" },
   "benchmark-cards": { name: "벤치마킹 사례 카드", stage: 4, reference: 52, roles: ["비교", "근거"], use: "국내외 실명 사례가 무엇을 했고 어떤 성과를 냈으며 우리에게 무엇을 적용할지 비교할 때", avoid: "사례 이름이나 성과 근거가 없을 때", minimum: "사례2~3(회사·지역/업종·한 일·성과·배울 점), 적용 방향" },
   "executive-summary": { name: "Executive Summary 표", stage: 1, reference: 1, roles: ["판단", "우선순위", "마무리", "합의 사항"], use: "발표 전체의 섹션별 핵심 내용과 시사점을 한 장에 요약할 때(최종 발표 첫 본문)", avoid: "섹션 결론이 아직 없을 때", minimum: "섹션3~6, 핵심 내용·시사점" },
+  "value-chain": { name: "가치사슬 개입 지점", stage: 4, reference: 54, roles: ["흐름", "판단", "근거"], use: "산업·업무의 가치사슬 단계별 현황을 보여 주고, 어느 단계에 집중해 목표(마진·교섭력 등)를 만들지 짚을 때. 본원 활동은 실제 순서대로, 지원 활동은 전 단계를 받치는 기능으로 쓴다", avoid: "단계가 실제 순서 흐름이 아닐 때, 집중 단계를 고를 근거가 없을 때", minimum: "본원 활동3~6(이름·현황, 집중 단계1~2 표시), 지원 활동1~3, 목표1(이름·설명)" },
+  "hub-spoke": { name: "핵심과 구성 요소(허브-스포크)", stage: 4, reference: 55, roles: ["판단", "근거", "마무리"], use: "하나의 핵심 전략·컨셉을 이루는 4~6개 구성 요소나 실행 축을 한눈에 보여 줄 때", avoid: "요소 사이에 순서·인과가 있을 때(흐름형을 쓴다), 요소가 3개 이하일 때", minimum: "핵심1(이름·한 줄 설명), 구성 요소4~6(이름·설명)" },
+  "maturity-steps": { name: "성숙도 단계(현재→목표)", stage: 4, reference: 56, roles: ["비교", "우선순위", "일정"], use: "역량·디지털화·관계 수준을 3~5단계로 나누고 현재 위치와 목표 단계를 보여 줄 때", avoid: "단계 기준이 정의되지 않았을 때, 현재 위치를 판단할 근거가 없을 때", minimum: "단계3~5(이름·상태 기준), 현재 단계, 목표 단계" },
+  "org-chart": { name: "추진 조직도", stage: 4, reference: 57, roles: ["일정", "합의 사항", "마무리"], use: "전략 실행을 맡을 조직·TF와 팀별 역할, 인원 구성을 보여 줄 때", avoid: "실제 조직이 정해지지 않았는데 확정처럼 보이게 할 때(제안 조직이면 그렇게 표시)", minimum: "총괄1(이름·역할), 자문 0~1, 실행 팀2~5(이름·역할·구성)" },
 };
 export const expandedNames = Object.fromEntries(expandedIds.map(id => [id, expandedRegistry[id.slice(2) as ExpandedKind].name])) as Record<ExpandedId, string>;
 export function dateRange(data: { rows?: { periods: { start: string; end: string }[] }[]; milestones?: { date: string }[]; highlight?: { start: string; end: string } }) {

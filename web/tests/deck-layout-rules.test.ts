@@ -51,3 +51,18 @@ test("R6 레이아웃 설명이 내용 맞춤 조건을 담는다", () => {
   assert.match(expandedRegistry["interview-quotes"].avoid, /발언이 아닌/);
   assert.match(expandedRegistry["metrics-panel"].avoid, /수치 지표 없이/);
 });
+
+test("EY 기반 레이아웃 4종은 샘플·스키마·장면이 맞물린다", async () => {
+  const { expandedSchemas } = await import("../src/lib/expanded-layouts");
+  const { expandedSample } = await import("../src/lib/expanded-samples");
+  const { makeScene } = await import("../src/lib/scene");
+  const { design } = await import("../src/lib/design");
+  for (const kind of ["value-chain", "hub-spoke", "maturity-steps", "org-chart"] as const) for (const variant of [0, 1]) {
+    const data = expandedSample(`c-${kind}`, variant)!;
+    assert.equal(expandedSchemas[kind].safeParse(data).success, true, kind);
+    const nodes = makeScene({ layoutId: `c-${kind}`, headline: "예시", section: "본문", sources: [], data } as never, design("ict-forest" as never), 3, "주제").nodes;
+    assert.ok(nodes.every(n => n.x >= 0 && n.x + n.w <= 13.34 && n.y + n.h <= 7.5), kind);
+  }
+  assert.equal(expandedSchemas["value-chain"].safeParse({ ...expandedSample("c-value-chain")!, primary: (expandedSample("c-value-chain")!.primary as { focus: boolean }[]).map(p => ({ ...p, focus: false })) }).success, false);
+  assert.equal(expandedSchemas["maturity-steps"].safeParse({ ...expandedSample("c-maturity-steps")!, current: 2, target: 1 }).success, false);
+});
