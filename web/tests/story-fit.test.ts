@@ -40,3 +40,26 @@ test("장 수 계획은 고정 자리와 본문 장 수를 알려 주고, 10장 
   const twenty = storySlidePlan(input(20, { appendSources: true }));
   assert.equal(twenty.bodySlides, 15);
 });
+
+test("근거 ID·계산 누락은 덱 전체 재생성 대신 해당 장만 고칠 대상으로 찾는다", async () => {
+  const { storySlideProblems } = await import("../src/lib/storyline");
+  const item = (section: string, role: string, refs: string[], claimType = "추론", calculation: unknown = null) => ({ section, role, claimType, evidenceRefs: refs, calculation }) as never;
+  const problems = storySlideProblems(input(6), { evidence: [{ id: "E1" }] as never }, [item("표지", "사실 제시", []), item("요약", "판단", ["E1"]), item("현황", "사실 제시", []), item("규모", "계산", ["E1"]), item("실행", "합의 사항", []), item("결론", "판단", ["E1"])]);
+  assert.deepEqual(problems.map(p => p.index), [2, 3]);
+  assert.match(problems[1].reasons[0], /calculation/);
+});
+
+test("검색어별 출처를 번갈아 합쳐 뒤쪽 회사 검색 결과도 먼저 열리게 한다", async () => {
+  const { interleaveSources } = await import("../src/lib/research-questions");
+  const u = (url: string) => ({ url });
+  assert.deepEqual(interleaveSources([[u("a1"), u("a2"), u("a3")], [u("b1"), u("a1")], [u("c1")]]).map(s => s.url), ["a1", "b1", "c1", "a2", "a3"]);
+});
+
+test("Claude 경로는 덱 공통 앞부분을 캐시 블록으로 나누고, 합치면 원래 JSON과 같다", async () => {
+  const { markDeckCommon, CACHE_SPLIT } = await import("../src/lib/ai");
+  const json = JSON.stringify({ input: { topic: "x" }, deckSequence: [], item: { index: 1 }, count: 3 });
+  assert.equal(markDeckCommon({ provider: "openai" }, json), json);
+  const marked = markDeckCommon({ provider: "anthropic" }, json);
+  assert.ok(marked.includes(CACHE_SPLIT));
+  assert.equal(marked.split(CACHE_SPLIT).join(""), json);
+});

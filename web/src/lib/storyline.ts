@@ -30,6 +30,39 @@ export function storySlidePlan(input: DeckInput) {
   const body = n - fixed.length - (toc && input.deckType === "consulting" && n >= 6 ? 1 : 0);
   return { totalSlides: n, fixed, bodySlides: body, rule: `정확히 ${n}장입니다. 발표 흐름 단계가 본문 장 수(${body}장)보다 많으면 인접 단계를 한 장으로 묶고, 장 수를 늘리지 않습니다.${toc ? "" : " 10장 미만 덱에는 목차를 넣지 않습니다."}` };
 }
+type StoryItem = z.infer<typeof storySchema>["outlineDraft"][number];
+/** 한 장 단위 문제(근거 ID 누락, 계산 장의 calculation 누락)를 찾는다. */
+export function storySlideProblems(input: DeckInput, record: Pick<ResearchRecord, "evidence">, outline: Pick<StoryItem, "section" | "role" | "claimType" | "evidenceRefs" | "calculation">[]) {
+  const last = outline.length - 1;
+  return outline.flatMap((item, index) => {
+    const reasons: string[] = [];
+    if (index && !(input.appendSources && index === last) && !["목차", "출처"].includes(item.section) && item.role !== "합의 사항" && record.evidence.length && !item.evidenceRefs.length) reasons.push("본문 장은 근거 ID를 1개 이상 참조해야 합니다.");
+    if ((item.role === "계산" || item.claimType === "계산") && !item.calculation) reasons.push("계산 장에는 검증할 가정 변수와 산식 단계를 calculation에 적어야 합니다.");
+    return reasons.length ? [{ index, reasons }] : [];
+  });
+}
+/** 문제 장만 따로 고친다. 그래도 계산을 못 채운 장은 계산 표시를 내려 '추론'으로 둔다(덱 생성이 멈추지 않게). */
+async function repairStorySlides(c: Connection, input: DeckInput, record: ResearchRecord, outline: StoryItem[], evidence: unknown[]) {
+  const problems = storySlideProblems(input, record, outline);
+  if (!problems.length) return;
+  const known = new Set(record.evidence.map(row => row.id));
+  await Promise.all(problems.map(async ({ index, reasons }) => {
+    const item = outline[index];
+    try {
+      const fixed = await structured(c, z.object({ evidenceRefs: z.array(z.string()), calculation: calculationSchema.nullable() }),
+        "장별 설계서의 한 장만 고칩니다. 핵심 메시지·역할은 유지하고, 지적된 항목만 채웁니다. 근거 ID는 evidence에 있는 ID만 고르고, calculation은 원문 수치나 명시한 가정 변수와 산식 단계로 구성합니다.",
+        JSON.stringify({ slide: index + 1, item, problems: reasons, evidence }),
+        value => {
+          if (value.evidenceRefs.some(id => !known.has(id))) throw Error("evidence에 있는 근거 ID만 고르세요.");
+          if (reasons.some(r => r.startsWith("본문")) && !value.evidenceRefs.length) throw Error("근거 ID를 1개 이상 고르세요.");
+          if (reasons.some(r => r.startsWith("계산")) && !value.calculation) throw Error("calculation을 채우세요.");
+        }, [], "formatRepair", { formatAttempts: 2 });
+      if (fixed.evidenceRefs.length) item.evidenceRefs = [...new Set([...item.evidenceRefs, ...fixed.evidenceRefs])];
+      if (fixed.calculation) item.calculation = fixed.calculation;
+    } catch { /* 아래에서 계산 표시만 정리한다. 근거가 끝내 없는 장은 장표 단계의 근거 경고로 남는다. */ }
+    if ((item.role === "계산" || item.claimType === "계산") && !item.calculation) { item.claimType = "추론"; if (item.role === "계산") item.role = "판단"; }
+  }));
+}
 export async function createStoryline(c: Connection, input: DeckInput, messages: ChatMessage[], existing: OutlineItem[], record: ResearchRecord, images: VisionImage[] = []) {
   return checkpoint("storyline-final",{model:c.model,input,messages,existing,record},()=>withBudget("storyline",()=>createStorylineBody(c,input,messages,existing,record,images)));
 }
@@ -60,11 +93,11 @@ async function createStorylineBody(c: Connection, input: DeckInput, messages: Ch
         const known = (id: string) => record.evidence.some(row => row.id === id);
         item.evidenceRefs = item.evidenceRefs.filter(known);
         for (const support of item.argument.support) support.evidenceRefs = support.evidenceRefs.filter(known);
-        if (index && !["목차", "출처"].includes(item.section) && item.role !== "합의 사항" && record.evidence.length && !item.evidenceRefs.length) throw Error("본문 장은 근거 ID를 참조해야 합니다.");
-        if ((item.role === "계산" || item.claimType === "계산") && !item.calculation) throw Error("계산 장에는 검증할 가정 변수와 산식 단계를 calculation에 적어 주세요.");
+        // 근거 ID 누락·계산 장의 calculation 누락은 덱 전체를 다시 만들지 않고, 생성 뒤 해당 장만 고친다(repairStorySlides).
         // Calculation operands are checked per slide after generation (calculation-repair.ts) so one bad operand does not regenerate the whole storyline.
       }
     }, images, "story"));
+  await repairStorySlides(c, input, record, result.outlineDraft, selectedEvidence);
   const evidenceIds = new Set(record.evidence.map(row => row.id));
   const calculationResult = await checkpoint("storyline-calculations",{model:c.model,outline:result.outlineDraft.map(item=>item.calculation)},()=>repairStoryCalculations(result.outlineDraft, evidenceIds, (index, item, calculation, error) =>
     structured(c, calculationRepairSchema, calculationRepairPrompt,

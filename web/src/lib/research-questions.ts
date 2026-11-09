@@ -18,6 +18,8 @@ const factsWire=z.object({rows:z.array(fact).max(50)}),loose=z.object({rows:z.ar
 type Page=Awaited<ReturnType<typeof readOriginalPage>>;
 type QuestionResult={sources:Source[];evidence:Evidence[];pages:Page[];queries:string[];rounds:NonNullable<ResearchRecord["searchRounds"]>;rejectedRows:RejectedRow[];warnings:NonNullable<ResearchRecord["evidenceWarnings"]>;complete:boolean};
 /** 긴 원문에서 질문과 맞는 구간을 고를 때 쓰는 낱말: 기본 검색어 + 초점 검색어 + 필요한 근거 설명. */
+/** 검색어별 출처 목록을 1순위끼리, 2순위끼리 번갈아 합친다(중복 URL은 처음 나온 것만). */
+export function interleaveSources<T extends {url:string}>(lists:T[][]):T[]{const out:T[]=[],seen=new Set<string>();for(let i=0;i<Math.max(0,...lists.map(l=>l.length));i++)for(const list of lists){const s=list[i];if(s&&!seen.has(s.url)){seen.add(s.url);out.push(s);}}return out;}
 const excerptQuery=(q:NonNullable<ResearchRecord["plan"]>["questions"][number])=>[q.localQuery,q.englishQuery,...(q.focusQueries??[]),q.evidenceNeeded].filter(Boolean).join(" ");
 /** 원문 확인: 연속 인용 → 구두점 무시 인용 → 수치 동시 출현(실제 원문 구간을 인용으로 보존) 순서로 본다. */
 export function verifyAgainstOriginal(row:{claim:string;originalText:string},text:string):{method?:"인용"|"수치";originalText:string}{
@@ -44,10 +46,13 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
      for(const raw of next){const query=redactPrivateQuery(raw,analysis);if(!query||state.queries.some(q=>q.toLowerCase()===query.toLowerCase()))continue;state.queries.push(query);usedQueries.push(query);}
      // 검색 동시 실행 수(parallelSearches). 2로 올린 확인 실행(2026-11-09 07:18)에서 질문 4개가 동시에 검색하며 검색 응답이 크게 느려져 모든 질문이 시간 제한에 걸렸으므로 1(순차)로 둔다. 결과는 검색어 순서대로 합친다.
      const searched=await mapConcurrent(usedQueries,query=>searchOnce(query),GENERATION_CONFIG.research.parallelSearches);assertBudget();
+     // 원문은 앞에서부터 originalsPerQuestion개만 열리므로, 검색어(회사별 focusQueries 포함)마다 번갈아 쌓아 뒤쪽 검색어의 출처도 열리게 한다.
+     const perQuery:Source[][]=[];
      for(const outcome of searched){
-      if(outcome.status==="fulfilled"){const found=outcome.value;summary+="\n"+found.text;for(const s of found.sources)if(!state.sources.some(existing=>existing.url===s.url))state.sources.push(s);continue;}
+      if(outcome.status==="fulfilled"){const found=outcome.value;summary+="\n"+found.text;perQuery.push(found.sources);continue;}
       const error=outcome.reason;if(!(error instanceof AIError)||error.status!==502)throw error;state.warnings.push({questionId:question.questionId,url:"",reason:error.message});
      }
+     for(const s of interleaveSources(perQuery))if(!state.sources.some(existing=>existing.url===s.url))state.sources.push(s);
      // 원문 열기는 순서대로 기다리지 않고 한 번에 연다(질문당 3개 × 최대 20초가 순차로 쌓여 시간 제한에 걸리던 문제).
      {assertBudget();const room=Math.max(0,GENERATION_CONFIG.research.originalsPerQuestion-state.pages.length);const pending=state.sources.filter(source=>!state.pages.some(p=>p.url===source.url)).slice(0,room).map(source=>readOnce(source.url)).filter((p):p is Promise<Page>=>!!p);const opened=await Promise.all(pending);assertBudget();for(const page of opened)if(!state.pages.some(p=>p.url===page.url))state.pages.push(page);}
      let emptyAfterRetry=false;

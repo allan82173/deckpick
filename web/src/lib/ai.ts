@@ -72,6 +72,20 @@ export function connection(
     throw new AIError("모델 이름을 확인해 주세요.", 400);
   return { provider, key, model, language: body.input?.language ?? "ko" };
 }
+/** 사용자 메시지에 CACHE_SPLIT 표시가 있으면 그 앞(덱 공통 부분)을 캐시 블록으로 나눈다. OpenAI는 표시를 지우기만 한다(자동 접두 캐시). */
+export const CACHE_SPLIT = "\n<<deck-common-end>>\n";
+function cacheClaudePrefix(payload: Record<string, unknown>) {
+  const messages = Array.isArray(payload.messages) ? payload.messages as { role: string; content: unknown }[] : [];
+  const first = messages[0];
+  if (!first || typeof first.content !== "string" || !first.content.includes(CACHE_SPLIT)) return;
+  const [head, ...rest] = first.content.split(CACHE_SPLIT);
+  first.content = [{ type: "text", text: head, cache_control: { type: "ephemeral" } }, { type: "text", text: rest.join(CACHE_SPLIT) }];
+}
+/** Claude에서는 덱 공통 앞부분(item 앞)까지를 캐시 블록으로 표시한다. 이어 붙이면 원래 JSON과 같다. */
+export function markDeckCommon(c: { provider: string }, json: string) {
+  const at = json.indexOf(',"item":');
+  return c.provider === "anthropic" && at > 0 ? json.slice(0, at) + CACHE_SPLIT + json.slice(at) : json;
+}
 export async function providerCall(
   c: Connection,
   body: Record<string, unknown>,
@@ -94,7 +108,12 @@ export async function providerCall(
   const payload:Record<string,unknown>={...withImageInputs(c.provider,body,images),model:c.model,...(c.provider==="anthropic"?{max_tokens:body.max_tokens??settings.maxOutputTokens,...(/claude-(sonnet|opus|haiku|fable|mythos)-5/.test(c.model)?{output_config:{...(object(body.output_config)?body.output_config:{}),effort:settings.effort}}:{})}:{store:false,...(/^(?:gpt-[56](?:[.-]|$)|o[134](?:-|$))/.test(c.model)||body.reasoning?{reasoning:body.reasoning??{effort:settings.effort}}:{}),max_output_tokens:body.max_output_tokens??settings.maxOutputTokens})};
   const languageRule = generationLanguageInstruction(c.language);
   if (c.provider === "openai") payload.instructions = `${typeof payload.instructions === "string" ? payload.instructions : ""}\n${languageRule}`;
-  else payload.system = `${typeof payload.system === "string" ? payload.system : ""}\n${languageRule}`;
+  else {
+    const system = `${typeof payload.system === "string" ? payload.system : ""}\n${languageRule}`;
+    // Claude 경로 프롬프트 캐싱: 단계마다 같은 긴 시스템 지시문을 캐시해 반복 호출의 입력 비용을 줄인다(짧으면 캐시되지 않으므로 그대로 보낸다).
+    payload.system = system.length >= 3000 ? [{ type: "text", text: system, cache_control: { type: "ephemeral" } }] : system;
+    cacheClaudePrefix(payload);
+  }
   let response: Response;let value:unknown;
   for(let limitAttempt=0,networkAttempt=0;;){
   assertBudget();
@@ -123,7 +142,9 @@ export async function providerCall(
   const truncated=data.stop_reason==="max_tokens"||(data.status==="incomplete"&&object(data.incomplete_details)&&data.incomplete_details.reason==="max_output_tokens");
   const tokens=(key:string)=>typeof usage[key]==="number"?usage[key] as number:undefined;
   const details=object(usage.output_tokens_details)?usage.output_tokens_details:{},cached=object(usage.input_tokens_details)?usage.input_tokens_details:{};
-  recordCall({...retryMetadata,id:crypto.randomUUID(),stage,model:c.model,provider:c.provider,effort:object(payload.reasoning)?String(payload.reasoning.effort):object(payload.output_config)&&typeof payload.output_config.effort==="string"?payload.output_config.effort:"unsupported",maxOutputTokens:Number(c.provider==="openai"?payload.max_output_tokens:payload.max_tokens),startedAt,durationMs:Date.now()-started,status:response.status,truncated,inputTokens:tokens("input_tokens"),outputTokens:tokens("output_tokens"),totalTokens:tokens("total_tokens"),cachedInputTokens:typeof cached.cached_tokens==="number"?cached.cached_tokens:undefined,reasoningTokens:typeof details.reasoning_tokens==="number"?details.reasoning_tokens:undefined});
+  // Anthropic의 input_tokens는 캐시 읽기·쓰기 분을 빼고 세므로, OpenAI와 같은 기준(전체 입력)으로 합쳐 기록한다.
+  const anthropicInput=c.provider==="anthropic"&&tokens("input_tokens")!==undefined?(tokens("input_tokens")??0)+(tokens("cache_read_input_tokens")??0)+(tokens("cache_creation_input_tokens")??0):undefined;
+  recordCall({...retryMetadata,id:crypto.randomUUID(),stage,model:c.model,provider:c.provider,effort:object(payload.reasoning)?String(payload.reasoning.effort):object(payload.output_config)&&typeof payload.output_config.effort==="string"?payload.output_config.effort:"unsupported",maxOutputTokens:Number(c.provider==="openai"?payload.max_output_tokens:payload.max_tokens),startedAt,durationMs:Date.now()-started,status:response.status,truncated,inputTokens:anthropicInput??tokens("input_tokens"),outputTokens:tokens("output_tokens"),totalTokens:tokens("total_tokens")??(anthropicInput!==undefined?anthropicInput+(tokens("output_tokens")??0):undefined),cachedInputTokens:typeof cached.cached_tokens==="number"?cached.cached_tokens:tokens("cache_read_input_tokens"),reasoningTokens:typeof details.reasoning_tokens==="number"?details.reasoning_tokens:undefined});
   if(!response.ok&&(response.status===408||(response.status>=500&&response.status<600))&&networkAttempt<GENERATION_CONFIG.reliability.networkRetries){await retryDelay(networkAttempt++);continue;}
   if(response.ok&&truncated){
     const current=Number(c.provider==="openai"?payload.max_output_tokens:payload.max_tokens),next=nextOutputLimit(current);
@@ -573,7 +594,7 @@ async function generateCandidateBatch(
     })).min(1).max(planned.length) }),
     systemFor(input),
     // 덱 전체에서 같은 값(과제·장 순서·과제 해석·확정 결정·규칙)을 앞에 두고 장별 값은 뒤에 둔다. 앞부분이 같으면 모델 쪽 프롬프트 캐시가 적용돼 비용·지연이 준다(2026-11-09 측정 캐시율 2%).
-    JSON.stringify({
+    markDeckCommon(c, JSON.stringify({
       input,
       deckSequence: outline.map(({ index, section, message }) => ({ index, section, message })),
       taskAnalysis: generation?.record?.analysis,
@@ -598,7 +619,7 @@ async function generateCandidateBatch(
       slotPlan: planned.map((layoutId, i) => ({ slot: i, layoutId, purpose: layoutPurpose[layoutId], ...(expandedKind(layoutId) ? { guidance: expandedRegistry[expandedKind(layoutId)!] } : {}), ...(layoutId === "c-cover" ? { coverStyle: coverStyles[(single ? rotation : i) % 3], titleDirection: ["발표 주제와 범위", "고객 관점과 실행", "브랜드 경험과 제안"][i] } : {}) })),
       previousSignatures,
       count: planned.length,
-    }),
+    })),
     (value) => {
       verifyCalls++;
       if (verifyCalls < GENERATION_CONFIG.formatAttempts) decode(value); else decodeLenient(value);
