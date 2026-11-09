@@ -27,6 +27,10 @@ export function expandedSample(id:string,variant=0):Record<string,unknown>|undef
  case "agreement-next":return {...common,agreements:[short("우선 검증할 후보"),"같은 비교 기준","조건에 따른 변경"],steps:[{date:"1주차",action:"조건과 대상 정의"},{date:"2주차",action:"동일 기준 시범 비교"},{date:"3주차",action:"판단 변경 여부 합의"}]};
  case "section-divider":return {...common,number:variant?"03":"02",name:variant?"대안 비교":"현재 근거",sections:["문제 정의","현재 근거","대안 비교","다음 단계"],description:short("이 절에서 판단할 질문과 범위")};
  case "persona-cards":return {...common,basis:"가상",evidenceIds:[],personas:Array.from({length:variant?3:2},(_,i)=>({name:`가상 인물 ${i+1}`,attributes:short("초기 사용자"),goal:"조건을 빠르게 비교하고 싶다",pain:"정보가 흩어져 반복 확인한다",quote:"한 곳에서 판단 기준을 보고 싶다"}))};
+ case "interview-quotes":return {...common,basis:"조사 예정 예시",method:short("대상 IDI n=20 예정"),evidenceIds:[],quotes:Array.from({length:variant?4:3},(_,i)=>({text:["필요한 책만 사고 바로 나온다는 예시 발언","머물 이유가 있으면 더 오래 있을 것 같다는 예시 발언","친구와 같이 갈 공간이 필요하다는 예시 발언","온라인이 더 싸서 매장은 구경만 한다는 예시 발언"][i],speaker:`예시 응답자 ${String.fromCharCode(65+i)} · 20대`,insight:["목적 구매 후 이탈","체류 동기 부족","동반 방문 수요","가격 비교 습관"][i]}))};
+ case "photo-evidence":return {...common,photos:Array.from({length:variant?2:3},(_,i)=>({caption:["매장 입구","도서 진열대","휴식 공간"][i],observation:short("관찰 포인트를 기록하는 합성 예시")}))};
+ case "benchmark-cards":return {...common,cases:Array.from({length:variant?2:3},(_,i)=>({company:`사례 ${String.fromCharCode(65+i)}`,region:i?"해외 · 서점":"국내 · 유통",what:short("공간을 체류형으로 바꾼 가상 사례"),result:"방문 체류 시간 증가(합성 수치)",lesson:"목적 외 방문을 만드는 장치"})),application:short("핵심 매장에 체류형 요소를 시범 적용")};
+ case "executive-summary":return {...common,rows:["과제 배경","문제 정의","해결 방향","실행 계획"].slice(0,variant?4:3).map(section=>({section,finding:short(`${section}의 핵심 내용을 한 문장으로 요약한 예시`),implication:"다음 판단에 주는 시사점"}))};
  case "screenshot-notes":return {...common,imageSrc:sampleScreen,imageAlt:"직접 만든 가상 화면",imageWidth:900,imageHeight:520,annotations:[{x:.1,y:.3,title:"탐색 목록",description:short("현재 위치를 확인하는 영역")},{x:.6,y:.25,title:"주요 현황",description:"근거와 상태를 요약한 영역"},{x:.65,y:.7,title:"상세 결과",description:"변경할 판단을 확인하는 영역"}]};
  }
 }

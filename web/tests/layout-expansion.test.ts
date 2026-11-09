@@ -15,8 +15,8 @@ import { validateNativeChart,waterfallSeries,chartPreviewDataUrl } from "../src/
 const input={topic:"유형 확장 합성 검증",purpose:"범용 배치",slideCount:7,deckType:"consulting" as const,designSystemId:"ict-forest" as const};
 function fixture(id:LayoutId,v=0):SlideSpec{return slideSchema.parse({layoutId:id,section:"검증",headline:"같은 근거를 다른 구조로 설명합니다.",data:expandedSample(id,v),sources:[]});}
 function deckFor(slides:SlideSpec[]):Deck{return {id:"qa",input,designSystem:forest,outline:slides.map((s,index)=>({index,section:s.section,message:s.headline,contentHint:""})),candidates:Object.fromEntries(slides.map((s,i)=>[i,[s]])),picked:Object.fromEntries(slides.map((_,i)=>[i,0])),edited:{},chat:{setup:[],outline:[],slides:{}},research:[],demo:true};}
-test("23 physical types are registered for both deck kinds, with role and minimum-data guidance",()=>{
- assert.equal(expandedKinds.length,23);assert.equal(expandedIds.length,46);assert.equal(layoutIds.length,95);
+test("27 physical types are registered for both deck kinds, with role and minimum-data guidance",()=>{
+ assert.equal(expandedKinds.length,27);assert.equal(expandedIds.length,54);assert.equal(layoutIds.length,103);
  for(const k of expandedKinds){const meta=expandedRegistry[k];assert.ok(meta.name&&meta.use&&meta.avoid&&meta.minimum&&meta.roles.length);for(const p of ["c","m"])assert.ok(layoutIds.includes(`${p}-${k}` as LayoutId));}
 });
 test("two distinct datasets per new type validate and render in bounds without text warnings",()=>{

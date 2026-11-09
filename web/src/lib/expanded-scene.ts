@@ -98,6 +98,19 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
  case "persona-cards":{const d=S[kind].parse(slide.data),w=(W-.2*(d.personas.length-1))/d.personas.length;
  d.personas.forEach((p,i)=>{const x=X+i*(w+.2);header(p.name,x,Y,w);box(x,2.34,w,3.78,c.panel,c.connector);tag(d.basis==="가상"?"가상 페르소나":"실제 조사",x+.12,2.47,1.6);txt(p.attributes,x+.12,2.88,w-.24,.38,12,c.muted);txt("목표 · "+p.goal,x+.12,3.44,w-.24,.6,12,c.darkest,true);txt("불편 · "+p.pain,x+.12,4.2,w-.24,.65,12,c.darkest);txt("“"+p.quote+"”",x+.12,5.18,w-.24,.67,12,c.primary);});break;}
  case "screenshot-notes":{const d=S[kind].parse(slide.data),scale=Math.min(8.1/d.imageWidth,H/d.imageHeight),iw=d.imageWidth*scale,ih=d.imageHeight*scale,ix=X+(8.1-iw)/2,iy=Y+(H-ih)/2;nodes.push({kind:"image",x:ix,y:iy,w:iw,h:ih,src:d.imageSrc,alt:d.imageAlt});d.annotations.forEach((a,i)=>{const x=ix+a.x*(iw-.3),y=iy+a.y*(ih-.3);nodes.push({kind:"ellipse",x,y,w:.3,h:.3,fill:c.primary});txt(String(i+1),x,y+.025,.3,.25,11,"#FFFFFF",true,"center");const yy=Y+i*H/d.annotations.length;txt(`${i+1}  ${a.title}`,8.85,yy,4.06,.3,12,c.primary,true);txt(a.description,8.85,yy+.38,4.06,H/d.annotations.length-.45,12,c.darkest);});break;}
+ case "interview-quotes":{const d=S[kind].parse(slide.data),n=d.quotes.length,cols=n===4?2:n,rows=n===4?2:1,gw=.2,cw=(W-gw*(cols-1))/cols,top=2.36,ch=(6.1-top-(rows-1)*.16)/rows;
+ tag(d.basis==="실제 조사"?"실제 인터뷰":"조사 예정 예시",X,Y,1.6);txt(d.method,X+1.75,Y+.02,W-1.75,.26,11,c.muted);
+ d.quotes.forEach((q,i)=>{const x=X+(i%cols)*(cw+gw),y=top+Math.floor(i/cols)*(ch+.16);box(x,y,cw,ch,c.panel,c.connector);nodes.push({kind:"ellipse",x:x+.16,y:y+.16,w:.5,h:.5,fill:c.tint});txt(q.speaker.slice(0,1),x+.16,y+.27,.5,.3,12,c.primary,true,"center");txt(q.speaker,x+.78,y+.27,cw-.94,.3,11,c.muted);const qs=rows===1?17:14;txt("“",x+cw-.85,y+.02,.7,.9,54,c.tint,true,"right");const qy=rows===1?y+.95+Math.max(0,(ch-2.4)/2-.35):y+.78;txt("“"+q.text+"”",x+.16,qy,cw-.32,y+ch-.6-qy,qs,c.darkest,true);box(x+.16,y+ch-.46,cw-.32,.32,c.tint);txt("→ "+q.insight,x+.24,y+ch-.43,cw-.48,.26,11,c.primary,true);});break;}
+ case "photo-evidence":{const d=S[kind].parse(slide.data),n=d.photos.length,gw=.24,cw=(W-gw*(n-1))/n,ih=6.1-Y-1.05;
+ d.photos.forEach((p,i)=>{const x=X+i*(cw+gw);if(p.imageSrc)nodes.push({kind:"image",x,y:Y,w:cw,h:ih,src:p.imageSrc,alt:p.caption});else{box(x,Y,cw,ih,c.tint,c.connector);txt("사진 삽입 · "+p.caption,x+.2,Y+ih/2-.15,cw-.4,.3,12,c.muted,false,"center");}
+ txt(p.caption,x,Y+ih+.1,cw,.3,13,c.primary,true);txt(p.observation,x,Y+ih+.45,cw,6.1-(Y+ih+.45),12,c.darkest);});break;}
+ case "benchmark-cards":{const d=S[kind].parse(slide.data),n=d.cases.length,gw=.22,cw=(W-gw*(n-1))/n,bottom=5.48,rows=[["무엇을 했나","what"],["성과","result"],["배울 점","lesson"]] as const,rh=(bottom-(Y+.62))/3;
+ d.cases.forEach((v,i)=>{const x=X+i*(cw+gw);box(x,Y,cw,.58,c.darkest);txt(v.company,x+.14,Y+.06,cw-.28,.3,15,"#FFFFFF",true);txt(v.region,x+.14,Y+.34,cw-.28,.2,9,"#FFFFFF");
+ rows.forEach(([label,key],j)=>{const y=Y+.62+j*rh;box(x,y,cw,rh-.04,j===2?c.tint:c.panel,c.connector);txt(label,x+.12,y+.06,cw-.24,.24,10,c.primary,true);txt(v[key],x+.12,y+.34,cw-.24,rh-.44,n===2?14:13,c.darkest,j===1);});});
+ box(X,5.56,W,.6,"#FFFFFF",c.primary);txt("적용 방향",X+.14,5.7,1.2,.3,12,c.primary,true);txt(d.application,X+1.4,5.66,W-1.55,.42,12,c.darkest,true);break;}
+ case "executive-summary":{const d=S[kind].parse(slide.data),w1=2.1,w2=6.2,w3=W-w1-w2,top=Y+.42,rh=(6.1-top)/d.rows.length;
+ header("구분",X,Y,w1,true);header("핵심 내용",X+w1,Y,w2);header("시사점",X+w1+w2,Y,w3);
+ d.rows.forEach((r,i)=>{const y=top+i*rh;cell(r.section,X,y,w1,rh,true,true);cell(r.finding,X+w1,y,w2,rh);cell(r.implication,X+w1+w2,y,w3,rh,false,true);});break;}
  }
  balance(start);conclusion(common.takeaway);return true;
 }

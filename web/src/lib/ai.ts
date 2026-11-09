@@ -522,6 +522,8 @@ async function generateCandidateBatch(
       const kind = expandedKind(s.layoutId);
       if (kind === "screenshot-notes" && !images.some(image => image.id && s.data.imageSrc === `/api/attachments/${image.id}`)) throw Error("실제 업로드한 이미지 경로만 사용할 수 있습니다.");
       if (kind === "persona-cards" && s.data.basis === "실제 조사" && (!Array.isArray(s.data.evidenceIds) || !s.data.evidenceIds.every(id => evidence.some(row => row.id === id)))) throw Error("실제 조사 페르소나는 확인 가능한 조사 근거 ID가 필요합니다.");
+      if (kind === "interview-quotes" && s.data.basis === "실제 조사" && (!Array.isArray(s.data.evidenceIds) || !s.data.evidenceIds.every(id => evidence.some(row => row.id === id)))) throw Error("실제 인터뷰 인용은 확인 가능한 조사 근거 ID가 필요합니다. 아직 조사 전이면 basis를 '조사 예정 예시'로 쓰세요.");
+      if (kind === "photo-evidence" && Array.isArray(s.data.photos) && (s.data.photos as { imageSrc?: string }[]).some(photo => photo.imageSrc && !images.some(image => image.id && photo.imageSrc === `/api/attachments/${image.id}`))) throw Error("사진은 실제 업로드한 이미지 경로만 쓸 수 있습니다. 사진이 없으면 imageSrc를 비우고 찍을 장면을 caption에 적으세요.");
       if (kind === "survey-findings" && !evidence.some(row => row.id === s.data.evidenceId && [row.claim,row.originalText,row.locator].filter(Boolean).join(" ").includes(String(s.data.sampleSize)))) throw Error("조사 결과는 제공된 근거에 표본 수가 있어야 합니다. 표본 수·기간을 만들어 채우지 마세요.");
       if (s.layoutId.endsWith("cover")) { delete s.data.photoId; delete s.data.referencePhoto; return s; }
       validateHeadline(s.headline, input.deckType === "consulting");

@@ -18,4 +18,4 @@ export function bodyLayouts(input:Pick<DeckInput,"deckType">) {return layoutIds.
 
 export function physicalLayoutKey(id: LayoutId): string { return expandedKind(id) || analyticalKind(id) || visualKind(id) ? id.slice(2) : id; }
 export const catalogLayoutIds = layoutIds.filter((id,index) => layoutIds.findIndex(other => physicalLayoutKey(other) === physicalLayoutKey(id)) === index);
-export const catalogCounts = { physical: catalogLayoutIds.length, implementations: layoutIds.length, added: 23 };
+export const catalogCounts = { physical: catalogLayoutIds.length, implementations: layoutIds.length, added: 27 };

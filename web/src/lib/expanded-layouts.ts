@@ -31,6 +31,10 @@ export const expandedSchemas = {
   "section-divider": z.object({ number: label, name: label, sections: z.array(label).min(2).max(8), description: body.optional(), ...common }),
   "persona-cards": z.object({ personas: z.array(z.object({ name: label, attributes: label, goal: body, pain: body, quote: body })).min(2).max(3), basis: z.enum(["가상", "실제 조사"]), evidenceIds: z.array(label).max(10), ...common }).refine(d => d.basis !== "실제 조사" || d.evidenceIds.length > 0, "실제 조사 페르소나는 조사 근거가 필요합니다."),
   "screenshot-notes": z.object({ imageSrc: z.string().min(1).refine(s => /^\/api\/attachments\/[a-f0-9]{64}$/.test(s) || /^data:image\/(png|jpeg|webp);base64,/.test(s), "업로드한 이미지가 필요합니다."), imageAlt: label, imageWidth: z.number().positive(), imageHeight: z.number().positive(), annotations: z.array(z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), title: label, description: body })).min(2).max(6), ...common }),
+  "interview-quotes": z.object({ quotes: z.array(z.object({ text: body, speaker: label, insight: label })).min(2).max(4), basis: z.enum(["실제 조사", "조사 예정 예시"]), method: label, evidenceIds: z.array(label).max(10), ...common }).refine(d => d.basis !== "실제 조사" || d.evidenceIds.length > 0, "실제 인터뷰 인용은 조사 근거 ID가 필요합니다."),
+  "photo-evidence": z.object({ photos: z.array(z.object({ imageSrc: z.string().refine(s => /^\/api\/attachments\/[a-f0-9]{64}$/.test(s) || /^data:image\/(png|jpeg|webp);base64,/.test(s), "업로드한 이미지만 쓸 수 있습니다.").optional(), caption: label, observation: body })).min(1).max(3), ...common }),
+  "benchmark-cards": z.object({ cases: z.array(z.object({ company: label, region: label, what: body, result: body, lesson: body })).min(2).max(3), application: body, ...common }),
+  "executive-summary": z.object({ rows: z.array(z.object({ section: label, finding: body, implication: body })).min(3).max(6), ...common }),
 };
 export type ExpandedKind = keyof typeof expandedSchemas;
 export const expandedKinds = Object.keys(expandedSchemas) as ExpandedKind[];
@@ -63,6 +67,10 @@ export const expandedRegistry: Record<ExpandedKind, Meta> = {
   "section-divider": { name: "섹션 구분", stage: 4, reference: 4, roles: ["흐름", "마무리"], use: "여러 절 사이에서 현재 위치를 보여 줄 때", avoid: "본문 근거나 판단을 대신할 때", minimum: "섹션 번호·이름, 전체 절2~8" },
   "persona-cards": { name: "근거 구분 페르소나", stage: 4, reference: 14, roles: ["사실 제시", "가설", "비교"], use: "고객의 목표와 불편을 인물별로 정리할 때", avoid: "가상 인물을 실제 인터뷰로 보이게 할 때", minimum: "인물2~3, 속성·목표·불편·인용, 조사 여부" },
   "screenshot-notes": { name: "화면 캡처와 번호 주석", stage: 4, reference: 49, roles: ["근거", "사실 제시", "흐름"], use: "실제 업로드 화면의 위치를 짚어 설명할 때", avoid: "업로드 이미지가 없을 때", minimum: "업로드 이미지·원본 크기, 좌표·제목·설명2~6" },
+  "interview-quotes": { name: "인터뷰 인용 카드", stage: 4, reference: 50, roles: ["근거", "사실 제시", "가설"], use: "고객 인터뷰(IDI) 발언과 거기서 읽은 인사이트를 보여 줄 때. 아직 조사 전이면 '조사 예정 예시'로 표시해 확인할 발언의 자리를 만든다", avoid: "예시 문장을 실제 인터뷰처럼 보이게 할 때", minimum: "인용2~4(발언·화자 속성·인사이트), 조사 방법·대상 수, 실제 조사면 근거ID" },
+  "photo-evidence": { name: "현장 사진과 관찰", stage: 4, reference: 51, roles: ["근거", "사실 제시"], use: "매장·현장·제품 사진과 관찰 포인트를 나란히 보여 줄 때. 업로드 사진이 없으면 사진 삽입 자리와 찍을 장면을 표시한다", avoid: "사진 없이 관찰 내용도 없을 때", minimum: "사진1~3(업로드 이미지 또는 삽입 자리), 캡션·관찰" },
+  "benchmark-cards": { name: "벤치마킹 사례 카드", stage: 4, reference: 52, roles: ["비교", "근거"], use: "국내외 실명 사례가 무엇을 했고 어떤 성과를 냈으며 우리에게 무엇을 적용할지 비교할 때", avoid: "사례 이름이나 성과 근거가 없을 때", minimum: "사례2~3(회사·지역/업종·한 일·성과·배울 점), 적용 방향" },
+  "executive-summary": { name: "Executive Summary 표", stage: 1, reference: 1, roles: ["판단", "우선순위", "마무리", "합의 사항"], use: "발표 전체의 섹션별 핵심 내용과 시사점을 한 장에 요약할 때(최종 발표 첫 본문)", avoid: "섹션 결론이 아직 없을 때", minimum: "섹션3~6, 핵심 내용·시사점" },
 };
 export const expandedNames = Object.fromEntries(expandedIds.map(id => [id, expandedRegistry[id.slice(2) as ExpandedKind].name])) as Record<ExpandedId, string>;
 export function dateRange(data: { rows?: { periods: { start: string; end: string }[] }[]; milestones?: { date: string }[]; highlight?: { start: string; end: string } }) {

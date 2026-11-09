@@ -867,3 +867,37 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
 - 예상 위험: 24장 스토리라인 응답은 10장(약 80초)의 2~2.5배라 Vercel 260초에 가깝다. 장표 생성과 자동 검토도 늘어난다.
 - 다음: IDI 인용 카드·사진 자리·로고/벤치마킹 카드·Executive Summary 표 레이아웃(2번 작업).
 - Codex 배포 대상: 위 변경 전체.
+
+## 2026-11-09 Codex — GitHub 전체 공개 및 BYOK 위치 확인
+- 사용자 승인으로 https://github.com/allan82173/deckpick 을 public으로 전환했다. 익명 저장소 페이지 HTTP 200 확인. 코드 push·재배포는 하지 않았다.
+- 공개 전 전체 Git 기록의 blob 426개를 비밀키 패턴과 환경파일·첨부/체크포인트·원본 PDF/PPTX/DOCX 경로 기준으로 검사했고 해당 검출 0건이었다. 결과는 web/output/latest-sharing/public-repository-scan.json에 남겼다. 이것을 포괄적인 기밀성 보증으로 표현하지 않는다.
+- 공개 Vercel /api/config의 serverKeys.openai=false, anthropic=false 확인. 현재 배포는 다른 사람이 본인의 API 키를 입력해야 AI를 사용한다. 저장소 공개 자체는 API 호출을 발생시키지 않는다. 로컬 서버 키 사용과 공개 배포 상태를 혼동하지 않는다.
+- 입력 위치: /new에서 덱 설정 후 AI와 대화 화면의 접힌 ‘AI 연결 설정’을 열고 OpenAI/Claude 선택, API 키 입력, 연결. 이 답변에서는 키 생성·복사·저장을 수행하지 않았다.
+- 코드와 배포 출력 수정이 없어 테스트·타입검사·빌드는 미실행. 유료 AI 호출 0회. Claude가 뒤에 추가한 최종발표 기능은 로컬에 유지했으며 이번 공개 범위 변경 과정에서 원격에 덮어쓰지 않았다.
+- 남은 일: API 입력 설정을 더 눈에 띄게 하는 UI 변경은 아직 하지 않았다. 추후 서버 키를 공개 배포 환경에 추가하면 비용 부담이 달라질 수 있으므로 본인 키 방식 유지 여부를 함께 확인해야 한다.
+
+## 2026-11-09 Claude — 최종 발표용 레이아웃 4종(Executive Summary 표, 인터뷰 인용 카드, 벤치마킹 사례 카드, 현장 사진과 관찰)
+
+배경: 학생 최종 발표에서 반복된 시각 요소(섹션별 요약 표, IDI 인용, 실명 벤치마킹, 매장 사진)가 DeckPick에 없어 3열 카드가 반복됐다. 최종 발표 모드와 함께 쓰도록 추가했다.
+
+### ① 바꾼 파일과 이유
+- `web/src/lib/expanded-layouts.ts`: 스키마와 등록 정보를 추가했다. 확장 유형은 23 → 27, 구현 ID는 95 → 103이다.
+  - `executive-summary`: 섹션 3~6행 × 구분·핵심 내용·시사점. stage 1이라 표 칸은 가운데 정렬·통일 크기다. roles 판단·우선순위·마무리·합의 사항.
+  - `interview-quotes`: 인용 2~4(발언·화자 속성·인사이트), basis "실제 조사"/"조사 예정 예시", 조사 방법. 실제 조사면 근거 ID가 필수다. 조사 전에는 '조사 예정 예시' 태그로 확인할 발언 자리를 만든다.
+  - `benchmark-cards`: 사례 2~3(회사·지역/업종·한 일·성과·배울 점)과 적용 방향.
+  - `photo-evidence`: 사진 1~3(업로드 이미지 경로만 허용, 없으면 '사진 삽입 · 장면' 자리)과 캡션·관찰.
+- `web/src/lib/expanded-scene.ts`: 4종 장면을 추가했다. 미리보기와 PPTX가 같은 장면을 쓴다. 인용 카드는 큰 따옴표 장식과 인사이트 띠, 벤치마킹은 회사명 헤더와 3단(한 일·성과·배울 점) + 적용 방향 띠, 사진은 본문 영역을 채우는 높이다.
+- `web/src/lib/expanded-samples.ts`: 4종 합성 예시를 추가했다(데모·카탈로그·테스트용).
+- `web/src/lib/ai.ts`: 실제 인터뷰 인용의 근거 ID 확인, 사진 경로는 실제 업로드 이미지만 허용하는 후보 검증을 추가했다.
+- `web/src/lib/storyline.ts`: 최종 발표에서 결론 요약 → executive-summary, 벤치마킹 → benchmark-cards, 고객 인터뷰 → interview-quotes, 현장 관찰 → photo-evidence를 preferredLayouts에 우선 넣도록 했다.
+- `web/src/lib/layout-catalog.ts`: 카탈로그 추가 수 23 → 27.
+- 테스트: `layout-expansion.test.ts` 개수 갱신. `final-presentation.test.ts`에 4종 스키마·장면 경계·정직성 규칙(실제 인터뷰 근거 ID, 외부 이미지 URL 금지) 검사를 추가했다.
+
+### ② 테스트·타입 검사·빌드 결과
+- Linux 복사본: tsc 통과, 테스트 216/216 통과. LibreOffice로 4종 PPTX를 렌더링해 넘침·겹침 없음을 확인했다(인용 카드·사진 여백 1회 조정).
+- Windows: typecheck 통과, 테스트 216/216 통과, 빌드 통과. 3100 서버 재시작(Ready). 기록은 `web/output/answer-first/`.
+- 유료 AI 호출 0회. 기존 49개 레이아웃 출력 보존 검사는 그대로 통과했다.
+
+### ③ 남은 일
+- 사용자가 최종 발표 모드(예: 20~24장)로 새 덱을 생성해 4종 레이아웃 사용 여부와 품질을 평가한다.
+- Codex 배포 대상: 최종 발표 모드와 레이아웃 4종 전체.
