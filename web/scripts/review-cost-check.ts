@@ -41,7 +41,7 @@ function wallMs(calls: Call[]) {
 function layoutRepeats(deck: Deck) { const prev: string[] = []; let n = 0; for (const item of deck.outline) { const id = draftSlide(deck, item.index)?.layoutId ?? ""; if (item.index && deckLayoutIssue(id, prev, deck.outline.length)) n++; prev.push(id); } return n; }
 
 async function main() {
-  const [runDir, reportArg] = process.argv.slice(2); if (!runDir || !reportArg) throw Error("사용법: review-cost-check.ts <체크포인트 폴더> <리포트>");
+  const [runDir, reportArg, mode] = process.argv.slice(2), single = mode === "single"; if (!runDir || !reportArg) throw Error("사용법: review-cost-check.ts <체크포인트 폴더> <리포트>");
   const checkpoints = await Promise.all((await readdir(runDir)).filter(f => f.endsWith(".checkpoint.json")).map(async f => JSON.parse(await readFile(path.join(runDir, f), "utf8"))));
   const story = checkpoints.find(c => c.stage === "storyline-final" && c.status === "complete")?.result, table = checkpoints.find(c => c.stage === "evidence-table" && c.status === "complete")?.result;
   if (!story || !table) throw Error("기존 장별 설계·근거표 체크포인트를 찾지 못했습니다.");
@@ -52,15 +52,22 @@ async function main() {
   let deck: Deck = { id, input, designSystem: design("ict-forest" as never), research: table.sources, researchRecord: story.researchRecord, outline: story.outlineDraft, chat: { setup: [], outline: [], slides: {} }, candidates: {}, picked: {}, edited: {}, demo: false } as Deck;
   await mkdir(out, { recursive: true });
   const c = connection(), started = performance.now(); let failure = "", phase = "candidates", calls: Call[] = [], candidateMs = 0, swaps = 0, replacements = 0;
+  const candidateErrors: string[] = [], missing: number[] = [];
   try {
     const measured = await withRunContext(id, () => withExecution(async () => {
       const planned = plannedFirstLayouts(input, deck.outline);
-      const outcomes = await mapConcurrent(deck.outline, async item => {
-        const slides = await generateCandidates(c, input, item, deck.research, "검토 비용 비교 실행", [], true, deck.outline, "", 0, [], [], undefined, deck.researchRecord?.evidence, planned.slice(0, item.index), { record: deck.researchRecord });
+      try {
+      // 앱에서 사용자가 실패한 장을 다시 만드는 것처럼, 실패한 장은 다른 후보 순서(rotation 1)로 한 번 더 만든다. 그래도 실패하면 빈 장으로 두고 검토로 넘어간다(전체 기록 보존).
+      // 앱의 첫 생성(candidates)은 장마다 후보 3개(single=false)를 만든다. 2026-11-09 08:21 실행은 single=true(후보 1개)로 돌아 후보 단계 비교가 기존 실행과 같은 조건이 아니었다.
+      const make = (rotation: number) => async (item: Deck["outline"][number]) => {
+        const slides = await generateCandidates(c, input, item, deck.research, "검토 비용 비교 실행", [], single, deck.outline, "", rotation, [], [], undefined, deck.researchRecord?.evidence, planned.slice(0, item.index), { record: deck.researchRecord });
         deck.candidates[item.index] = slides; deck.picked[item.index] = 0; return item.index;
-      });
-      const errors = outcomes.filter(o => o.status === "rejected");
-      if (errors.length) throw Error(errors.map(o => o.status === "rejected" ? (o.reason instanceof Error ? o.reason.message : String(o.reason)) : "").join(" / "));
+      };
+      const first = await mapConcurrent(deck.outline, make(0));
+      const failedItems = deck.outline.filter((_, i) => first[i].status === "rejected");
+      for (const [i, o] of first.entries()) if (o.status === "rejected") candidateErrors.push(`${deck.outline[i].index}: ${o.reason instanceof Error ? o.reason.message : String(o.reason)}`);
+      const second = await mapConcurrent(failedItems, make(1));
+      for (const [i, o] of second.entries()) if (o.status === "rejected") missing.push(failedItems[i].index);
       candidateMs = Math.round(performance.now() - started); phase = "review";
       const reviewed = await reviewAndRepairDeck(c, deck);
       for (const r of reviewed.replacements as { index: number; slide: Deck["candidates"][number][number]; swapWith?: number }[]) {
@@ -69,6 +76,7 @@ async function main() {
         list[slot] = r.slide; deck.candidates[r.index] = list; replacements++;
       }
       deck.review = reviewed.review; if (reviewed.review.status === "incomplete") failure = "덱 검토 미완료";
+      } catch (e) { failure = e instanceof Error ? e.message : String(e); }
     }), { fresh: true });
     calls = measured.execution.calls as Call[];
   } catch (e) { failure = e instanceof Error ? e.message : String(e); }
@@ -77,13 +85,13 @@ async function main() {
   const sum = (rows: Record<string, { inputTokens: number; outputTokens: number }>, key: "inputTokens" | "outputTokens") => STAGES.reduce((n, s) => n + (rows[s]?.[key] ?? 0), 0);
   const visualSkipped = deck.outline.reduce((n, item) => n + (deck.candidates[item.index] ?? []).filter(s => s?.quality?.visual?.status === "skipped").length, 0);
   const warnings = deck.outline.reduce((n, item) => n + (draftSlide(deck, item.index)?.quality?.warnings.length ?? 0), 0);
-  const data = { id, createdAt: new Date().toISOString(), topic: report.topic, failure, phase, durationMs: Math.round(performance.now() - started), candidateMs,
+  const data = { id, createdAt: new Date().toISOString(), topic: report.topic, failure, phase, candidateErrors, missing, durationMs: Math.round(performance.now() - started), candidateMs,
     wallMs: { before: wallMs(report.execution.calls as Call[]), after: wallMs(calls) },
     stages: Object.fromEntries(STAGES.map(s => [s, { before: { ...before[s], cachedInputTokens: beforeCached[s]?.cachedInputTokens ?? 0 }, after: now[s] }])),
     totals: { before: { inputTokens: sum(before, "inputTokens"), outputTokens: sum(before, "outputTokens") }, after: { inputTokens: sum(now, "inputTokens"), outputTokens: sum(now, "outputTokens") } },
     quality: { before: { reviewIssues: report.review?.issues?.length, reviewRounds: report.review?.rounds, reviewStatus: report.review?.status }, after: { reviewIssues: deck.review?.issues.length, reviewRounds: deck.review?.rounds, reviewStatus: deck.review?.status, slideWarnings: warnings, layoutRepeats: layoutRepeats(deck), swaps, replacements, visualSkipped } } };
   await writeFile(`${out}/check-${stamp}.json`, JSON.stringify(data, null, 1));
-  if (!failure || deck.outline.every(item => deck.candidates[item.index]?.length)) { try { const pptx = await exportDeck(deck, false); await pptx.writeFile({ fileName: `${out}/check-${stamp}.pptx` }); } catch { /* 내보내기 실패는 지표 기록을 막지 않는다 */ } }
+  if (deck.outline.every(item => deck.candidates[item.index]?.length)) { try { const pptx = await exportDeck(deck, false); await pptx.writeFile({ fileName: `${out}/check-${stamp}.pptx` }); } catch { /* 내보내기 실패는 지표 기록을 막지 않는다 */ } }
   const pct = (a: number, b: number) => a ? `${Math.round((b - a) / a * 100)}%` : "-", k = (n: number) => `${Math.round(n / 1000)}k`;
   const rows = STAGES.map(s => { const b = data.stages[s].before, a = data.stages[s].after; return `| ${s} | ${b?.calls ?? 0}회 · ${k(b?.inputTokens ?? 0)} · 캐시 ${b?.inputTokens ? Math.round((b.cachedInputTokens ?? 0) / b.inputTokens * 100) : 0}% | ${a?.calls ?? 0}회 · ${k(a?.inputTokens ?? 0)} · 캐시 ${a?.inputTokens ? Math.round(a.cachedInputTokens / a.inputTokens * 100) : 0}% | ${pct(b?.inputTokens ?? 0, a?.inputTokens ?? 0)} |`; });
   const md = [`# 검토 비용 비교 실행 ${stamp}`, "", failure ? `실패/미완료: ${failure} (단계 ${phase})` : "완료", "",
@@ -91,6 +99,7 @@ async function main() {
     `| 합계 입력 | ${k(data.totals.before.inputTokens)} | ${k(data.totals.after.inputTokens)} | ${pct(data.totals.before.inputTokens, data.totals.after.inputTokens)} |`,
     `| 합계 출력 | ${k(data.totals.before.outputTokens)} | ${k(data.totals.after.outputTokens)} | ${pct(data.totals.before.outputTokens, data.totals.after.outputTokens)} |`,
     `| 경과 시간(후보~검토) | ${Math.round(data.wallMs.before / 1000)}초 | ${Math.round(data.wallMs.after / 1000)}초 | ${pct(data.wallMs.before, data.wallMs.after)} |`, "",
+    `후보 생성 1차 실패 ${candidateErrors.length}장(재시도 후 빈 장 ${missing.length}장)${candidateErrors.length ? " · " + candidateErrors.join(" / ").slice(0, 400) : ""}`, "",
     `품질: 검토 지적 ${data.quality.before.reviewIssues} → ${data.quality.after.reviewIssues}, 검토 라운드 ${data.quality.before.reviewRounds} → ${data.quality.after.reviewRounds}, 레이아웃 규칙 위반 ${data.quality.after.layoutRepeats}장, 후보 교체 ${swaps}장, 다시 만든 장 ${replacements - swaps}장, 시각 검토 생략 후보 ${visualSkipped}개, 장표 경고 ${warnings}건`];
   await writeFile(`${out}/check-${stamp}.md`, md.join("\n"));
   console.log(md.join("\n"));
