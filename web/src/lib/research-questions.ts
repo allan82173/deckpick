@@ -41,7 +41,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
     for(let round=0;round<GENERATION_CONFIG.research.roundsPerQuestion;round++){
      assertBudget();const usedQueries:string[]=[];
      for(const raw of next){const query=redactPrivateQuery(raw,analysis);if(!query||state.queries.some(q=>q.toLowerCase()===query.toLowerCase()))continue;state.queries.push(query);usedQueries.push(query);}
-     // 한 라운드의 검색어는 2개씩 동시에 보낸다(검색 4개를 순서대로 기다리다 질문당 시간 제한 240초를 넘기던 문제). 결과는 검색어 순서대로 합친다.
+     // 검색 동시 실행 수(parallelSearches). 2로 올린 확인 실행(2026-11-09 07:18)에서 질문 4개가 동시에 검색하며 검색 응답이 크게 느려져 모든 질문이 시간 제한에 걸렸으므로 1(순차)로 둔다. 결과는 검색어 순서대로 합친다.
      const searched=await mapConcurrent(usedQueries,query=>searchOnce(query),GENERATION_CONFIG.research.parallelSearches);assertBudget();
      for(const outcome of searched){
       if(outcome.status==="fulfilled"){const found=outcome.value;summary+="\n"+found.text;for(const s of found.sources)if(!state.sources.some(existing=>existing.url===s.url))state.sources.push(s);continue;}
