@@ -39,7 +39,8 @@ test("the first candidate does not repeat the previous slide's layout when anoth
 });
 
 test("text-grid tables and low-scored layouts never appear as automatic candidates", () => {
-  const banned = ["comparison-table", "validation-plan", "cross-matrix", "evidence-scope", "compare", "calculation-flow", "system-flow"];
+  // comparison-table은 2026-11-09 대안 카드 비교로 바뀌어 글자 표가 아니므로 자동 후보에 다시 포함한다(사용자 승인).
+  const banned = ["validation-plan", "cross-matrix", "evidence-scope", "compare", "calculation-flow", "system-flow"];
   for (const deckType of ["consulting", "marketing"] as const) for (const role of slideRoles) for (let rotation = 0; rotation < 4; rotation++) {
     const input: DeckInput = { topic: "합성", purpose: "표 제외", slideCount: 8, deckType, designSystemId: "ict-forest" };
     const plan = candidatePlan(input, { index: 3, section: "분석", message: "비교와 판단", contentHint: "", role }, [], rotation);

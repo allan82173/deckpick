@@ -1089,3 +1089,21 @@ Vercel All Deployments 보호를 적용하고 비로그인 대표/새 작업/API
 ### ③ 남은 일
 - 사용자의 추가 피드백을 받는다.
 - 비교표·달력은 여전히 '직접 선택 전용'이다. 새 형식이 마음에 들면 자동 후보로 되돌릴지 결정해야 한다.
+
+## 2026-11-09 Claude — 페르소나·벤치마킹 칸 간격, 비교표·달력 자동 후보 복귀
+
+### ① 바꾼 파일과 이유
+- `web/src/lib/expanded-scene.ts`
+  - 페르소나: 머리·속성 줄·목표·불편·한마디를 각각 칸으로 나누고 칸 사이를 0.12in 띄웠다. 한마디는 연녹색 칸이다.
+  - 벤치마킹 사례 카드: 머리와 세 칸, 적용 방향 사이를 0.12in로 넓혔다.
+- `web/src/lib/generation-config.ts`: `comparison-table`과 `calendar`를 `autoExcludedKinds`에서 뺐다. 새 형식(대안 카드 비교·기간 축 막대)이 글자 표가 아니어서, 사용자 승인으로 자동 생성 후보에 다시 넣었다.
+- `web/tests/layout-variety-fit.test.ts`: 자동 후보 금지 목록에서 comparison-table을 빼고 사유 주석을 달았다.
+
+### ② 검사 결과
+- Linux 사본: tsc 통과, `npm test` 229/229 통과.
+- 페르소나·벤치마킹을 샘플 문장과 긴 문장으로 PPTX→PNG 렌더링해 간격을 확인했다.
+- Windows `verify-build-restart.cmd`: typecheck 통과, 테스트 229/229, `next build` 성공, 3100 서버 재시작.
+- 유료 AI 호출 0회.
+
+### ③ 남은 일
+- 다음 실제 생성에서 비교표·달력이 선택될 때 새 형식이 의도대로 채워지는지 확인한다.

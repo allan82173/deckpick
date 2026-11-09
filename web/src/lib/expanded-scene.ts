@@ -116,9 +116,10 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
  d.steps.forEach((t,i)=>{const y=Y+.5+i*(sh+.2),th=textHeight(t.action,sSize,3.9);diamond(6.83,y+sh/2-.055);box(7.1,y,5.81,sh,i===0?c.tint:c.panel,c.connector);txt(t.date,7.24,y+(sh-.28)/2,1.5,.3,13,c.primary,true);txt(t.action,8.85,y+(sh-th)/2,3.9,th+.04,sSize,c.darkest);});break;}
  case "section-divider":{const d=S[kind].parse(slide.data);txt(d.number,X,2.5,2,1.2,64,c.primary,true);txt(d.name,2.65,2.5,6.5,1.25,32,c.darkest,true);if(d.description)txt(d.description,2.65,4,6.4,1,14,c.muted);d.sections.forEach((s,i)=>txt(`${i+1}. ${s}`,9.5,2.12+i*.45,3.3,.35,12,s===d.name?c.primary:c.connector,s===d.name));break;}
  case "persona-cards":{const d=S[kind].parse(slide.data),w=(W-.3*(d.personas.length-1))/d.personas.length;
- d.personas.forEach((p,i)=>{const x=X+i*(w+.3);header(p.name,x,Y,w);box(x,2.34,w,3.78,c.panel,c.connector);tag(d.basis==="가상"?"가상 페르소나":"실제 조사",x+.12,2.47,1.6);txt(p.attributes,x+1.85,2.49,w-1.97,.26,12,c.muted);
-  const tw=w-.24,parts=[["목표",p.goal],["불편",p.pain],["한마디","“"+p.quote+"”"]] as const,slot=(6.0-2.92)/3,size=Math.min(...d.personas.flatMap(q=>[q.goal,q.pain,"“"+q.quote+"”"].map(t=>fitStack([t],tw,slot-.42,16,12))));
-  parts.forEach(([label,t],k)=>{const y=2.92+k*slot,th=textHeight(t,size,tw);line(x+.12,y,tw,c.connector,1);txt(label,x+.12,y+.08,tw,.24,11,c.primary,true);txt(t,x+.12,y+.36+(slot-.42-th)/2,tw,th+.04,size,k===2?c.primary:c.darkest,k===0);});});break;}
+ // 머리·속성 줄·목표·불편·한마디를 각각 칸으로 나누고 칸 사이를 0.12in 띄운다.
+ d.personas.forEach((p,i)=>{const x=X+i*(w+.3),g=.12,tw=w-.28;header(p.name,x,Y,w);const ay=Y+.4+g;box(x,ay,w,.42,c.panel,c.connector);tag(d.basis==="가상"?"가상 페르소나":"실제 조사",x+.12,ay+.085,1.6);txt(p.attributes,x+1.85,ay+.09,w-1.97,.26,12,c.muted);
+  const top=ay+.42+g,parts=[["목표",p.goal],["불편",p.pain],["한마디","“"+p.quote+"”"]] as const,slot=(6.1-top-g*2)/3,size=Math.min(...d.personas.flatMap(q=>[q.goal,q.pain,"“"+q.quote+"”"].map(t=>fitStack([t],tw,slot-.46,16,12))));
+  parts.forEach(([label,t],k)=>{const y=top+k*(slot+g),th=textHeight(t,size,tw);box(x,y,w,slot,k===2?c.tint:c.panel,c.connector);txt(label,x+.14,y+.08,tw,.24,11,c.primary,true);txt(t,x+.14,y+.36+(slot-.42-th)/2,tw,th+.04,size,k===2?c.primary:c.darkest,k===0);});});break;}
  case "screenshot-notes":{
  // 번호 표식은 각 주석 좌표(영역의 왼쪽 위 모서리)에 맞춰 같은 크기·같은 오프셋으로 놓는다. 오른쪽 설명도 같은 번호 표식으로 짝을 맞춘다.
  const d=S[kind].parse(slide.data),scale=Math.min(8.1/d.imageWidth,H/d.imageHeight),iw=d.imageWidth*scale,ih=d.imageHeight*scale,ix=X+(8.1-iw)/2,iy=Y+(H-ih)/2,b=.38;nodes.push({kind:"image",x:ix,y:iy,w:iw,h:ih,src:d.imageSrc,alt:d.imageAlt});
@@ -132,10 +133,11 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
  case "photo-evidence":{const d=S[kind].parse(slide.data),n=d.photos.length,gw=.24,cw=(W-gw*(n-1))/n,ih=6.1-Y-1.05;
  d.photos.forEach((p,i)=>{const x=X+i*(cw+gw);if(p.imageSrc)nodes.push({kind:"image",x,y:Y,w:cw,h:ih,src:p.imageSrc,alt:p.caption});else{box(x,Y,cw,ih,c.tint,c.connector);txt("사진 삽입 · "+p.caption,x+.2,Y+ih/2-.15,cw-.4,.3,12,c.muted,false,"center");}
  txt(p.caption,x,Y+ih+.1,cw,.3,13,c.primary,true);txt(p.observation,x,Y+ih+.45,cw,6.1-(Y+ih+.45),12,c.darkest);});break;}
- case "benchmark-cards":{const d=S[kind].parse(slide.data),n=d.cases.length,gw=.22,cw=(W-gw*(n-1))/n,bottom=5.48,rows=[["무엇을 했나","what"],["성과","result"],["배울 점","lesson"]] as const,rh=(bottom-(Y+.62))/3;
+ case "benchmark-cards":{const d=S[kind].parse(slide.data),n=d.cases.length,gw=.22,cw=(W-gw*(n-1))/n,bottom=5.48,rows=[["무엇을 했나","what"],["성과","result"],["배울 점","lesson"]] as const,rh=(bottom-(Y+.7))/3;
+ // 머리·세 칸·적용 방향 사이를 0.12in씩 띄운다.
  d.cases.forEach((v,i)=>{const x=X+i*(cw+gw);box(x,Y,cw,.58,c.darkest);txt(v.company,x+.14,Y+.06,cw-.28,.3,15,"#FFFFFF",true);txt(v.region,x+.14,Y+.33,cw-.28,.22,10,"#FFFFFF");
- rows.forEach(([label,key],j)=>{const y=Y+.62+j*rh;box(x,y,cw,rh-.04,j===2?c.tint:c.panel,c.connector);txt(label,x+.12,y+.06,cw-.24,.24,10,c.primary,true);txt(v[key],x+.12,y+.34,cw-.24,rh-.44,n===2?14:13,c.darkest,j===1);});});
- box(X,5.56,W,.6,"#FFFFFF",c.primary);txt("적용 방향",X+.14,5.7,1.2,.3,12,c.primary,true);txt(d.application,X+1.4,5.66,W-1.55,.42,12,c.darkest,true);break;}
+ rows.forEach(([label,key],j)=>{const y=Y+.7+j*rh;box(x,y,cw,rh-.12,j===2?c.tint:c.panel,c.connector);txt(label,x+.12,y+.06,cw-.24,.24,10,c.primary,true);txt(v[key],x+.12,y+.34,cw-.24,rh-.52,n===2?14:13,c.darkest,j===1);});});
+ box(X,5.5,W,.62,"#FFFFFF",c.primary);txt("적용 방향",X+.14,5.66,1.2,.3,12,c.primary,true);txt(d.application,X+1.4,5.6,W-1.55,.44,12,c.darkest,true);break;}
  case "value-chain":{const d=S[kind].parse(slide.data),gw=1.78,aw=.34,MW=W-gw-aw,gx=X+MW+aw,sh=.46,sg=.08,lw=1.75;
  d.support.forEach((v,i)=>{const y=Y+i*(sh+sg);box(X,y,lw,sh,c.tint,c.connector);txt(v.name,X+.06,y+.1,lw-.12,sh-.2,12,c.primary,true,"center");box(X+lw+.06,y,MW-lw-.06,sh,c.panel,c.connector);txt(v.detail,X+lw+.2,y+.1,MW-lw-.34,sh-.2,12,c.darkest);});
  const n=d.primary.length,gap=.3,tip=.22,bw=(MW-gap*(n-1))/n,py=Y+d.support.length*(sh+sg)+.12,hh=.62,cy=py+hh+.08,ch=6.1-cy;
