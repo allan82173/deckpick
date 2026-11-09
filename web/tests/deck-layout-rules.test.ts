@@ -52,12 +52,12 @@ test("R6 레이아웃 설명이 내용 맞춤 조건을 담는다", () => {
   assert.match(expandedRegistry["metrics-panel"].avoid, /수치 지표 없이/);
 });
 
-test("EY 기반 레이아웃 4종은 샘플·스키마·장면이 맞물린다", async () => {
+test("EY 기반 레이아웃 7종은 샘플·스키마·장면이 맞물린다", async () => {
   const { expandedSchemas } = await import("../src/lib/expanded-layouts");
   const { expandedSample } = await import("../src/lib/expanded-samples");
   const { makeScene } = await import("../src/lib/scene");
   const { design } = await import("../src/lib/design");
-  for (const kind of ["value-chain", "hub-spoke", "maturity-steps", "org-chart"] as const) for (const variant of [0, 1]) {
+  for (const kind of ["value-chain", "hub-spoke", "maturity-steps", "org-chart", "flywheel", "evidence-convergence", "kpi-tree"] as const) for (const variant of [0, 1]) {
     const data = expandedSample(`c-${kind}`, variant)!;
     assert.equal(expandedSchemas[kind].safeParse(data).success, true, kind);
     const nodes = makeScene({ layoutId: `c-${kind}`, headline: "예시", section: "본문", sources: [], data } as never, design("ict-forest" as never), 3, "주제").nodes;
@@ -65,4 +65,20 @@ test("EY 기반 레이아웃 4종은 샘플·스키마·장면이 맞물린다",
   }
   assert.equal(expandedSchemas["value-chain"].safeParse({ ...expandedSample("c-value-chain")!, primary: (expandedSample("c-value-chain")!.primary as { focus: boolean }[]).map(p => ({ ...p, focus: false })) }).success, false);
   assert.equal(expandedSchemas["maturity-steps"].safeParse({ ...expandedSample("c-maturity-steps")!, current: 2, target: 1 }).success, false);
+});
+
+test("포지셔닝 맵은 경쟁 구도 장에서만 자동 후보가 되고 판단·우선순위 역할에서 빠진다", async () => {
+  const { candidatePlan, positioningFits } = await import("../src/lib/candidate-plan");
+  const { roleLayouts } = await import("../src/lib/slide-quality");
+  const input = { deckType: "consulting", topic: "x", slideCount: 10 } as never;
+  assert.equal(roleLayouts("consulting", "판단").includes("c-positioning"), false);
+  assert.equal(roleLayouts("consulting", "우선순위").includes("c-positioning"), false);
+  const concept = { index: 3, section: "컨셉", role: "비교", message: "컨셉 A와 B를 비교합니다", contentHint: "" };
+  const market = { index: 3, section: "경쟁", role: "비교", message: "경쟁사 포지셔닝에서 빈 자리를 찾습니다", contentHint: "" };
+  assert.equal(positioningFits(concept as never), false);
+  assert.equal(positioningFits(market as never), true);
+  for (let r = 0; r < 6; r++) assert.equal(candidatePlan(input, concept as never, [], r).includes("c-positioning" as never), false);
+  const kpi = { goal: { name: "목표", target: "8%" }, drivers: [{ name: "a", kpis: [1, 2, 3].map(i => ({ name: `k${i}`, target: "1" })) }, { name: "b", kpis: [1, 2, 3].map(i => ({ name: `k${i}`, target: "1" })) }, { name: "c", kpis: [1, 2, 3].map(i => ({ name: `k${i}`, target: "1" })) }], takeaway: "t" };
+  const { expandedSchemas } = await import("../src/lib/expanded-layouts");
+  assert.equal(expandedSchemas["kpi-tree"].safeParse(kpi).success, false);
 });

@@ -22,13 +22,15 @@ export const layoutPurpose: Record<LayoutId, string> = {
 };
 /** 사람 평가에서 장표 품질이 낮았던 레이아웃은 자동 후보에서 제외한다(직접 선택은 허용). */
 const autoAllowed = (id: string) => !GENERATION_CONFIG.layouts.autoExcludedKinds.some(kind => id.endsWith("-" + kind));
+/** 포지셔닝 맵은 경쟁 구도·위치 비교가 장의 핵심일 때만 자동 후보가 된다(컨셉·우선순위·판단 장 남용 방지). */
+export const positioningFits = (item: OutlineItem) => (item.argument?.preferredLayouts ?? []).some(id => id.endsWith("-positioning")) || /포지셔닝|경쟁.{0,6}(위치|구도|지형)|지각도|시장.?지도/.test(`${item.section} ${item.message} ${item.contentHint}`);
 export function candidatePlan(input: DeckInput, item: OutlineItem, excluded: string[] = [], rotation = 0, count = 3, requested?:LayoutId): LayoutId[] {
   if (requested && item.role && !roleLayouts(input.deckType, item.role).includes(requested)) throw Error("이 장의 역할에 맞는 레이아웃을 선택해 주세요.");
   if(requested){if(count!==1||item.index===0||requested.endsWith("cover")||requested==="c-toc"||!requested.startsWith(input.deckType==="consulting"?"c-":"m-")||excluded.includes(requested))throw Error("현재 장표에 사용할 수 없는 구성입니다. 다른 후보에 없는 본문 구성을 골라 주세요.");return [requested];}
   if (item.index === 0) return Array(count).fill(input.deckType === "consulting" ? "c-cover" : "m-cover") as LayoutId[];
   if (item.section === "출처" && count === 1 && !excluded.includes(input.deckType === "consulting" ? "c-evidence-table" : "m-evidence-table")) return [input.deckType === "consulting" ? "c-evidence-table" : "m-evidence-table"];
   if(item.role){
-    const rolePool=roleLayouts(input.deckType,item.role).filter(id=>!excluded.includes(id)&&autoAllowed(id));
+    const rolePool=roleLayouts(input.deckType,item.role).filter(id=>!excluded.includes(id)&&autoAllowed(id)&&(!id.endsWith("-positioning")||positioningFits(item)));
     const preferred=(item.argument?.preferredLayouts??[]).filter((id):id is LayoutId=>rolePool.includes(id as LayoutId));
     const rest=rolePool.filter(id=>!preferred.includes(id));
     const shift=rest.length?rotation%rest.length:0;
@@ -143,7 +145,7 @@ export function deckLayoutIssue(id: string, previous: string[], deckSize: number
 /** 역할에 맞는 자동 사용 가능 레이아웃 전체. 덱 규칙 때문에 첫 계획을 못 쓸 때 대안으로 쓴다. */
 export function widerPool(input: DeckInput, item: OutlineItem): LayoutId[] {
   if (!item.role || item.index === 0) return [];
-  return (roleLayouts(input.deckType, item.role) ?? []).filter(autoAllowed);
+  return (roleLayouts(input.deckType, item.role) ?? []).filter(id => autoAllowed(id) && (!id.endsWith("-positioning") || positioningFits(item)));
 }
 /** 덱 규칙을 지키고 아직 쓰지 않은 레이아웃을 앞에 둔다. 지킬 수 있는 후보가 없으면 바로 앞 장 중복만 피한다. */
 export function avoidDeckRepeats(plan: LayoutId[], previous: string[], wider: LayoutId[], single: boolean, deckSize: number): LayoutId[] {

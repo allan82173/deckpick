@@ -142,6 +142,24 @@ break;}
  d.units.forEach((u,i)=>{const x=X+i*(uw+gap),h=6.1-uy;vline(cxs[i],bus,uy-bus);header(u.name,x,uy,uw);box(x,uy+.4,uw,h-.4,c.panel,c.connector);
   const size=n>4?12:13,rh=Math.min(h-1.1,richLines(u.role,size,uw-.28).length*size*1.3/72+.06);txt(u.role,x+.14,uy+.4+(h-.4-.6-rh)/2,uw-.28,rh,size,c.darkest);
   box(x+.12,uy+h-.5,uw-.24,.38,"#FFFFFF",c.connector);txt(u.members,x+.2,uy+h-.45,uw-.4,.28,11,c.primary,true,"center");});break;}
+ case "flywheel":{const d=S[kind].parse(slide.data),n=d.steps.length,cx=X+W/2,cyy=(Y+6.1)/2,rx=4.25,ry=1.5,cw=3.4,ch=1.12,pt=(a:number)=>[cx+rx*Math.sin(a),cyy-ry*Math.cos(a)] as const;
+ nodes.push({kind:"ellipse",x:cx-rx-.035,y:cyy-ry-.035,w:2*rx+.07,h:2*ry+.07,fill:c.connector});nodes.push({kind:"ellipse",x:cx-rx+.035,y:cyy-ry+.035,w:2*rx-.07,h:2*ry-.07,fill:"#FFFFFF"});
+ for(let i=0;i<n;i++){const a=2*Math.PI*(i+.5)/n,[ax,ay]=pt(a),deg=Math.atan2(rx*Math.cos(a),-ry*Math.sin(a))*180/Math.PI;nodes.push({kind:"triangle",x:ax-.17,y:ay-.15,w:.34,h:.3,fill:c.primary,rotate:deg});}
+ nodes.push({kind:"ellipse",x:cx-1.25,y:cyy-.62,w:2.5,h:1.24,fill:c.darkest});txt(d.center,cx-1.05,cyy-.17,2.1,.36,15,"#FFFFFF",true,"center");
+ d.steps.forEach((v,i)=>{const [px,py]=pt(2*Math.PI*i/n),x=px-cw/2,y=Math.min(6.1-ch,Math.max(Y,py-ch/2));box(x,y,cw,ch,c.panel,c.connector);nodes.push({kind:"ellipse",x:x+.14,y:y+.13,w:.34,h:.34,fill:c.primary});txt(String(i+1),x+.14,y+.17,.34,.26,11,"#FFFFFF",true,"center");
+  txt(v.name,x+.58,y+.14,cw-.7,.3,14,c.primary,true);txt(v.detail,x+.14,y+.54,cw-.28,ch-.6,12,c.darkest);});break;}
+ case "evidence-convergence":{const d=S[kind].parse(slide.data),n=d.evidences.length,ew=5.9,gap=.14,eh=(6.1-Y-gap*(n-1))/n,lw=1.45,fx=X+ew+.18,fw=1.5,kx=fx+fw+.12,kw=X+W-kx,kh=2.5,ky=(Y+6.1)/2-kh/2;
+ nodes.push({kind:"triangle",x:fx,y:Y,w:fw,h:6.1-Y,fill:c.tint,rotate:90});
+ d.evidences.forEach((v,i)=>{const y=Y+i*(eh+gap);box(X,y,lw,eh,c.tint,c.connector);txt(v.label,X+.1,y+eh/2-.25,lw-.2,.3,14,c.primary,true,"center");txt(v.tag,X+.1,y+eh/2+.08,lw-.2,.22,9,c.muted,true,"center");
+  box(X+lw+.06,y,ew-lw-.06,eh,c.panel,c.connector);const th=Math.min(eh-.16,richLines(v.fact,13,ew-lw-.36).length*13*1.3/72+.06);txt(v.fact,X+lw+.21,y+(eh-th)/2,ew-lw-.36,th,13,c.darkest);});
+ box(kx,ky,kw,kh,c.darkest);txt("결론",kx+.2,ky+.2,kw-.4,.24,10,c.onDarkSub,true);txt(d.conclusion.title,kx+.2,ky+.48,kw-.4,.7,18,"#FFFFFF",true);line(kx+.2,ky+1.22,kw-.4,c.onDarkSub,1);txt(d.conclusion.detail,kx+.2,ky+1.34,kw-.4,kh-1.44,13,"#FFFFFF");break;}
+ case "kpi-tree":{const d=S[kind].parse(slide.data),total=d.drivers.reduce((s,v)=>s+v.kpis.length,0),gw=2.55,dx=X+gw+.55,dw=2.9,kx=dx+dw+.55,kw=X+W-kx,gap=.1,dgap=.18,rh=(6.1-Y-gap*(total-d.drivers.length)-dgap*(d.drivers.length-1))/total,vline=(x:number,y:number,h:number)=>nodes.push({kind:"line",x,y,w:0,h,fill:c.connector,stroke:c.connector,strokeWidth:1.5});
+ const gh=2.1,gy=(Y+6.1)/2-gh/2;box(X,gy,gw,gh,c.darkest);txt("최종 목표",X+.16,gy+.18,gw-.32,.24,10,c.onDarkSub,true);txt(d.goal.name,X+.16,gy+.46,gw-.32,.66,16,"#FFFFFF",true);line(X+.16,gy+1.2,gw-.32,c.onDarkSub,1);txt(d.goal.target,X+.16,gy+1.32,gw-.32,.6,18,"#FFFFFF",true);
+ let y=Y;const dc:number[]=[];const t1=X+gw+.27,t2=dx+dw+.27;
+ d.drivers.forEach(v=>{const h=v.kpis.length*rh+(v.kpis.length-1)*gap;box(dx,y,dw,h,c.primary);txt(v.name,dx+.14,y+h/2-.17,dw-.28,.34,14,"#FFFFFF",true,"center");dc.push(y+h/2);
+  const kc:number[]=[];v.kpis.forEach((k,j)=>{const ky=y+j*(rh+gap);box(kx,ky,kw,rh,c.panel,c.connector);txt(k.name,kx+.16,ky+rh/2-.15,kw*.58,.3,13,c.darkest);txt(k.target,kx+kw*.6,ky+rh/2-.16,kw*.4-.16,.32,14,c.primary,true,"right");kc.push(ky+rh/2);line(t2,ky+rh/2,kx-t2,c.connector,1.5);});
+  line(dx+dw,y+h/2,t2-dx-dw,c.connector,1.5);if(kc.length>1)vline(t2,kc[0],kc[kc.length-1]-kc[0]);y+=h+dgap;});
+ line(X+gw,(Y+6.1)/2,t1-X-gw,c.connector,1.5);dc.forEach(cy0=>line(t1,cy0,dx-t1,c.connector,1.5));vline(t1,Math.min(dc[0],(Y+6.1)/2),Math.max(dc[dc.length-1],(Y+6.1)/2)-Math.min(dc[0],(Y+6.1)/2));break;}
  case "executive-summary":{const d=S[kind].parse(slide.data),w1=2.1,w2=6.2,w3=W-w1-w2,top=Y+.42,rh=(6.1-top)/d.rows.length;
  header("구분",X,Y,w1,true);header("핵심 내용",X+w1,Y,w2);header("시사점",X+w1+w2,Y,w3);
  d.rows.forEach((r,i)=>{const y=top+i*rh;cell(r.section,X,y,w1,rh,true,true);cell(r.finding,X+w1,y,w2,rh);cell(r.implication,X+w1+w2,y,w3,rh,false,true);});break;}

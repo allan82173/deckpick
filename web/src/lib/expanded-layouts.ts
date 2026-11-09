@@ -39,6 +39,9 @@ export const expandedSchemas = {
   "hub-spoke": z.object({ hub: z.object({ name: label, detail: body }), spokes: z.array(z.object({ name: label, detail: body })).min(4).max(6), ...common }),
   "maturity-steps": z.object({ levels: z.array(z.object({ name: label, state: body })).min(3).max(5), current: z.number().int().min(0).max(4), target: z.number().int().min(1).max(4), ...common }).refine(d => d.current < d.target && d.target < d.levels.length, "목표 단계는 현재 단계보다 높고 단계 수 안이어야 합니다."),
   "org-chart": z.object({ top: z.object({ name: label, role: body }), advisors: z.array(z.object({ name: label, role: body })).max(1), units: z.array(z.object({ name: label, role: body, members: label })).min(2).max(5), ...common }),
+  "flywheel": z.object({ center: label, steps: z.array(z.object({ name: label, detail: body })).min(3).max(5), ...common }),
+  "evidence-convergence": z.object({ evidences: z.array(z.object({ label, fact: body, tag: natureTag })).min(3).max(4), conclusion: z.object({ title: label, detail: body }), ...common }),
+  "kpi-tree": z.object({ goal: z.object({ name: label, target: label }), drivers: z.array(z.object({ name: label, kpis: z.array(z.object({ name: label, target: label })).min(1).max(3) })).min(2).max(4), ...common }).refine(d => d.drivers.reduce((n, v) => n + v.kpis.length, 0) <= 8, "하위 KPI는 모두 합쳐 8개 이하로 씁니다."),
 };
 export type ExpandedKind = keyof typeof expandedSchemas;
 export const expandedKinds = Object.keys(expandedSchemas) as ExpandedKind[];
@@ -79,6 +82,9 @@ export const expandedRegistry: Record<ExpandedKind, Meta> = {
   "hub-spoke": { name: "핵심과 구성 요소(허브-스포크)", stage: 4, reference: 55, roles: ["판단", "근거", "마무리"], use: "하나의 핵심 전략·컨셉을 이루는 4~6개 구성 요소나 실행 축을 한눈에 보여 줄 때", avoid: "요소 사이에 순서·인과가 있을 때(흐름형을 쓴다), 요소가 3개 이하일 때", minimum: "핵심1(이름·한 줄 설명), 구성 요소4~6(이름·설명)" },
   "maturity-steps": { name: "성숙도 단계(현재→목표)", stage: 4, reference: 56, roles: ["비교", "우선순위", "일정"], use: "역량·디지털화·관계 수준을 3~5단계로 나누고 현재 위치와 목표 단계를 보여 줄 때", avoid: "단계 기준이 정의되지 않았을 때, 현재 위치를 판단할 근거가 없을 때", minimum: "단계3~5(이름·상태 기준), 현재 단계, 목표 단계" },
   "org-chart": { name: "추진 조직도", stage: 4, reference: 57, roles: ["일정", "합의 사항", "마무리"], use: "전략 실행을 맡을 조직·TF와 팀별 역할, 인원 구성을 보여 줄 때", avoid: "실제 조직이 정해지지 않았는데 확정처럼 보이게 할 때(제안 조직이면 그렇게 표시)", minimum: "총괄1(이름·역할), 자문 0~1, 실행 팀2~5(이름·역할·구성)" },
+  "flywheel": { name: "선순환 고리", stage: 4, reference: 58, roles: ["흐름", "판단", "마무리"], use: "3~5개 활동이 서로를 강화하며 다시 처음으로 돌아오는 플라이휠·선순환 구조를 보여 줄 때", avoid: "시작과 끝이 있는 일회성 절차일 때(흐름형을 쓴다), 단계 사이 강화 관계를 설명할 수 없을 때", minimum: "핵심1, 단계3~5(이름·다음 단계를 강화하는 방식)" },
+  "evidence-convergence": { name: "근거 수렴 → 결론", stage: 4, reference: 59, roles: ["판단", "근거", "우선순위"], use: "시장·경쟁·고객·자사 등 서로 다른 근거 3~4개가 하나의 결론으로 모이는 논리를 보여 줄 때", avoid: "근거끼리 같은 내용을 반복할 때, 결론이 근거보다 강하게 단정될 때", minimum: "근거3~4(구분·핵심 사실·성격 표시), 결론1(제목·설명)" },
+  "kpi-tree": { name: "KPI 트리", stage: 4, reference: 60, roles: ["계산", "일정", "합의 사항"], use: "최종 목표 하나를 2~4개 동인과 하위 KPI·목표값으로 나눠 성과 관리 체계를 보여 줄 때", avoid: "목표값을 정할 근거가 없는데 수치를 확정처럼 쓸 때(가설로 표시), 지표끼리 상하 관계가 없을 때", minimum: "최종 목표1(이름·목표값), 동인2~4, 하위 KPI 합계 8개 이하(이름·목표값)" },
 };
 export const expandedNames = Object.fromEntries(expandedIds.map(id => [id, expandedRegistry[id.slice(2) as ExpandedKind].name])) as Record<ExpandedId, string>;
 export function dateRange(data: { rows?: { periods: { start: string; end: string }[] }[]; milestones?: { date: string }[]; highlight?: { start: string; end: string } }) {

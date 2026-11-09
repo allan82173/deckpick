@@ -34,6 +34,9 @@ export function expandedSample(id:string,variant=0):Record<string,unknown>|undef
  case "hub-spoke":return {...common,hub:{name:"핵심 전략",detail:short("전략의 한 줄 정의")},spokes:["고객","상품","채널","운영","파트너","데이터"].slice(0,variant?6:4).map(name=>({name,detail:short(`${name} 축에서 실행할 내용`)}))};
  case "maturity-steps":return {...common,levels:["기초","표준화","연계","최적화","선도"].slice(0,variant?5:4).map(name=>({name,state:short(`${name} 단계의 상태 기준`)})),current:1,target:variant?3:2};
  case "org-chart":return {...common,top:{name:"추진 총괄",role:short("전략 실행 의사결정")},advisors:variant?[]:[{name:"외부 자문",role:short("전문 검토")}],units:["기획","실행","분석","지원"].slice(0,variant?4:3).map(name=>({name:`${name}팀`,role:short(`${name} 업무 담당`),members:"2~3명"}))};
+ case "flywheel":return {...common,center:"핵심 선순환",steps:["참여 확대","데이터 축적","품질 개선","신뢰 상승","투자 확대"].slice(0,variant?5:4).map(name=>({name,detail:short(`${name}가 다음 단계를 키우는 방식`)}))};
+ case "evidence-convergence":return {...common,evidences:["시장","경쟁","고객","자사"].slice(0,variant?4:3).map((label,i)=>({label,fact:short(`${label} 관점의 핵심 사실`),tag:i?"추론":"공개 사실"})),conclusion:{title:"종합 결론",detail:short("근거가 함께 가리키는 방향")}};
+ case "kpi-tree":return {...common,goal:{name:"최종 목표",target:"목표값 ○○%"},drivers:["매출","원가","관계"].slice(0,variant?3:2).map(name=>({name:`${name} 동인`,kpis:[1,2].slice(0,variant?2:2).map(i=>({name:`${name} 지표 ${i}`,target:"목표 ○○"}))}))};
  case "executive-summary":return {...common,rows:["과제 배경","문제 정의","해결 방향","실행 계획"].slice(0,variant?4:3).map(section=>({section,finding:short(`${section}의 핵심 내용을 한 문장으로 요약한 예시`),implication:"다음 판단에 주는 시사점"}))};
  case "screenshot-notes":return {...common,imageSrc:sampleScreen,imageAlt:"직접 만든 가상 화면",imageWidth:900,imageHeight:520,annotations:[{x:.1,y:.3,title:"탐색 목록",description:short("현재 위치를 확인하는 영역")},{x:.6,y:.25,title:"주요 현황",description:"근거와 상태를 요약한 영역"},{x:.65,y:.7,title:"상세 결과",description:"변경할 판단을 확인하는 영역"}]};
  }
