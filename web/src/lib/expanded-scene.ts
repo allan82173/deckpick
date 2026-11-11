@@ -217,7 +217,7 @@ break;}
   const th=textHeight(r.response,rs,rw);txt(r.response,lx+.62+nw+.3,y+(rh-th)/2,rw,th+.03,rs,c.darkest);});break;}
  case "key-number":{const d=S[kind].parse(slide.data),lw=5.2,ph=6.1-Y,iw=lw-.7;box(X,Y,lw,ph,c.darkest);
  // 판단을 이끄는 숫자 하나를 크게, 무엇을 잰 값인지와 비교 기준을 아래에 둔다. 오른쪽은 시사점 카드.
- let ns=88;while(ns>40&&richLines(d.number,ns,iw).length>1)ns-=4;const nh=ns*1.25/72,lh=textHeight(d.numberLabel,16,iw),cs=fitStack([d.context],iw,1.3,13,11),ch=textHeight(d.context,cs,iw),total=.3+nh+.2+lh+.36+ch;
+ let ns=88;while(ns>40&&richLines(d.number,ns,iw*0.8).length>1)ns-=4;const nh=ns*1.25/72,lh=textHeight(d.numberLabel,16,iw),cs=fitStack([d.context],iw,1.3,13,11),ch=textHeight(d.context,cs,iw),total=.3+nh+.2+lh+.36+ch;
  let y=Y+Math.max(.25,(ph-total)/2);txt("핵심 수치",X+.35,y,iw,.26,11,c.onDarkSub,true);y+=.3;txt(d.number,X+.35,y,iw,nh,ns,"#FFFFFF",true);y+=nh+.2;
  txt(d.numberLabel,X+.35,y,iw,lh+.03,16,"#FFFFFF",true);y+=lh+.18;line(X+.35,y,iw,c.onDarkSub,1);y+=.18;txt(d.context,X+.35,y,iw,ch+.03,cs,c.onDarkSub);
  const px=X+lw+.25,pw=X+W-px,n=d.points.length,gap=.14,hh=(ph-gap*(n-1))/n,tw=pw-1.1;

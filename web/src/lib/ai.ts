@@ -86,6 +86,21 @@ export function markDeckCommon(c: { provider: string }, json: string) {
   const at = json.indexOf(',"item":');
   return c.provider === "anthropic" && at > 0 ? json.slice(0, at) + CACHE_SPLIT + json.slice(at) : json;
 }
+/**
+ * 본문 칸에 모델이 덧붙인 주장 유형 표시([추론]·[가설] 등)와 근거 번호([1][6])를 걷어낸다(배포판 Haiku 실행에서 칸마다 붙음).
+ * 주장 유형은 tag 필드가, 근거 연결은 evidenceRefs가 맡는다. 번호만 있던 칸은 "근거 N건"으로 바꾼다.
+ */
+export function cleanInlineMarks(value: unknown, key = ""): unknown {
+  if (typeof value === "string") {
+    if (key === "tag") return value;
+    const ids = value.match(/\[\d{1,3}\]/g)?.length ?? 0;
+    const cleaned = value.replace(/\s*\[(?:추론|가설|추정|공개\s*사실|계산|내부\s*전제|사실|확인|미확인)\]/g, "").replace(/\s*(?:\[\d{1,3}\]\s*)+/g, " ").replace(/\s{2,}/g, " ").trim();
+    return cleaned || (ids ? `근거 ${ids}건` : value);
+  }
+  if (Array.isArray(value)) return value.map(item => cleanInlineMarks(item, key));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, cleanInlineMarks(v, k)]));
+  return value;
+}
 export async function providerCall(
   c: Connection,
   body: Record<string, unknown>,
@@ -532,7 +547,7 @@ async function generateCandidateBatch(
         // 탭 섹션은 목차에서 이미 8자 이하로 확정됐다. 모델이 다시 쓴 긴 섹션 이름 때문에 장 전체가 실패하지 않게 목차 값을 쓴다.
         section: (item.section || s.section).slice(0, 8),
         headline: s.headline,
-        data: JSON.parse(s.dataJson),
+        data: cleanInlineMarks(JSON.parse(s.dataJson)),
         sources: s.sourceUrls.map((url) => {
           const found = sources.find((v) => v.url === url);
           if (!found) throw Error("허용되지 않은 출처 URL");
