@@ -977,7 +977,7 @@ function ChatPanel({
                 model:
                   e.target.value === "openai"
                     ? "gpt-6-luna"
-                    : "claude-sonnet-5-5",
+                    : "claude-haiku-5-5",
                 key: "",
                 connected: false,
               }))

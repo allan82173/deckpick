@@ -67,7 +67,7 @@ export function connection(
     body.model ||
     (provider === "openai"
       ? (process.env.OPENAI_MODEL ?? "gpt-6-luna")
-      : (process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5"));
+      : (process.env.ANTHROPIC_MODEL ?? "claude-haiku-5-5"));
   if (!/^[a-zA-Z0-9_.:-]{1,100}$/.test(model))
     throw new AIError("모델 이름을 확인해 주세요.", 400);
   return { provider, key, model, language: body.input?.language ?? "ko" };
