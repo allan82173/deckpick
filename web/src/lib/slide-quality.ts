@@ -48,6 +48,24 @@ export function isDeckMetaHeadline(text: string): boolean {
   const plain = text.replace(/\*\*/g, "");
   return /(?:목차|구성|순서)(?:는|가|이)?\s.*(?:적합|배치|붙이|검토합니다|둡니다)|결론을 먼저|근거(?:를|는)?\s*(?:뒤|앞)에|근거\s*(?:수준|강도|유형)(?:이|가|은|는)?\s*(?:다르|달라|약하|낮)|근거(?:뿐|만 있)|(?:원문|근거)\s*확인\s*(?:근거만|건만)|(?:가설|추정)(?:·[가-힣]+)?(?:으로|로)\s*나눠|비교에\s*주의|단정하고\s*나머지/.test(plain);
 }
+/**
+ * 동한 문체 가이드(docs/동한-문체-가이드.md)의 AI 문체 키메시지: 대비 연출·격언·포장어·겹 얼버무림·대시·화살표.
+ * 문제가 있으면 짧은 사유를, 없으면 null을 돌려준다. 목차 다듬기(headlineRepair)에서 한 번에 고친다.
+ */
+export function aiStyleHeadlineIssue(text: string): string | null {
+  const plain = text.replace(/\*\*/g, "");
+  if (/[—→]|\s–\s|\s--\s/.test(plain)) return "대시·화살표 연결";
+  if (/단순(?:히|한)\s.{0,30}아니라|(?:을|를)\s*넘어(?:서는|선)?[\s,]/.test(plain)) return "'단순히 X가 아니라 Y' 대비 연출";
+  if (/본질은|진정한\s*의미|핵심은\s.{0,20}에\s*있|결국\s*중요한\s*것은|진짜\s*(?:질문|문제)은/.test(plain)) return "격언형 문장";
+  if (/패러다임|새로운\s*이정표|게임\s*체인저|시너지|극대화|혁신적(?:인|으로)/.test(plain)) return "부풀린 포장어";
+  if ((plain.match(/다양한|효과적(?:인|으로)|핵심적인|중요한\s*역할|차별화된|유의미한|체계적(?:인|으로)|폭넓은|제고|도모|강화/g) ?? []).length >= 2) return "포장어 겹침";
+  if (/것으로\s*(?:보일|판단될|예상될)\s*수|가능성이\s*있(?:다고|는\s*것으로)\s*(?:할|판단|보)|(?:보입니다|판단됩니다|추정됩니다).{0,20}(?:보입니다|판단됩니다|추정됩니다)/.test(plain)) return "겹친 얼버무림";
+  return null;
+}
+/** 문장 연결용 대시(—, –, --)를 쉼표로 바꾼다. 숫자 범위(2024–2025)는 둔다. */
+export function smoothDashes(text: string): string {
+  return text.replace(/(\d)\s*[–—]\s*(\d)/g, "$1~$2").replace(/\s*(?:—|–|\s--\s)\s*/g, ", ").replace(/,\s*,/g, ",").replace(/^,\s*|,\s*$/g, "").replace(/\s{2,}/g, " ");
+}
 /** 결론 요약 장이 실제 선택·우선순위 대신 판단 보류나 발표 성격만 말하는지. */
 export function isWeakSummaryHeadline(text: string): boolean {
   const plain = text.replace(/\*\*/g, "");

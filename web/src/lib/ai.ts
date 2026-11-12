@@ -32,7 +32,7 @@ import type {SlideSpec,DesignSystem} from "./model";
 import {makeScene} from "./scene";
 import {applySlideChatChanges} from "./slide-chat";
 import { slideRoles, type Evidence } from "./evidence-model";
-import { inspectSlide, evidenceNotes, includeScenario, textArtifacts, MAX_QUALITY_RETRIES,isRendererWarning, allZeroChart, swappedSeriesChart } from "./slide-quality";
+import { inspectSlide, evidenceNotes, includeScenario, textArtifacts, MAX_QUALITY_RETRIES,isRendererWarning, allZeroChart, swappedSeriesChart, smoothDashes } from "./slide-quality";
 import type { ResearchRecord } from "./evidence-model";
 
 export type Provider = "openai" | "anthropic";
@@ -94,7 +94,7 @@ export function cleanInlineMarks(value: unknown, key = ""): unknown {
   if (typeof value === "string") {
     if (key === "tag") return value;
     const ids = value.match(/\[\d{1,3}\]/g)?.length ?? 0;
-    const cleaned = value.replace(/\s*\[(?:추론|가설|추정|공개\s*사실|계산|내부\s*전제|사실|확인|미확인)\]/g, "").replace(/\s*(?:\[\d{1,3}\]\s*)+/g, " ").replace(/\s{2,}/g, " ").trim();
+    const cleaned = smoothDashes(value).replace(/\s*\[(?:추론|가설|추정|공개\s*사실|계산|내부\s*전제|사실|확인|미확인)\]/g, "").replace(/\s*(?:\[\d{1,3}\]\s*)+/g, " ").replace(/\s{2,}/g, " ").trim();
     return cleaned || (ids ? `근거 ${ids}건` : value);
   }
   if (Array.isArray(value)) return value.map(item => cleanInlineMarks(item, key));
@@ -546,7 +546,7 @@ async function generateCandidateBatch(
         layoutId: s.layoutId,
         // 탭 섹션은 목차에서 이미 8자 이하로 확정됐다. 모델이 다시 쓴 긴 섹션 이름 때문에 장 전체가 실패하지 않게 목차 값을 쓴다.
         section: (item.section || s.section).slice(0, 8),
-        headline: s.headline,
+        headline: smoothDashes(s.headline),
         data: cleanInlineMarks(JSON.parse(s.dataJson)),
         sources: s.sourceUrls.map((url) => {
           const found = sources.find((v) => v.url === url);
