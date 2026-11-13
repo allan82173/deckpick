@@ -68,16 +68,17 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
     while(low<high){const middle=Math.ceil((low+high)/2);if(richLines(chars.slice(0,middle).join("").trimEnd()+"…",size,width).length<=maximumLines)low=middle;else high=middle-1;}
     return chars.slice(0,low).join("").trimEnd()+"…";
    };
-   const tw=w-.66,metaSize=10,metaHeight=metaSize*1.25/72;
+   const tw=w-.66,titleMeasureWidth=tw*.80,metaSize=10,metaHeight=metaSize*1.25/72;
+   const displayTitle=(raw:string,size:number)=>richLines(compact(raw,size,titleMeasureWidth,2),size,titleMeasureWidth).map(row=>row.map(run=>run.text).join("" )).join("\n");
    let titleSize=12;
-   const rowHeight=(material:string,size:number)=>textHeight(compact(material,size,tw-.12,2),size,tw)+metaHeight+.07;
+   const rowHeight=(material:string,size:number)=>textHeight(displayTitle(material,size),size,tw)+metaHeight+.07;
    for(;titleSize>10;titleSize-=.5){
     if(Array.from({length:columns},(_,col)=>bibliography.rows.slice(col*per,(col+1)*per)).every(rows=>rows.reduce((height,row)=>height+rowHeight(row.material,titleSize),0)<=H))break;
    }
    for(let col=0;col<columns;col++){
     const rows=bibliography.rows.slice(col*per,(col+1)*per),x=X+col*(w+gap),heights=rows.map(r=>rowHeight(r.material,titleSize)),spare=Math.max(0,H-heights.reduce((a,b)=>a+b,0))/Math.max(1,rows.length);let y=Y;
     rows.forEach((r,i)=>{
-     const title=compact(r.material,titleSize,tw-.12,2),th=textHeight(title,titleSize,tw),date=r.dateLabel?.match(/\d{4}-\d{2}-\d{2}/)?.[0],dateLabel=date?`${r.dateLabel?.startsWith("발행")?"발행":"확인"} ${date}`:r.dateLabel??"";
+     const title=displayTitle(r.material,titleSize),th=textHeight(title,titleSize,tw),date=r.dateLabel?.match(/\d{4}-\d{2}-\d{2}/)?.[0],dateLabel=date?`${r.dateLabel?.startsWith("발행")?"발행":"확인"} ${date}`:r.dateLabel??"";
      txt(compact(r.code,10,.48,1),x,y+.01,.48,.20,10,c.primary,true);
      txt(title,x+.64,y,tw,th+.008,titleSize,c.darkest,true);
      txt(compact(dateLabel,metaSize,tw-1,1),x+.64,y+th+.025,tw-1,metaHeight+.008,metaSize,c.muted);
