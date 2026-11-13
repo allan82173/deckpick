@@ -1,3 +1,4 @@
+import {contentContractSchema} from "./content-contract";
 import { executionSchema, type Execution } from "./execution-model";
 import { generationStateSchema,type GenerationState } from "./run-state";
 import { expandedIds, expandedDataSchemas, expandedNames } from "./expanded-layouts";
@@ -38,7 +39,7 @@ export const dataSchemas = {
   ...visualSchemas,
   ...analyticalDataSchemas,
   ...expandedDataSchemas,
-  "c-cover": z.object({ title: text, subtitle: text, author: short, coverStyle: z.enum(["classic", "photo", "white", "type"]).optional(), photoId: attachmentSchema.shape.id.optional(), referencePhoto: z.literal("mgrv-space").optional() }),
+  "c-cover": z.object({ eyebrow: short.optional(), title: text, subtitle: text, author: short, coverStyle: z.enum(["classic", "photo", "white", "type"]).optional(), photoId: attachmentSchema.shape.id.optional(), referencePhoto: z.literal("mgrv-space").optional() }),
   "c-toc": z.object({ items: z.array(short).min(3).max(5) }),
   "c-header-boxes": z.object({
     columns: z
@@ -123,6 +124,7 @@ export const sourceSchema = z.object({
 export type Source = z.infer<typeof sourceSchema>;
 export const slideSchema = z
   .object({
+    contentContract: contentContractSchema.optional(),
     layoutId: z.enum(layoutIds),
     section: z.string().max(8),
     headline: text,
@@ -134,7 +136,7 @@ export const slideSchema = z
     quality: slideQualitySchema.optional(),
     internalReview: z.boolean().optional(),
     claimType: z.enum(["공개 사실", "내부 전제", "추론", "가설", "계산"]).optional(),
-    rendererVersion:z.literal("adaptive-v3").optional(),
+    rendererVersion:z.enum(["adaptive-v3","adaptive-v4"]).optional(),
     canvasEdits: canvasEditsSchema,
   })
   .superRefine((v, c) => {
@@ -144,6 +146,8 @@ export const slideSchema = z
   });
 export type SlideSpec = z.infer<typeof slideSchema>;
 export const outlineItemSchema = z.object({
+  acceptedCandidateCount:z.number().int().min(1).max(3).optional(),
+  contentContract: contentContractSchema.optional(),
   index: z.number().int().nonnegative(),
   section: z.string().min(1).max(8),
   message: short,
@@ -240,6 +244,7 @@ const storedMessage = messageSchema.extend({
   outlineDraft: z.array(storedOutline).optional(),
 });
 const storedSlide = z.object({
+  contentContract: contentContractSchema.optional(),
   layoutId: z.enum(layoutIds),
   section: z.string().max(8),
   headline: z.string(),
@@ -251,7 +256,7 @@ const storedSlide = z.object({
   role: z.enum(slideRoles).optional(),
   internalReview: z.boolean().optional(),
   claimType: z.enum(["공개 사실", "내부 전제", "추론", "가설", "계산"]).optional(),
-    rendererVersion:z.literal("adaptive-v3").optional(),
+    rendererVersion:z.enum(["adaptive-v3","adaptive-v4"]).optional(),
     canvasEdits: canvasEditsSchema,
 });
 export const persistedDeckSchema = z.object({
@@ -341,3 +346,4 @@ export function validateCandidates(
     throw Error("레이아웃이 중복됐습니다.");
   return parsed;
 }
+

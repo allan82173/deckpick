@@ -22,6 +22,21 @@ test("a failed storyline retry never calls research prepare or run and retains t
 test("incomplete research cannot be silently reused as a completed storyline input",async()=>{
  const incomplete={...record(),researchComplete:false};assert.equal(canResumeStoryline(incomplete),false);let calls=0;await assert.rejects(()=>generationFlow({researchRecord:incomplete},async()=>{calls++;return {};},{cloud:true,resumeOnly:true}),/조사가 완료/);assert.equal(calls,0);
 });
+
+test("a chat failure with no browser record recovers the matching server research before judgment",async()=>{
+ const ready=mergeQuestionResearch(record(),[1,2,3,4].map(i=>part(`Q${i}`))).researchRecord;
+ const calls:string[]=[];let saved:ResearchRecord|undefined;
+ assert.equal(canResumeStoryline(undefined,{runId:"example",status:"failed",completedStages:["evidence-table"],updatedAt:"today"}),true);
+ const result=await generationFlow({input},async(action,payload)=>{calls.push(action);if(action==="research/recover")return {researchRecord:ready,sources:[]};if(action==="storyline/judgment")return {researchRecord:payload.researchRecord};return {reply:"recovered"};},{cloud:false,resumeOnly:true,onResearch:r=>saved=r});
+ assert.deepEqual(calls,["research/recover","storyline/judgment","storyline"]);
+ assert.equal(saved?.evidence.length,4);assert.equal(result.reply,"recovered");
+});
+
+test("resume rejects changed user context instead of silently restarting research",async()=>{
+ const ready={...mergeQuestionResearch(record(),[1,2,3,4].map(i=>part(`Q${i}`))).researchRecord,requestContext:"a".repeat(64)};let calls=0;
+ await assert.rejects(()=>generationFlow({input,researchRecord:ready},async()=>{calls++;return {};},{cloud:false,resumeOnly:true}),/입력·첨부/);
+ assert.equal(calls,0);
+});
 test("cloud individual calls fit the function budget while local 330-second story wait is retained",()=>{
  const previous=process.env.VERCEL;try{delete process.env.VERCEL;assert.equal(providerTimeout("story"),330000);process.env.VERCEL="1";assert.equal(providerTimeout("story"),260000);assert.ok(providerTimeout("story")<GENERATION_CONFIG.hosting.stageBudgetMs);}finally{if(previous===undefined)delete process.env.VERCEL;else process.env.VERCEL=previous;}
 });

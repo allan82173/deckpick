@@ -7,6 +7,7 @@ import {ResearchScopeNotice} from "./research-scope-notice";
 import {RequestProgress} from "./request-progress";
 import {readApiResponse} from "@/lib/api-stream";
 import {DeckSessionControls} from "./deck-session-controls";
+import {sameReviewedSlide} from "@/lib/review-state";
 import {hasDeckContext,appendSessionMessages} from "@/lib/deck-session";
 import { activeRunDeck } from "@/lib/client-run-context";
 import { mapConcurrent } from "@/lib/concurrency";
@@ -14,10 +15,10 @@ import { GenerationReportButton } from "./generation-report-button";
 import { catalogCounts } from "@/lib/layout-catalog";
 import { reviewSchema } from "@/lib/task-model";
 import { researchRecordSchema } from "@/lib/evidence-model";
-import {publicDemoOnly} from "@/lib/runtime-mode";
+import {publicDemoOnly,sharedPreview} from "@/lib/runtime-mode";
 import {deckChatContext,applySlideChatChanges,slideChatResponseSchema} from "@/lib/slide-chat";
 import {slideAttachmentOptions} from "@/lib/insert-page";
-import {selectDraftAlternative} from "@/lib/draft-workflow";
+import {candidateTargetCount,selectDraftAlternative} from "@/lib/draft-workflow";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -172,7 +173,9 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
         <Link href="/catalog" target="_blank" className="catalog-link">{ui("디자인 유형 ·")}{catalogCounts.physical}</Link>
         <LanguageSwitcher/><span className="local-badge">{publicDemoOnly?"DEMO":"WORKSPACE"}</span>
       </header>
-      {publicDemoOnly && <div className="notice" role="status">{ui("공개 데모 · API 키 없이 예시 슬라이드를 만들고 편집·다운로드할 수 있습니다. 실제 AI 대화·자료 분석·파일 첨부는 제공하지 않습니다. 작업은 현재 브라우저에 저장됩니다.")}</div>}
+      {sharedPreview && <div className="notice" role="status"><strong>{ui("공유용 작업공간 · API 호출 없음")}</strong><p>{ui("검증된 합성 예시를 열어 후보 비교·직접 편집·PPTX 다운로드를 사용할 수 있습니다. 새 자료의 AI 생성·대화·조사는 이 PC의 로컬 구독 CLI에서만 실행됩니다. 이 링크는 방문자의 구독 로그인이나 API 키를 사용하지 않습니다.")}</p></div>}
+      {publicDemoOnly && !sharedPreview && <div className="notice" role="status">{ui("공개 데모 · API 키 없이 예시 슬라이드를 만들고 편집·다운로드할 수 있습니다. 실제 AI 대화·자료 분석·파일 첨부는 제공하지 않습니다. 작업은 현재 브라우저에 저장됩니다.")}</div>}
+      {process.env.NEXT_PUBLIC_CLI_ONLY === "1" && !sharedPreview && <div className="notice" role="status">로컬 구독 연결 · API 키 호출 중지 · Codex / Claude Code의 로그인과 사용 한도를 적용합니다. AI와 대화의 연결 설정에서 선택하세요.</div>}
       {storageError && (
         <div className="notice warning" role="status">
           {ui(storageError)}
@@ -239,7 +242,7 @@ export function Studio({ stage, id }: { stage: Stage; id?: string }) {
 function Home() {
   const ui = useUiText();
 
-  const { deck, startNewTopic } = useStudio();
+  const { deck, startNewTopic, setDeck } = useStudio();
   const router = useRouter();
   return (
     <main className="home">
@@ -249,11 +252,12 @@ function Home() {
           {ui("내용을 전달하면,")}<br />
           {ui("전체 초안부터 확인하세요.")}</h1>
         <p>
-          {ui("AI가 내용과 구성을 채운 전체 덱을 먼저 만듭니다.")}<br className="desktop" /> {ui("마음에 들지 않는 장만 다른 후보로 바꾼 뒤 PPTX로 가져가세요.")}</p>
+          {ui(sharedPreview?"공유본에서는 준비된 예시로 편집 흐름을 확인하세요.":"AI가 내용과 구성을 채운 전체 덱을 먼저 만듭니다.")}<br className="desktop" /> {ui("마음에 들지 않는 장만 다른 후보로 바꾼 뒤 PPTX로 가져가세요.")}</p>
         <div className="home-actions">
           <button
             className="primary button"
-            onClick={() => {
+            onClick={async () => {
+              if(sharedPreview){const {sharedSample}=await import("@/lib/shared-sample");const sample=structuredClone(sharedSample);sample.id=crypto.randomUUID();sample.demo=true;startNewTopic();setDeck(sample);router.push(`/deck/${sample.id}/pick`);return;}
               if (
                 deck?.outline.length &&
                 !confirm(
@@ -265,7 +269,7 @@ function Home() {
               router.push("/new");
             }}
           >
-            {ui("새 덱 만들기")}<ArrowRight size={17} />
+            {ui(sharedPreview?"검증된 예시 열기":"새 덱 만들기")}<ArrowRight size={17} />
           </button>
           {!!deck?.outline.length && (
             <Link className="button" href={`/deck/${deck.id}/outline`}>
@@ -279,23 +283,23 @@ function Home() {
             <CheckCircle2 size={15} /> {ui("편집 가능한 PPTX")}</span>
         </div>
       </div>
-      {process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE!=="1"&&<div className="home-art">
+      {(sharedPreview||process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE!=="1")&&<div className="home-art">
         <div className="floating-label">
-          <Sparkles size={14} /> {ui("컨설팅 장표 포지셔닝 맵 예시")}</div>
+          <Sparkles size={14} /> {ui(sharedPreview?"합성 업무 개선 장표 예시":"컨설팅 장표 포지셔닝 맵 예시")}</div>
         <div className="stack back" />
         <div className="stack middle" />
         <div className="stack front">
           <img
             className="home-positioning-preview"
-            src="/examples/positioning-map-blurred.png"
-            alt={ui("컨설팅 장표 포지셔닝 맵 예시. 우리 솔루션·플레이어 이름과 범례는 선명하게 표시했습니다. 원래 키메시지, 국내 해외 분류와 설명을 포함한 맵 안의 나머지 내용은 블러 처리했습니다.")}
+            src={sharedPreview?"/sample-preview.png":"/examples/positioning-map-blurred.png"}
+            alt={ui(sharedPreview?"실제 측정 성과가 아닌 합성 가정으로 만든 업무 개선 초안":"컨설팅 장표 포지셔닝 맵 예시. 우리 솔루션·플레이어 이름과 범례는 선명하게 표시했습니다. 원래 키메시지, 국내 해외 분류와 설명을 포함한 맵 안의 나머지 내용은 블러 처리했습니다.")}
             width={1400}
             height={788}
           />
           <div className="art-caption">
             <span>
               <CheckCircle2 size={14} /> {ui("발표 사례")}</span>
-            <span>POSITIONING MAP</span>
+            <span>{sharedPreview?"SAMPLE DRAFT":"POSITIONING MAP"}</span>
           </div>
         </div>
         <div className="mini-card">
@@ -420,7 +424,7 @@ function Setup({ onError }: { onError: (s: string) => void }) {
             context: "setup",
             sources: deck.research,
             researchRecord: deck.researchRecord,
-            resumeStoryline:canResumeStoryline(deck.researchRecord,deck.generation),
+            resumeStoryline:canResumeStoryline(deck.researchRecord,deck.generation)||(deck.generation?.status==="failed"&&deck.researchRecord?.researchComplete!==false),
           },
           credentials,
           (record, sources) => setDeck(previous => previous?.id === deck.id && JSON.stringify(previous.input) === JSON.stringify(input) ? { ...previous, researchRecord: record, research: sources.length ? sources : previous.research } : previous),
@@ -686,7 +690,7 @@ async function callAPI(action: string, payload: Record<string, unknown>, credent
   const origin=activeRunDeck();
   const request=(name:string,data:Record<string,unknown>,auth:typeof credentials)=>{if(activeRunDeck()!==origin)throw Error("주제가 바뀌어 이전 요청의 후속 작업을 중단했습니다.");return requestAPI(name,data,auth);};
   if (((action === "outline" || action === "chat") && payload.context !== "slide") || action==="storyline/resume") {
-    return generationFlow(payload,(name,data)=>request(name,data,credentials),{cloud:process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE==="1",resumeOnly:action==="storyline/resume"||payload.resumeStoryline===true,onResearch});
+    return generationFlow(payload,(name,data)=>request(name,data,credentials),{cloud:process.env.NEXT_PUBLIC_PRIVATE_WORKSPACE==="1",localCli:process.env.NEXT_PUBLIC_CLI_ONLY==="1",resumeOnly:action==="storyline/resume"||payload.resumeStoryline===true,onResearch});
   }
   return request(action, payload, credentials);
 }
@@ -774,7 +778,8 @@ function ChatPanel({
   const composing = useRef(false);
   const photoInput = useRef<HTMLInputElement>(null);
   const uploads = useAttachmentUpload();
-  const hasServerKey = serverKeys[credentials.provider];
+  const cliOnly = process.env.NEXT_PUBLIC_CLI_ONLY === "1";
+  const hasServerKey = cliOnly || serverKeys[credentials.provider];
   const messages = deck
     ? context === "setup"
       ? deck.chat.setup
@@ -876,6 +881,7 @@ function ChatPanel({
               context === "setup" && /조사|검색|리서치|근거/.test(value),
           },
           credentials,
+          (record,sources)=>setDeck(previous=>previous?.id===deck.id&&[JSON.stringify(deck.input),JSON.stringify(requestInput)].includes(JSON.stringify(previous.input))?{...previous,input:requestInput,researchRecord:record,research:sources.length?sources:previous.research}:previous),
         );
         if (r.needsResearchReview) {
           const record = researchRecordSchema.parse(r.researchRecord);
@@ -960,11 +966,11 @@ function ChatPanel({
             : credentials.connected
               ? ui("연결됨")
               : hasServerKey
-                ? ui("서버 키 설정됨")
-                : ui("API 키 미연결")}
+                ? ui(cliOnly ? "로컬 구독 · 연결 확인 전" : "서버 키 설정됨")
+                : ui(cliOnly ? "로컬 도구 미연결" : "API 키 미연결")}
         </span>
       </div>
-      {!publicDemoOnly && <details className="api-settings" open={!credentials.key && !hasServerKey}>
+      {!publicDemoOnly && <details className="api-settings" open={cliOnly ? !credentials.connected : !credentials.key && !hasServerKey}>
         <summary>{ui("AI 연결 설정")}</summary>
         <div className="key-row">
           <select
@@ -975,7 +981,7 @@ function ChatPanel({
                 ...c,
                 provider: e.target.value as "openai" | "anthropic",
                 model:
-                  e.target.value === "openai"
+                  cliOnly ? "default" : e.target.value === "openai"
                     ? "gpt-6-luna"
                     : "claude-haiku-5-5",
                 key: "",
@@ -983,10 +989,10 @@ function ChatPanel({
               }))
             }
           >
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Claude</option>
+            <option value="openai">{cliOnly ? "Codex · ChatGPT 구독" : "OpenAI"}</option>
+            <option value="anthropic">{cliOnly ? "Claude Code · 구독" : "Claude"}</option>
           </select>
-          <input
+          {!cliOnly && <input
             aria-label={ui("API 키")}
             placeholder={hasServerKey ? ui("저장된 서버 키 사용") : ui("API 키")}
             type="password"
@@ -999,7 +1005,7 @@ function ChatPanel({
                 connected: false,
               }))
             }
-          />
+          />}
           <button
             className="primary"
             disabled={keyBusy || (!credentials.key.trim() && !hasServerKey)}
@@ -1028,11 +1034,11 @@ function ChatPanel({
           />
         </label>
         <p className="hint">
-          {hasServerKey && !credentials.key
+          {cliOnly ? "API 키 호출 중지 · 이 PC의 Codex/Claude Code 구독 로그인으로 실행합니다. default는 CLI 기본 모델입니다. 구독 사용 한도가 적용되며, PC에서 모델 자체가 실행되는 오프라인 방식은 아닙니다. 연결 확인도 짧은 구독 응답을 사용합니다. Claude Code는 로그인 완료 후 사용할 수 있습니다." : hasServerKey && !credentials.key
             ? ui("API 키가 서버에 설정돼 있습니다. 키를 다시 입력하지 않아도 됩니다. 연결 확인과 채팅에는 API 크레딧이 필요합니다.")
             : ui("직접 입력한 키는 이 브라우저 세션에만 저장하며, 선택한 AI 제공자의 연결 확인과 생성 요청에 사용합니다.")}
         </p>
-        {credentials.key && (
+        {!cliOnly && credentials.key && (
           <button
             className="text-button"
             onClick={() =>
@@ -1317,6 +1323,7 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
               <ArrowLeft size={14} /> {ui("입력으로")}</Link>
             <button
               className="button primary"
+              disabled={sharedPreview}
               onClick={() => {
                 const r = z
                   .array(outlineItemSchema)
@@ -1343,7 +1350,7 @@ function OutlineEditor({ onError }: { onError: (s: string) => void }) {
 function Picker({ onError }: { onError: (s: string) => void }) {
   const ui = useUiText();
 
-  const { deck, setDeck, credentials } = useStudio(),
+  const { deck, setDeck, credentials, replayCurrent } = useStudio(),
     router = useRouter();
   const [current, setCurrent] = useState(0),
     [reviewView,setReviewView]=useState<"full"|"compare">("full"),
@@ -1497,7 +1504,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
       let next = previous;
       let stale = false;
       for (const replacement of replacements) {
-        if (JSON.stringify(draftSlide(next, replacement.index)) !== JSON.stringify(replacement.before)) { stale = true; continue; }
+        if (!sameReviewedSlide(draftSlide(next, replacement.index), replacement.before)) { stale = true; continue; }
         const slot = next.picked[replacement.index] ?? 0;
         const candidates = [...next.candidates[replacement.index]];
         // 레이아웃 반복 수정은 새로 만들지 않고 기존 후보와 자리를 바꾼다(swapWith). 원래 후보는 바꾼 자리로 옮겨 남긴다.
@@ -1519,6 +1526,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     finally { generationLock.current = false; if (!cancel.current) setRunning(false); }
   }
   async function buildDraft(){
+    if(sharedPreview)return;
     const snapshot=deckRef.current;
     if(!snapshot?.outline.length||generationLock.current)return;
     generationLock.current=true;cancel.current=false;setRunning(true);setFailed(null);onError("");
@@ -1548,13 +1556,14 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     finally{generationLock.current=false;if(!cancel.current){setRunning(false);setBusy(null);}}
   }
   async function ensureAlternatives(index:number){
+    if(sharedPreview)return; // Shared examples contain only prepared, inspected candidates.
     const snapshot=deckRef.current;
-    if(!snapshot||generationLock.current||(snapshot.candidates[index]?.length??0)>=3)return;
+    if(!snapshot||generationLock.current||(snapshot.candidates[index]?.length??0)>=candidateTargetCount(snapshot,index))return;
     const primary=draftSlide(snapshot,index);if(!primary)return;
     generationLock.current=true;setBusy(index);setFailed(null);onError("");
     let seen=[...(snapshot.candidates[index]??[primary])];
     try{
-      for(let slot=seen.length;slot<candidatePlan(snapshot.input,snapshot.outline[index]).length;slot++){
+      for(let slot=seen.length;slot<candidateTargetCount(snapshot,index);slot++){
         if(cancel.current)break;
         setReplacing({index,slot});
         const round=(snapshot.candidateRounds?.[index]??0)+slot;
@@ -1574,6 +1583,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     finally{generationLock.current=false;if(!cancel.current){setBusy(null);setReplacing(null);}}
   }
   useEffect(()=>{
+    if(sharedPreview)return;
     cancel.current=false;
     if(["failed","incomplete"].includes(deckRef.current?.generation?.status??""))return;
     if(deckRef.current?.generation?.completedStages.some(stage=>stage.startsWith("candidate:"))&&deckRef.current.outline.some((_,i)=>!draftSlide(deckRef.current!,i)))return;
@@ -1613,7 +1623,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
     );
   }
   const sections = deck.outline.map((o) => o.section);
-  if(reviewView==="full")return <FullDraftReview onReview={()=>void reviewDraft()} deck={deck} busyIndex={busy} running={running} failed={failed?.kind==="draft"} onRetry={()=>void buildDraft()} onError={onError} onInsert={insertAndGenerate} onSlideChat={sendSlideChat} onLoadAlternatives={index=>{void ensureAlternatives(index);}} onSelectAlternative={(index,slot)=>setDeck(d=>d?selectDraftAlternative(d,index,slot):d)} onCompare={index=>{setCurrent(index);setReviewView("compare");void ensureAlternatives(index);}} onEdit={(edited,index)=>setDeck(d=>d?{...d,edited:{...d.edited,[index]:edited}}:d)}/>;
+  if(reviewView==="full")return <FullDraftReview onReplay={()=>{const id=replayCurrent();if(id)router.push(`/deck/${id}/pick`);}} onReview={()=>void reviewDraft()} deck={deck} busyIndex={busy} running={running} failed={failed?.kind==="draft"} onRetry={()=>void buildDraft()} onError={onError} onInsert={insertAndGenerate} onSlideChat={sendSlideChat} onLoadAlternatives={index=>{void ensureAlternatives(index);}} onSelectAlternative={(index,slot)=>setDeck(d=>d?selectDraftAlternative(d,index,slot):d)} onCompare={index=>{setCurrent(index);setReviewView("compare");void ensureAlternatives(index);}} onEdit={(edited,index)=>setDeck(d=>d?{...d,edited:{...d.edited,[index]:edited}}:d)}/>;
   return (
     <main className="workspace picker-workspace">
       <Heading
@@ -1712,13 +1722,13 @@ function Picker({ onError }: { onError: (s: string) => void }) {
               </span>
               <button
                 className="text-button"
-                disabled={running || busy !== null}
+                disabled={sharedPreview || running || busy !== null}
                 onClick={() => void regenerate("").catch(() => {})}
               >
                 <RefreshCw size={12} /> {ui("전체 다시 생성")}</button>
             </div>
           </div>
-          {current === 0 && deck.input.deckType === "consulting" && candidates?.length > 0 && <div className="notice cover-upgrade"><span>{ui("표지를 사진 반반형 · 화이트 보고서형 · 큰 제목형으로 비교해 보세요.")}</span><button className="button small" disabled={running || busy !== null} onClick={() => {
+          {current === 0 && deck.input.deckType === "consulting" && candidates?.length > 0 && <div className="notice cover-upgrade"><span>{ui("표지를 사진 반반형 · 화이트 보고서형 · 큰 제목형으로 비교해 보세요.")}</span><button className="button small" disabled={sharedPreview || running || busy !== null} onClick={() => {
             if (deck.edited[0] && !confirm(ui("직접 수정한 표지를 기준으로 제목·디자인 3안을 만들고 표지 선택을 해제합니다. 계속할까요?"))) return;
             setDeck((d) => {
               if (!d?.candidates[0]?.[0]) return d;
@@ -1739,12 +1749,12 @@ function Picker({ onError }: { onError: (s: string) => void }) {
                 {ui("이 장 다시 시도")}</button>
             </div>
           )}
-          {current>0&&<LayoutLibrary deck={deck} index={current} busy={running||busy!==null} onPick={(id,slot)=>{
+          {current>0&&!sharedPreview&&<LayoutLibrary deck={deck} index={current} busy={running||busy!==null} onPick={(id,slot)=>{
             if(deck.edited[current]&&selected===slot&&!confirm(ui("직접 수정한 후보를 새 구성으로 교체합니다. 다른 후보는 유지됩니다. 계속할까요?")))return;
             void generate(current,ui("표현 유형을 {0}로 바꾸되 현재 장의 핵심 메시지와 제공된 근거를 유지하세요. 예시 문구와 합성 수치를 실제 근거처럼 복사하지 마세요.", [layoutNames[id]]),slot,id).catch(()=>{});
           }}/>}
           <div className="candidate-grid" style={{"--candidate-columns":Math.max(1,candidates?.length??3)} as CSSProperties}>
-            {[0, 1, 2].map((i) => (
+            {Array.from({length:Math.max(1,candidates?.length??3)},(_,i)=>i).map((i) => (
               <article
                 key={i}
                 className={cx("candidate-card", selected === i && "selected")}
@@ -1820,7 +1830,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
                       <IconButton
                         className="replace-candidate"
                         label={ui("후보 {0} 버리고 새 후보 받기", [String.fromCharCode(65 + i)])}
-                        disabled={busy !== null || running}
+                        disabled={sharedPreview || busy !== null || running}
                         onClick={() => {
                           if (
                             deck.edited[current] &&
@@ -1880,7 +1890,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
             </div>
           </div>
         </section>
-        <SlideChatPanel index={current} files={deck.outline[current]?.attachments} messages={deck.chat.slides[current]??[]} disabled={running||busy!==null||!slide} demo={deck.demo} onSend={sendSlideChat}/>
+        {!sharedPreview&&<SlideChatPanel index={current} files={deck.outline[current]?.attachments} messages={deck.chat.slides[current]??[]} disabled={running||busy!==null||!slide} demo={deck.demo} onSend={sendSlideChat}/>}
       </div>
     </main>
   );
@@ -2159,3 +2169,4 @@ function Final({ onError }: { onError: (s: string) => void }) {
     </main>
   );
 }
+

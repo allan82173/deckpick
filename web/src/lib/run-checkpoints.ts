@@ -10,6 +10,16 @@ const scope=new AsyncLocalStorage<{id:string;directory:string;fresh:boolean}>();
 const hash=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export function currentRunId(){return scope.getStore()?.id;}
 export function freshRun(){return scope.getStore()?.fresh??false;}
+/** Recover only a compatible, completed stage from the current run directory. */
+export async function recoverCheckpoint<T>(stage:string,accept:(value:unknown)=>value is T):Promise<T|undefined>{
+ const run=scope.getStore();if(!run)return;
+ const saved:{updatedAt:string;result:T}[]=[];
+ for(const file of await readdir(run.directory)){
+  if(!file.endsWith(".checkpoint.json"))continue;
+  try{const row=JSON.parse(await readFile(path.join(run.directory,file),"utf8"));if(row.stage===stage&&row.status==="complete"&&accept(row.result))saved.push(row);}catch{}
+ }
+ saved.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));return saved[0]?.result;
+}
 export async function withRunContext<T>(id:string,fn:()=>Promise<T>,options:{fresh?:boolean}={}){
  if(!/^[a-zA-Z0-9_-]{1,120}$/.test(id))throw Error("실행 ID가 올바르지 않습니다.");
  const directory=path.join(process.cwd(),".generation-runs",hash(id));await mkdir(directory,{recursive:true});return scope.run({id,directory,fresh:!!options.fresh},fn);

@@ -1,4 +1,12 @@
 export const englishMessages: Record<string, string> = {
+  "의미가 맞지 않는 후보 {0}개를 제외했습니다.": "Excluded {0} unsuitable candidates.",
+  "합성 업무 개선 장표 예시": "Synthetic operations example",
+  "실제 측정 성과가 아닌 합성 가정으로 만든 업무 개선 초안": "An operations draft based on synthetic assumptions, not observed outcomes",
+  "후보 상세·직접 편집": "Layout details and editing",
+  "공유용 작업공간 · API 호출 없음": "Shared workspace · No API calls",
+  "검증된 예시 열기": "Open validated example",
+  "공유본에서는 준비된 예시로 편집 흐름을 확인하세요.": "Explore the editing workflow with a prepared example.",
+  "검증된 합성 예시를 열어 후보 비교·직접 편집·PPTX 다운로드를 사용할 수 있습니다. 새 자료의 AI 생성·대화·조사는 이 PC의 로컬 구독 CLI에서만 실행됩니다. 이 링크는 방문자의 구독 로그인이나 API 키를 사용하지 않습니다.": "Open a validated synthetic example to compare layouts, edit slides and export PPTX. AI generation, chat and research run only through a subscription CLI on your own computer. This shared link does not use a visitor subscription login or API key.",
   "PNG·JPG·WebP 사진을 선택해 주세요.": "Choose a PNG, JPG, or WebP image.",
   "사진을 넣지 못했습니다.": "Could not add the image.",
   "표지 구성": "Cover layout",

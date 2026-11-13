@@ -152,20 +152,39 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
       break;
     }
     case "evidence-table": {
-      // 표 대신 근거 카드 목록: ID 표식 · 주장(굵게) · 판단 범위(연한 띠). 4개 이상이면 2열로 놓는다.
-      const d = schemas[kind].parse(slide.data), cols = d.rows.length >= 4 ? 2 : 1, rowsN = Math.ceil(d.rows.length / cols), gap = .2, cw = (12.49 - gap * (cols - 1)) / cols, top = 1.95, ch = (6.12 - top - gap * (rowsN - 1)) / rowsN, tw = cw - 1.15;
-      const cSize = Math.min(...d.rows.map(v => fitStack([v.claim], tw, ch * .45, 16, 12))), sSize = Math.min(...d.rows.map(v => fitStack([v.scope], tw - .2, ch * .38 - .1, 13, 11)));
+      const legacyData = schemas[kind].parse(slide.data);
+      // Preserve the 49-layout baseline and existing user edit coordinates. The
+      // new geometry only handles dense, unedited cards with the observed fault.
+      if (legacyData.rows.length < 5 || Object.keys(slide.canvasEdits ?? {}).length) {
+        const d = legacyData, cols = d.rows.length >= 4 ? 2 : 1, rowsN = Math.ceil(d.rows.length / cols), gap = .2, cw = (12.49 - gap * (cols - 1)) / cols, top = 1.95, ch = (6.12 - top - gap * (rowsN - 1)) / rowsN, tw = cw - 1.15;
+        const cSize = Math.min(...d.rows.map(v => fitStack([v.claim], tw, ch * .45, 16, 12))), sSize = Math.min(...d.rows.map(v => fitStack([v.scope], tw - .2, ch * .38 - .1, 13, 11)));
+        d.rows.forEach((v, i) => {
+          const x = .42 + (i % cols) * (cw + gap), y = top + Math.floor(i / cols) * (ch + gap);
+          box(x, y, cw, ch, c.panel, c.tint);
+          box(x, y, .82, ch, c.darkest);
+          txt(v.id, x + .05, y + ch / 2 - .17, .72, .32, 14, "#FFFFFF", true, "center");
+          const clh = textHeight(v.claim, cSize, tw);
+          txt(v.claim, x + 1.0, y + .14, tw, clh + .04, cSize, c.darkest, true);
+          const sy = y + ch - ch * .38 - .1;
+          box(x + 1.0, sy, tw, ch * .38, "#FFFFFF", c.tint);
+          txt("판단 범위", x + 1.1, sy + .06, 1.2, .22, 10, c.primary, true);
+          txt(v.scope, x + 1.1, sy + .28, tw - .2, ch * .38 - .32, sSize, c.primary);
+        });
+        conclusion(d.takeaway);
+        break;
+      }
+      // Dense six-row evidence cards need two tall rows. Reserve shared space for
+      // BOTH claim and scope before drawing; a later scope box must never hide text.
+      const d = schemas[kind].parse(slide.data), cols = d.rows.length >= 5 ? 3 : d.rows.length >= 4 ? 2 : 1, rowsN = Math.ceil(d.rows.length / cols), gap = .2, cw = (12.49 - gap * (cols - 1)) / cols, top = 1.95, ch = (6.12 - top - gap * (rowsN - 1)) / rowsN, tw = cw - .32;
+      const bodySize = Math.min(...d.rows.map(v => fitStack([v.claim, v.scope], tw, ch - .64, 14, 12, .16)));
       d.rows.forEach((v, i) => {
         const x = .42 + (i % cols) * (cw + gap), y = top + Math.floor(i / cols) * (ch + gap);
         box(x, y, cw, ch, c.panel, c.tint);
-        box(x, y, .82, ch, c.darkest);
-        txt(v.id, x + .05, y + ch / 2 - .17, .72, .32, 14, "#FFFFFF", true, "center");
-        const clh = textHeight(v.claim, cSize, tw);
-        txt(v.claim, x + 1.0, y + .14, tw, clh + .04, cSize, c.darkest, true);
-        const sy = y + ch - ch * .38 - .1;
-        box(x + 1.0, sy, tw, ch * .38, "#FFFFFF", c.tint);
-        txt("판단 범위", x + 1.1, sy + .06, 1.2, .22, 10, c.primary, true);
-        txt(v.scope, x + 1.1, sy + .28, tw - .2, ch * .38 - .32, sSize, c.primary);
+        txt(v.id.replace(/\s+/g, " ").trim(), x + .16, y + .12, tw, .28, 12, c.primary, true);
+        const claimY = y + .48, clh = textHeight(v.claim, bodySize, tw);
+        txt(v.claim, x + .16, claimY, tw, clh + .02, bodySize, c.darkest, true);
+        const scopeY = claimY + clh + .16;
+        txt(v.scope, x + .16, scopeY, tw, Math.max(.01, y + ch - .12 - scopeY), bodySize, c.primary);
       });
       conclusion(d.takeaway);
       break;

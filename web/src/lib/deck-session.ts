@@ -1,6 +1,11 @@
 import {persistedDeckSchema,type Deck,type DeckInput} from "./model";
 import {design} from "./design";
 const prefix="deckpick-saved-deck:";
+/** Freeze research and storyline; preserve the original as an archive before switching. */
+export function replayDeck(deck:Deck):Deck {
+ const copy=structuredClone(deck);
+ return {...copy,id:crypto.randomUUID(),candidates:{},picked:{},edited:{},candidateRounds:{},review:undefined,generation:undefined,execution:undefined};
+}
 type Shelf=Pick<Storage,"getItem"|"setItem"|"key"|"length">;
 export function hasDeckContext(d:Deck){return !!(d.chat.setup.length||d.chat.outline.length||Object.values(d.chat.slides).some(log=>log.length)||d.attachments?.length||d.research.length||d.researchRecord||d.outline.length||Object.keys(d.candidates).length||Object.keys(d.edited).length||d.generation||d.execution);}
 export function topicChangesSession(d:Deck,patch:Partial<DeckInput>,keepConversation=false){return !keepConversation&&patch.topic!==undefined&&patch.topic.trim()!==d.input.topic.trim()&&hasDeckContext(d);}

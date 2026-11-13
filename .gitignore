@@ -1,14 +1,9 @@
-**/node_modules/
-**/.next/
-**/.attachments/
-**/.generation-runs/
-**/.env*
-!**/.env.example
-**/.vercel/
-**/*.tsbuildinfo
-**/output/
+.local-tools/
 
-# Retired demo assets and local credentials
-/web/public/examples/
-/web/public/cover-assets/
-**/.key-setup/
+**/.cli-jobs/
+
+**/.local-tools/
+
+**/.generation-runs/
+
+**/.attachments/

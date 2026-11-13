@@ -45,7 +45,8 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
      assertBudget();const usedQueries:string[]=[];
      for(const raw of next){const query=redactPrivateQuery(raw,analysis);if(!query||state.queries.some(q=>q.toLowerCase()===query.toLowerCase()))continue;state.queries.push(query);usedQueries.push(query);}
      // 검색 동시 실행 수(parallelSearches). 2로 올린 확인 실행(2026-11-09 07:18)에서 질문 4개가 동시에 검색하며 검색 응답이 크게 느려져 모든 질문이 시간 제한에 걸렸으므로 1(순차)로 둔다. 결과는 검색어 순서대로 합친다.
-     const searched=await mapConcurrent(usedQueries,query=>searchOnce(query),GENERATION_CONFIG.research.parallelSearches);assertBudget();
+     // Preserve completed search URLs even if a later query reaches the deadline.
+     const searched=await mapConcurrent(usedQueries,async query=>{const found=await searchOnce(query);for(const source of found.sources)if(!state.sources.some(s=>s.url===source.url))state.sources.push(source);return found;},GENERATION_CONFIG.research.parallelSearches);assertBudget();
      // 원문은 앞에서부터 originalsPerQuestion개만 열리므로, 검색어(회사별 focusQueries 포함)마다 번갈아 쌓아 뒤쪽 검색어의 출처도 열리게 한다.
      const perQuery:Source[][]=[];
      for(const outcome of searched){
@@ -98,7 +99,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
   },value=>value.complete);
   for(const page of result.pages)if(!pageCache.has(page.url))pageCache.set(page.url,Promise.resolve(page));
   return result;
- },GENERATION_CONFIG.research.questionConcurrency);
+ },c.localAgent?1:GENERATION_CONFIG.research.questionConcurrency);
  const parts=outcomes.map(outcome=>{if(outcome.status==="rejected")throw outcome.reason;return outcome.value;});
  const sources=[...new Map(parts.flatMap(p=>p.sources).map(s=>[s.url,s])).values()];
  const rawEvidence=[...record.evidence,...parts.flatMap(p=>p.evidence)].map((e,index)=>({...e,id:String(index+1)}));

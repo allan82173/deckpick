@@ -11,3 +11,6 @@ output/
 scripts/
 public/examples/
 public/cover-assets/
+
+.cli-jobs/
+.local-tools/

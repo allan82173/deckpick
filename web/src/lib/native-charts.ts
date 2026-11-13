@@ -22,9 +22,9 @@ export function waterfallSeries(d: NativeChart) {
  const labels=d.categories.map((s,i)=>`${s} (${i>0&&i<d.categories.length-1&&d.series[0].values[i]>0?"+":""}${d.series[0].values[i]})`);
  return columns.map((values,i)=>({name:names[i],labels,values}));
 }
-export function chartPreviewDataUrl(d: NativeChart, c: Colors) {
+export function chartPreviewDataUrl(d: NativeChart, c: Colors,aspect?:number) {
  validateNativeChart(d); const colors=[c.primary,c.darkest,c.tint,c.muted,c.panel,c.connector];
- const W=900,H=430,L=95,R=28,T=42,B=80, pw=W-L-R,ph=H-T-B;
+ const W=900,H=d.kind==="horizontal"&&aspect?Math.max(180,900/aspect):430,L=95,R=28,T=42,B=80, pw=W-L-R,ph=H-T-B;
  const text=(s:string,x:number,y:number,size=15,anchor="start",color=c.darkest)=>`<text x="${x}" y="${y}" font-size="${size}" fill="${color}" text-anchor="${anchor}">${esc(s)}</text>`;
  let svg=text(`단위: ${d.unit}`,L,22);
  if(d.kind==="donut") {
@@ -38,7 +38,10 @@ export function chartPreviewDataUrl(d: NativeChart, c: Colors) {
   if(max===min)max=min+1;
   const y=(v:number)=>T+ph-(v-min)/(max-min)*ph, step=pw/d.categories.length;
   if(d.kind==="horizontal"){
-   const vals=d.series[0].values, mx=Math.max(1,...vals); d.categories.forEach((cat,i)=>{const yy=55+i*(310/vals.length);svg+=text(cat,10,yy+20)+`<rect x="230" y="${yy}" width="${560*Math.max(0,vals[i])/mx}" height="25" fill="${c.primary}"/>`+text(String(vals[i]),240+560*Math.max(0,vals[i])/mx,yy+20);});
+   const vals=d.series[0].values,lo=Math.min(0,...vals),hi=Math.max(0,...vals),span=hi-lo||1,
+    x=(v:number)=>295+(v-lo)/span*500,zero=x(0);
+   svg+=`<line x1="${zero}" x2="${zero}" y1="45" y2="${H-45}" stroke="${c.connector}"/>`;
+   d.categories.forEach((cat,i)=>{const rowH=(H-100)/vals.length,yy=55+i*rowH,end=x(vals[i]);svg+=text(cat,10,yy+20,17)+`<rect x="${Math.min(zero,end)}" y="${yy}" width="${Math.abs(end-zero)}" height="${Math.max(8,Math.min(25,rowH-5))}" fill="${c.primary}"/>`+text(vals[i].toLocaleString("ko-KR",{maximumFractionDigits:2}),end+(vals[i]<0?-6:6),yy+20,17,vals[i]<0?"end":"start");});
   }else{
    svg+=`<path d="M${L} ${T} V${T+ph} H${W-R}" fill="none" stroke="${c.connector}"/>`;
    for(let tick=0;tick<=4;tick++){const val=min+(max-min)*tick/4;svg+=text(Number(val.toFixed(2)).toLocaleString(),L-10,y(val)+5,13,"end")+`<line x1="${L}" x2="${W-R}" y1="${y(val)}" y2="${y(val)}" stroke="${c.connector}"/>`;}
@@ -49,14 +52,17 @@ export function chartPreviewDataUrl(d: NativeChart, c: Colors) {
   }
   if(d.kind!=="waterfall")d.series.forEach((s,k)=>{svg+=`<rect x="${L+k*210}" y="${H-20}" width="12" height="12" fill="${colors[k]}"/>`+text(s.name,L+18+k*210,H-9,12);});
  }
- return "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="430" viewBox="0 0 900 430"><rect width="900" height="430" fill="white"/><g font-family="Pretendard">${svg}</g></svg>`);
+ return "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="${H}" viewBox="0 0 900 ${H}"><rect width="900" height="${H}" fill="white"/><g font-family="Pretendard">${svg}</g></svg>`);
 }
 export function addNativeChart(slide:PptxGenJS.Slide,d:NativeChart,c:Colors,g:{x:number;y:number;w:number;h:number}) {
  validateNativeChart(d);
  const colors=[c.primary,c.darkest,c.tint,c.muted,c.panel,c.connector].map(s=>s.slice(1));
  const data=d.series.map(s=>({name:s.name,labels:d.categories,values:s.values}));
  slide.addText(`단위: ${d.unit}`,{x:g.x,y:g.y,w:g.w,h:.22,fontFace:"Pretendard",fontSize:10,color:c.muted.slice(1),margin:0});
- const options: PptxGenJS.IChartOpts = {...g,y:g.y+.25,h:Math.max(.5,g.h-.25),showTitle:false,showLegend:d.series.length>1,showValue:true,lineDataSymbol:d.kind==="line"?"circle":"none",lineDataSymbolSize:5,legendPos:"b",legendFontFace:"Pretendard",legendFontSize:10,dataLabelFontFace:"Pretendard",dataLabelFontSize:10,catAxisLabelFontFace:"Pretendard",catAxisLabelFontSize:10,valAxisLabelFontFace:"Pretendard",valAxisLabelFontSize:10,dataLabelFormatCode:"0.##",dataLabelColor:c.darkest.slice(1),dataLabelPosition:d.kind==="line"?"t":d.stacked?"ctr":"outEnd",chartColors:colors};
+ const options: PptxGenJS.IChartOpts = {...g,y:g.y+.25,h:Math.max(.5,g.h-.25),showTitle:false,showLegend:d.series.length>1,showValue:true,lineDataSymbol:d.kind==="line"?"circle":"none",lineDataSymbolSize:5,legendPos:"b",legendFontFace:"Pretendard",legendFontSize:11,dataLabelFontFace:"Pretendard",dataLabelFontSize:11,catAxisLabelFontFace:"Pretendard",catAxisLabelFontSize:11,valAxisLabelFontFace:"Pretendard",valAxisLabelFontSize:10,dataLabelFormatCode:d.series.every(s=>s.values.every(Number.isInteger))?"#,##0":"0.00",dataLabelColor:d.stacked?"FFFFFF":c.darkest.slice(1),dataLabelBkgrdColors:!!d.stacked,dataLabelPosition:d.kind==="line"?"t":d.stacked?"ctr":"outEnd",chartColors:colors};
+ // PptxGenJS passes the OOXML orientation through unchanged, but its types
+ // expose only minMax. Reverse the category axis so native bars match preview order.
+ if(d.kind==="horizontal")Object.assign(options,{catAxisOrientation:"maxMin"});
  if(d.kind==="donut"){
  const values=d.series[0].values,sum=values.reduce((a,b)=>a+b,0),i=d.focusIndex??values.indexOf(Math.max(...values));
  const side=Math.min(g.w*.59,g.h-.25),x=g.x+(g.w*.60-side)/2,y=g.y+.25+(g.h-.25-side)/2;
@@ -67,5 +73,6 @@ export function addNativeChart(slide:PptxGenJS.Slide,d:NativeChart,c:Colors,g:{x
  return;}
 
  if(d.kind==="waterfall") {slide.addChart("bar",waterfallSeries(d),{...options,barDir:"col",barGrouping:"stacked",dataLabelPosition:"ctr",showValue:false,showLegend:false,chartColors:["transparent","transparent",colors[1],colors[1],colors[0],colors[0],colors[3],colors[3]]}); return;}
- slide.addChart(d.kind==="line"?"line":"bar",data,{...options,barDir:d.kind==="horizontal"?"bar":"col",barGrouping:d.stacked?"stacked":"clustered"});
+ slide.addChart(d.kind==="line"?"line":"bar",data,{...options,catAxisLabelPos:"low",barDir:d.kind==="horizontal"?"bar":"col",barGrouping:d.stacked?"stacked":"clustered"});
 }
+

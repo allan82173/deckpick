@@ -28,7 +28,10 @@ export function draftProgress(deck:Deck){
   const ready=deck.outline.filter((_,i)=>slideSchema.safeParse(draftSlide(deck,i)).success).length;
   return {ready,total:deck.outline.length,complete:deck.outline.length>0&&ready===deck.outline.length};
 }
-export function sameDraftContext(a:Deck,b:Deck){return a.id===b.id&&JSON.stringify(a.outline)===JSON.stringify(b.outline);}
+export function sameDraftContext(a:Deck,b:Deck){
+ const content=(deck:Deck)=>deck.outline.map(({acceptedCandidateCount:_runtime,...item})=>item);
+ return a.id===b.id&&JSON.stringify(content(a))===JSON.stringify(content(b));
+}
 export function selectDraftAlternative(deck:Deck,index:number,slot:number):Deck{
   const options=deck.candidates[index];if(!options?.[slot]||deck.picked[index]===slot)return deck;
   const previous=deck.picked[index]??0;
@@ -38,15 +41,18 @@ export function selectDraftAlternative(deck:Deck,index:number,slot:number):Deck{
 }
 
 /** Initial full drafts include every suitable candidate (up to three), retaining manual work. */
+export function candidateTargetCount(deck:Deck,index:number){
+ const accepted=deck.outline[index]?.acceptedCandidateCount;if(accepted)return accepted;
+ try{return candidatePlan(deck.input,deck.outline[index]).length;}catch{return 1;}
+}
 export function draftNeedsCandidates(deck:Deck,index:number){
- let target=3;try{target=candidatePlan(deck.input,deck.outline[index]).length;}catch{target=1;}
- return !draftSlide(deck,index)||(deck.candidates[index]?.length??0)<target;
+ return !draftSlide(deck,index)||(deck.candidates[index]?.length??0)<candidateTargetCount(deck,index);
 }
 export function applyDraftCandidates(deck:Deck,index:number,incoming:SlideSpec[]):Deck{
  if(!incoming.length)throw Error("생성된 후보가 없습니다.");
  incoming.forEach(s=>slideSchema.parse(s));
  const normalized=initializeDraftSelections(deck);
- if(!draftSlide(normalized,index))return {...normalized,candidates:{...normalized.candidates,[index]:incoming.slice(0,3)},picked:{...normalized.picked,[index]:0}};
+ if(!draftSlide(normalized,index))return {...normalized,outline:normalized.outline.map((item,i)=>i===index?{...item,acceptedCandidateCount:incoming[0]?.quality?.suitableCandidateCount}:item),candidates:{...normalized.candidates,[index]:incoming.slice(0,3)},picked:{...normalized.picked,[index]:0}};
  let next=normalized;
  for(const slide of incoming){const existing=next.candidates[index]??[];if(existing.length>=3)break;if(existing.some(s=>candidateSignature(s)===candidateSignature(slide)||(!slide.layoutId.endsWith("cover")&&s.layoutId===slide.layoutId)))continue;next=appendDraftAlternative(next,index,slide);}
  return next;

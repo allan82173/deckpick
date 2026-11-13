@@ -1,3 +1,6 @@
+import { retainMeaningfulCandidates } from "./candidate-usability";
+import {contentContractSchema,contentContractPrompt,contractSource,validateContentContract,slideCompositionContractRules} from "./content-contract";
+import { cliOnlyRequested, localAgentsEnabled, isLoopbackCliRequest, localAgentCall, LocalAgentTimeout, type LocalAgent } from "./local-agent";
 import {generationLanguageInstruction} from "./generation-language";
 import { visualReview } from "./visual-review";
 import { assertBudget,providerSignal,retryDelay,withBudget } from "./run-budget";
@@ -10,6 +13,8 @@ import { providerSlot } from "./concurrency";
 import { expandedRegistry, expandedKind } from "./expanded-layouts";
 import { withImageInputs, type VisionImage } from "./vision";
 import { candidatePlan, avoidDeckRepeats, widerPool, candidateSignature, layoutPurpose } from "./candidate-plan";
+import { layoutCopyBudget } from "./copy-budgets";
+import { calculateScenario } from "./scenario-calculation";
 import { consultingStylePrompt, slideCompositionPrompt, validateHeadline } from "./consulting-style";
 import { z } from "zod";
 import {
@@ -36,7 +41,7 @@ import { inspectSlide, evidenceNotes, includeScenario, textArtifacts, MAX_QUALIT
 import type { ResearchRecord } from "./evidence-model";
 
 export type Provider = "openai" | "anthropic";
-type Connection = { provider: Provider; key: string; model: string; language?: "ko" | "en" };
+type Connection = { provider: Provider; key: string; model: string; language?: "ko" | "en"; localAgent?: LocalAgent };
 const object = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 export class AIError extends Error {
@@ -53,6 +58,12 @@ export function connection(
   body: { provider?: Provider; model?: string; input?: {language?: "ko" | "en"} },
 ): Connection {
   const provider = body.provider ?? "openai";
+  if (cliOnlyRequested()) {
+    if (!localAgentsEnabled() || !isLoopbackCliRequest(request)) throw new AIError("구독 연결은 이 PC의 로컬 페이지에서만 사용할 수 있습니다. API 호출은 중지돼 있습니다.", 403);
+    const model = body.model || "default";
+    if (!/^[a-zA-Z0-9_.:-]{1,100}$/.test(model)) throw new AIError("모델 이름을 확인해 주세요.", 400);
+    return { provider: "anthropic", key: "", model, language: body.input?.language ?? "ko", localAgent: provider === "openai" ? "codex" : "claude-code" };
+  }
   const key =
     request.headers.get("x-user-api-key") ||
     (provider === "openai"
@@ -89,6 +100,7 @@ export function markDeckCommon(c: { provider: string }, json: string) {
 /**
  * 본문 칸에 모델이 덧붙인 주장 유형 표시([추론]·[가설] 등)와 근거 번호([1][6])를 걷어낸다(배포판 Haiku 실행에서 칸마다 붙음).
  * 주장 유형은 tag 필드가, 근거 연결은 evidenceRefs가 맡는다. 번호만 있던 칸은 "근거 N건"으로 바꾼다.
+ * 문장 연결용 대시도 쉼표로 바꾼다(동한 문체 가이드).
  */
 export function cleanInlineMarks(value: unknown, key = ""): unknown {
   if (typeof value === "string") {
@@ -107,6 +119,22 @@ export async function providerCall(
   images: VisionImage[] = [],
   stage: GenerationStage = "slideChat",
 ): Promise<Record<string, unknown>> {
+  if (cliOnlyRequested() && !c.localAgent) throw new AIError("API 키 호출은 당분간 중지돼 있습니다. 로컬 구독 연결을 선택해 주세요.", 403);
+  if (c.localAgent) {
+    const startedAt = new Date().toISOString(), started = Date.now();
+    try {
+      const result = await localAgentCall(c.localAgent, c.model, { ...body, system: `${typeof body.system === "string" ? body.system : ""}\n${generationLanguageInstruction(c.language)}` }, images, () => providerSignal(stage));
+      const usage = object(result.usage) ? result.usage : {};
+      const tokens = (key: string) => typeof usage[key] === "number" ? usage[key] as number : undefined;
+      const input = tokens("input_tokens"), output = tokens("output_tokens");
+      const inputTotal = input === undefined ? undefined : input + (c.localAgent === "claude-code" ? (tokens("cache_read_input_tokens") ?? 0) + (tokens("cache_creation_input_tokens") ?? 0) : 0);
+      recordCall({ id: crypto.randomUUID(), stage, provider: c.localAgent, model: c.model === "default" ? `${c.localAgent}:cli-default` : c.model, effort: "cli-default", maxOutputTokens: 0, transport: "cli", limitsEnforced: false, startedAt, durationMs: Date.now()-started, status: 200, truncated: false, inputTokens: inputTotal, outputTokens: output, totalTokens: inputTotal !== undefined && output !== undefined ? inputTotal + output : undefined, cachedInputTokens: tokens("cached_input_tokens") ?? tokens("cache_read_input_tokens") });
+      return result;
+    } catch (error) {
+      recordCall({ id: crypto.randomUUID(), stage, provider: c.localAgent, model: c.model, effort: "cli-default", maxOutputTokens: 0, transport: "cli", limitsEnforced: false, startedAt, durationMs: Date.now()-started, status: 0, truncated: false });
+      throw new AIError(error instanceof Error ? error.message : "로컬 구독 연결에 실패했습니다. API로 전환하지 않았습니다.", error instanceof LocalAgentTimeout?504:502);
+    }
+  }
   const url =
     c.provider === "openai"
       ? "https://api.openai.com/v1/responses"
@@ -219,12 +247,13 @@ export function searchSources(value: unknown): Source[] {
       return;
     }
     if (!object(v)) return;
-    // Only provider search-result or citation objects count as evidence, never generated prose.
+    // Local CLI URLs are candidates only; the research pipeline still opens and verifies originals.
     if (
       [
         "web_search_result",
         "url_citation",
         "web_search_result_location",
+        "local_search_candidate",
       ].includes(String(v.type)) &&
       typeof v.url === "string" &&
       typeof v.title === "string"
@@ -344,7 +373,7 @@ export async function structured<T>(
   const jsonSchema = z.toJSONSchema(options.wireSchema??schema, { unrepresentable: "any" });
   let repair = "";
   let lastIssue = "";
-  const nativeClaude = /claude-(sonnet|opus|haiku|fable|mythos)-5/.test(
+  const nativeClaude = !c.localAgent && /claude-(sonnet|opus|haiku|fable|mythos)-5/.test(
     c.model,
   );
   for (let attempt = 0; attempt < (options.formatAttempts??GENERATION_CONFIG.formatAttempts); attempt++) {
@@ -566,6 +595,7 @@ async function generateCandidateBatch(
       if (kind === "interview-quotes" && s.data.basis === "실제 조사" && (!Array.isArray(s.data.evidenceIds) || !s.data.evidenceIds.every(id => evidence.some(row => row.id === id)))) throw Error("실제 인터뷰 인용은 확인 가능한 조사 근거 ID가 필요합니다. 아직 조사 전이면 basis를 '조사 예정 예시'로 쓰세요.");
       if (kind === "photo-evidence" && Array.isArray(s.data.photos) && (s.data.photos as { imageSrc?: string }[]).some(photo => photo.imageSrc && !images.some(image => image.id && photo.imageSrc === `/api/attachments/${image.id}`))) throw Error("사진은 실제 업로드한 이미지 경로만 쓸 수 있습니다. 사진이 없으면 imageSrc를 비우고 찍을 장면을 caption에 적으세요.");
       if (kind === "survey-findings" && !evidence.some(row => row.id === s.data.evidenceId && [row.claim,row.originalText,row.locator].filter(Boolean).join(" ").includes(String(s.data.sampleSize)))) throw Error("조사 결과는 제공된 근거에 표본 수가 있어야 합니다. 표본 수·기간을 만들어 채우지 마세요.");
+      if (s.layoutId === "c-cover") s.data.eyebrow = "분석 보고서";
       if (s.layoutId.endsWith("cover")) { delete s.data.photoId; delete s.data.referencePhoto; return s; }
       validateHeadline(s.headline, input.deckType === "consulting");
       if (swappedSeriesChart(s.data)) throw Error("차트의 계열마다 값이 범주 전체에서 같습니다. 서로 다른 지표는 범주(가로축)에 두고 계열은 같은 지표의 비교 대상으로 쓰거나, 핵심 숫자 레이아웃으로 바꿔 주세요.");
@@ -616,7 +646,9 @@ async function generateCandidateBatch(
       confirmedDecisions: confirmed,
       acceptedLimitations: generation?.record?.gaps,
       rules:
-        "dataJson은 예시와 같은 구조의 JSON 문자열. slotPlan 순서와 layoutId를 정확히 따른다. claimDesign의 preferredLayouts는 이전 설계 단계의 참고이며 이 호출에서는 slotPlan만 허용된다. 각 layoutSchemas의 필수 필드를 빠짐없이 채운다. 최소 데이터가 없으면 빈 양식이나 임의 숫자로 채우지 않는다. 설문은 실제 표본 수·조사 기간·조사 근거 ID가 있어야 하며 인용을 만들지 않는다. 페르소나는 실제 조사 근거가 없으면 가상으로 표시한다. 화면 주석은 uploadedImages에 있는 실제 경로와 픽셀 크기만 쓴다. 데이터 차트는 같은 단위·분모의 실제 근거 수치 또는 명시된 계산 가정만 쓴다. 같은 핵심 메시지와 근거를 유지하면서 비교 기준·인과·인사이트·실행 순서 등 서로 다른 관점으로 재구성한다. 예시의 샘플 문구를 그대로 복사하지 않는다. 없는 수치를 채워 차이를 만들지 않는다. 계산 장은 근거 변수와 가정 변수를 구분하고 산식과 단위를 함께 보인다. 미산출·빈 입력칸만 나열하지 않는다. 분모·측정 기간·포함 항목이 다른 숫자를 같은 지표처럼 나란히 놓지 않는다. 단위와 비교 조건이 없으면 우열을 단정하지 않는다. 원문 미확인·페이지 확인 전·검수 상태 같은 내부 검증 표시는 화면 본문에 쓰지 않고 notes에 적는다. 화면에는 수치와 기준 연도·출처 이름만 남긴다. 확인되지 않은 값을 0으로 차트에 그리지 않는다. 숫자는 읽기 쉬운 단위로 반올림한다: 억 원 단위 금액은 정수(9,770.52억 → 9,771억, −122.50억 → −123억), 비율·증감률은 소수 첫째 자리(2.82% → 2.8%), 원 단위 큰 금액은 억·조 단위로 바꾼다. 원래 정밀 수치는 notes에 남긴다. 표지 제목은 과제·주제명(예: 교보문고 20대 공략 사업 진단)으로 쓰고 주장 문장으로 쓰지 않는다. 포지셔닝 맵·2×2는 두 축이 근거 지표나 명확한 판단 기준일 때만 쓰고, 축이 '낮음→높음'뿐이면 다른 레이아웃을 쓴다. 포지셔닝 맵은 경쟁사·대안의 위치 비교가 그 장의 핵심 질문일 때만 쓰고, 컨셉 설명·우선순위·판단·로드맵 장에는 쓰지 않는다. 각 점의 위치는 근거 지표로 설명할 수 있어야 하며 rationale에 축 기준을 밝힌다. 출처·근거 개수를 본문 수치로 쓰지 않고, 해당 여부를 0/1로 그린 차트를 만들지 않는다. claimType이 가설이거나 근거가 부족한 장은 '확인되지 않음'을 본문 주제로 삼지 않고, 가설과 근거 → 확인 방법(설문 문항 또는 IDI 질문·대상·필요 표본 수나 데이터) → 판단을 바꿀 기준 순서로 채운다. 표지는 한 줄에 읽히는 짧은 제목(가급적 24자 이내)으로 쓴다. 자세한 범위와 설명은 부제로 옮긴다. 표지는 부제만 바꾸지 말고 제목 자체를 서로 다른 관점으로 쓴다. photoId/referencePhoto는 작성하지 않는다. 사진 선택은 사용자가 한다. 나머지는 서로 다른 구조. 목차는 목차내용을 서로 다르게 시각화. 모르는 실적은 만들지 않으며 필요하면 [가정]과 산식을 밝힌 계산 예시나 [가설]로 판단한다. sources는 내용과 직접 관련된 것만.",
+        "dataJson은 예시와 같은 구조의 JSON 문자열. slotPlan 순서와 layoutId를 정확히 따른다. claimDesign의 preferredLayouts는 이전 설계 단계의 참고이며 이 호출에서는 slotPlan만 허용된다. 각 layoutSchemas의 필수 필드를 빠짐없이 채운다. 최소 데이터가 없으면 빈 양식이나 임의 숫자로 채우지 않는다. 설문은 실제 표본 수·조사 기간·조사 근거 ID가 있어야 하며 인용을 만들지 않는다. 페르소나는 실제 조사 근거가 없으면 가상으로 표시한다. 화면 주석은 uploadedImages에 있는 실제 경로와 픽셀 크기만 쓴다. 데이터 차트는 같은 단위·분모의 실제 근거 수치 또는 명시된 계산 가정만 쓴다. 순위 1·2·3·4는 측정량이 아니므로 막대 길이나 면적으로 그리지 말고 번호 목록·우선순위 카드로 표현한다. 점수·지수는 척도와 출처 또는 가중 산식이 있을 때만 쓰며 임의 점수로 후보를 채우지 않는다. 같은 핵심 메시지와 근거를 유지하면서 비교 기준·인과·인사이트·실행 순서 등 서로 다른 관점으로 재구성한다. 예시의 샘플 문구를 그대로 복사하지 않는다. 없는 수치를 채워 차이를 만들지 않는다. 계산 장은 근거 변수와 가정 변수를 구분하고 산식과 단위를 함께 보인다. 미산출·빈 입력칸만 나열하지 않는다. 분모·측정 기간·포함 항목이 다른 숫자를 같은 지표처럼 나란히 놓지 않는다. 단위와 비교 조건이 없으면 우열을 단정하지 않는다. 원문 미확인·페이지 확인 전·검수 상태 같은 내부 검증 표시는 화면 본문에 쓰지 않고 notes에 적는다. 화면에는 수치와 기준 연도·출처 이름만 남긴다. 확인되지 않은 값을 0으로 차트에 그리지 않는다. 숫자는 읽기 쉬운 단위로 반올림한다: 억 원 단위 금액은 정수(9,770.52억 → 9,771억, −122.50억 → −123억), 비율·증감률은 소수 첫째 자리(2.82% → 2.8%), 원 단위 큰 금액은 억·조 단위로 바꾼다. 원래 정밀 수치는 notes에 남긴다. 표지 제목은 과제·주제명(예: 교보문고 20대 공략 사업 진단)으로 쓰고 주장 문장으로 쓰지 않는다. 포지셔닝 맵·2×2는 두 축이 근거 지표나 명확한 판단 기준일 때만 쓰고, 축이 '낮음→높음'뿐이면 다른 레이아웃을 쓴다. 포지셔닝 맵은 경쟁사·대안의 위치 비교가 그 장의 핵심 질문일 때만 쓰고, 컨셉 설명·우선순위·판단·로드맵 장에는 쓰지 않는다. 각 점의 위치는 근거 지표로 설명할 수 있어야 하며 rationale에 축 기준을 밝힌다. 출처·근거 개수를 본문 수치로 쓰지 않고, 해당 여부를 0/1로 그린 차트를 만들지 않는다. claimType이 가설이거나 근거가 부족한 장은 '확인되지 않음'을 본문 주제로 삼지 않고, 가설과 근거 → 확인 방법(설문 문항 또는 IDI 질문·대상·필요 표본 수나 데이터) → 판단을 바꿀 기준 순서로 채운다. 표지는 한 줄에 읽히는 짧은 제목(가급적 24자 이내)으로 쓴다. 자세한 범위와 설명은 부제로 옮긴다. 표지는 부제만 바꾸지 말고 제목 자체를 서로 다른 관점으로 쓴다. photoId/referencePhoto는 작성하지 않는다. 사진 선택은 사용자가 한다. 나머지는 서로 다른 구조. 목차는 목차내용을 서로 다르게 시각화. 모르는 실적은 만들지 않으며 필요하면 [가정]과 산식을 밝힌 계산 예시나 [가설]로 판단한다. sources는 내용과 직접 관련된 것만.",
+      contentContract:item.contentContract,
+      contentContractRules:slideCompositionContractRules,
       item,
       narrativeContext: { previous: outline.find((v) => v.index === item.index - 1) ?? null, next:outline.find((v)=>v.index===item.index+1)??null },
       instruction,
@@ -628,9 +660,13 @@ async function generateCandidateBatch(
       evidenceCoverage: generation?.record?.coverage?.filter(c=>!item.argument?.questionId||c.questionId===item.argument.questionId),
       claimDesign: item.argument,
       calculation: item.calculation,
+      requiredCalculationOutputs: item.role==="계산"&&item.calculation?calculateScenario(item.calculation).outputs.map(({label,value,unit})=>({label,value,unit})):undefined,
+      calculationCoverageRule: "requiredCalculationOutputs는 코드로 계산한 표시 필수 결과입니다. 모든 결과를 차트나 본문에 값·단위와 함께 남깁니다. 중간값은 산출 근거, 전체값은 주 비교로 위계를 나눌 수 있습니다. 다른 단위나 가정을 같은 지표처럼 섞지 않습니다. 화면에 없는 값을 노트에만 넣어 완료로 보지 않습니다.",
       uploadedImages: images.filter(image => image.id).map(({ id, name, width, height }) => ({ src: `/api/attachments/${id}`, name, width, height })),
       layoutExamples: examples,
       layoutSchemas: Object.fromEntries(allowedIds.map(id => [id, z.toJSONSchema(dataSchemas[id], { unrepresentable: "any" })])),
+      writingBudgets: Object.fromEntries(allowedIds.map(id=>[id,layoutCopyBudget(id)])),
+      writingBudgetRule: "writingBudgets는 좁은 칸의 가독성 기준입니다. 중복 수식어와 다른 장에서 한 설명을 줄여 맞추고 필수 항목·수치·조건·고유명사를 잘라 버리지 않습니다. 서로 다른 기업명은 구분 기호나 줄바꿈을 둡니다. 짧게 써도 주장과 근거의 관계가 읽혀야 합니다.",
       slotPlan: planned.map((layoutId, i) => ({ slot: i, layoutId, purpose: layoutPurpose[layoutId], ...(expandedKind(layoutId) ? { guidance: expandedRegistry[expandedKind(layoutId)!] } : {}), ...(layoutId === "c-cover" ? { coverStyle: coverStyles[(single ? rotation : i) % 3], titleDirection: ["발표 주제와 범위", "고객 관점과 실행", "브랜드 경험과 제안"][i] } : {}) })),
       previousSignatures,
       count: planned.length,
@@ -661,9 +697,14 @@ async function generateCandidatesBody(...args: Parameters<typeof generateCandida
       });
     item = { ...item, ...plan };
   }
-  if (!item.role) return generateCandidateBatch(...args);
-  let current = await generateCandidateBatch(c, input, item, sources, instruction, excluded, single,
-    outline, attachmentContext, rotation, previousSignatures, images, requestedLayout, evidence, previousLayouts, generation);
+  if (!item.role) return retainMeaningfulCandidates(await generateCandidateBatch(...args),item,evidence);
+  if (!item.contentContract) {
+    const material={scope:{purpose:input.purpose,stage:input.stage},item,evidence:sourceFactsForPrompt(slideEvidence(evidence,slideEvidenceIds(item)))};
+    const contract=await checkpoint(`content-contract:${item.index}`,{model:c.model,material},()=>structured(c,contentContractSchema,contentContractPrompt,JSON.stringify(material),value=>validateContentContract(value,contractSource(material),item.index===0),[],"candidates"));
+    item={...item,contentContract:contract};
+  }
+  let current = await checkpoint(`candidate-draft:${item.index}`,{model:c.model,item,args:args.slice(1)},()=>generateCandidateBatch(c, input, item, sources, instruction, excluded, single,
+    outline, attachmentContext, rotation, previousSignatures, images, requestedLayout, evidence, previousLayouts, generation));
   const visualChecks=new Map<string,Awaited<ReturnType<typeof visualReview>>|{status:"skipped";warnings:string[]}>();
   const retries = current.map(() => 0);
   const maximumRetries = generation?.qualityRetries ?? MAX_QUALITY_RETRIES;
@@ -675,7 +716,7 @@ async function generateCandidatesBody(...args: Parameters<typeof generateCandida
       }
       const slide = includeScenario({ ...rawSlide, data: safeData }, item.calculation);
       const refs = (item.evidenceRefs ?? []).filter(id => evidence.some(row => row.id === id));
-      const enriched = { ...slide, role: item.role, claimType: item.claimType, evidenceRefs: refs, internalReview: input.internalReview,
+      const enriched = { ...slide, role: item.role, claimType: item.claimType, evidenceRefs: refs, internalReview: input.internalReview, contentContract:item.contentContract,
         sources: [...new Map([...slide.sources, ...evidence.filter(row => refs.includes(row.id) && row.kind === "공개 사실").map(row => ({ title: row.title.slice(0, 120), url: row.url, usedFor: row.claim }))].map(source => [source.url, source])).values()],
         notes: item.section === "출처" ? evidence.map(row => `[${row.id}] ${row.kind} · ${row.claim}\n원문: ${row.originalText ?? "미확인"}\n${row.title}\n${row.url || "내부 자료 · 공개 URL 없음"}\n발행일 ${row.publishedAt || "미확인"} · 확인일 ${row.checkedAt} · ${row.materialType ?? "미확인"} · 맥락 ${row.contextMatch ?? "불명확"}`).join("\n\n") : evidenceNotes(refs, evidence) };
       const quality = inspectSlide(enriched, item, input, evidence, previousLayouts);
@@ -692,14 +733,14 @@ async function generateCandidatesBody(...args: Parameters<typeof generateCandida
     }
     const repairReasons=(slide:typeof checked[number])=>slide.quality.warnings.filter(w=>!slide.quality.rendererWarnings?.includes(w)&&!slide.quality.visual?.warnings.includes(w)&&!isRendererWarning(w));
     const failed = checked.map((slide, index) => ({ slide, index })).filter(({ slide }) => repairReasons(slide).length);
-    if (!failed.length || attempt === maximumRetries) return checked;
+    if (!failed.length || attempt === maximumRetries) return retainMeaningfulCandidates(checked,item,evidence);
     const next = [...checked];
     for (const { slide, index } of failed) {
       retries[index]++;
       try {
-          const repairInstruction = `${instruction}\n검사 수정 사유 ${repairReasons(slide).join(" / ")}\n이 장 한 장만 수정하고 근거 없는 수치를 추가하지 마세요. 구체적인 근거와 조건을 본문에 채우세요. 좌표·여백 경고를 없애기 위해 문구를 바꾸지 마세요.\n이전 내용 ${JSON.stringify(slide.data)}`;
+          const repairInstruction = `${instruction}\n검사 수정 사유 ${repairReasons(slide).join(" / ")}\n순위는 번호 목록·우선순위 카드로 표현하세요. 막대 길이에는 실제 측정량과 단위 또는 근거 있는 산식만 사용하고, 순위 1·2·3을 수량으로 그리지 마세요.\n이 장 한 장만 수정하고 근거 없는 수치를 추가하지 마세요. 구체적인 근거와 조건을 본문에 채우세요. 좌표·여백 경고를 없애기 위해 문구를 바꾸지 마세요.\n이전 내용 ${JSON.stringify(slide.data)}`;
         const retainedLayouts = next.filter((_, i) => i !== index).map(s => s.layoutId);
-          const changeLayout = !requestedLayout && item.index !== 0 && item.section !== "목차" && repairReasons(slide).some(warning => /레이아웃|연속/.test(warning));
+          const changeLayout = !requestedLayout && item.index !== 0 && item.section !== "목차" && repairReasons(slide).some(warning => /레이아웃|연속|차트 의미/.test(warning));
         const [replacement] = await generateCandidateBatch(
           c, input, item, sources, repairInstruction, [...excluded, ...retainedLayouts, ...(changeLayout ? [slide.layoutId] : [])], true,
           outline, attachmentContext, rotation + attempt + index + 1,
@@ -709,11 +750,13 @@ async function generateCandidatesBody(...args: Parameters<typeof generateCandida
         );
         if (replacement && !next.some((other, i) => i !== index && other.layoutId === replacement.layoutId)) next[index] = replacement as typeof next[number];
       } catch (error) {
-        if (error instanceof AIError && [401, 429, 504].includes(error.status)) throw error;
+        if (error instanceof AIError && [401, 429].includes(error.status)) throw error;
+        if(error instanceof AIError && error.status===504)return retainMeaningfulCandidates(checked.map(candidate=>({...candidate,quality:{...candidate.quality,warnings:[...candidate.quality.warnings,"자동 보완 시간 초과 · 유효한 초안은 보존했습니다. 해당 장을 확인해 주세요."]}})),item,evidence);
         // Retain the last valid slide so quality repair cannot destroy a usable draft.
       }
     }
     current = next;
   }
-  return current;
+  return retainMeaningfulCandidates(current,item,evidence);
 }
+

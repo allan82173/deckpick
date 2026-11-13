@@ -12,3 +12,4 @@ output/
 
 .attachments/
 .generation-runs/
+.cli-jobs/

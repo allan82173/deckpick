@@ -3,7 +3,7 @@ import {applyResearchCoverage} from "@/lib/research-coverage";
 import {requestSchema} from "@/lib/api-request";
 import {streamApiResponse} from "@/lib/api-stream";
 import { withExecution } from "@/lib/execution-scope";
-import { withRunContext,runState } from "@/lib/run-checkpoints";
+import { withRunContext,runState,recoverCheckpoint } from "@/lib/run-checkpoints";
 import { saveAttemptReport } from "@/lib/run-attempt-report";
 import { design } from "@/lib/design";
 import type { Deck } from "@/lib/model";
@@ -106,6 +106,15 @@ async function handlePost(
       return Response.json(await reviewAndRepairDeck(c, b.currentDeck));
     }
     if (["research/prepare", "research/run", "research/continue", "storyline", "storyline/judgment"].includes(action) && b.input.slideCount > MAX_DECK_SLIDES) throw new AIError(`새 구성은 ${MAX_DECK_SLIDES}장 이내로 만들어 주세요.`, 400);
+    if (action === "research/recover") {
+      const shape=z.object({researchRecord:researchRecordSchema,sources:z.array(sourceSchema)});
+      const fingerprint=taskFingerprint(b.input,evidence.text,b.messages);
+      const saved=await recoverCheckpoint("evidence-table",(value):value is z.infer<typeof shape>=>{
+        const parsed=shape.safeParse(value);return parsed.success&&parsed.data.researchRecord.analysis?.fingerprint===fingerprint&&parsed.data.researchRecord.researchComplete!==false;
+      });
+      if(!saved)throw new AIError("현재 입력과 일치하는 완료된 근거표가 없습니다. 입력·첨부가 바뀌었는지 확인해 주세요.",409);
+      return Response.json({...saved,attachmentUsage});
+    }
     if (action === "research/prepare") {
       const record = await prepareTask(c, b.input, evidence.text, b.messages, images, b.researchRecord,documents);
       return Response.json({ researchRecord: record, sources: [], attachmentUsage });

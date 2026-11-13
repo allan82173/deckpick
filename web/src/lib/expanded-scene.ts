@@ -18,7 +18,7 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
  const sentences=(t:string)=>{const parts=t.split(/(?<=[.!?])\s+|\n+/).map(v=>v.trim()).filter(Boolean);return parts.length>4?[parts.slice(0,parts.length-3).join(" "),...parts.slice(-3)]:parts;};
  const panel=(title:string,items:string[],x:number,y:number,w:number,h:number,alignTop=false)=>{header(title,x,y,w);box(x,y+.4,w,h-.4,c.panel);const parts=items.length===1?sentences(items[0]):items,tw=w-.28,inner=h-.4-.32,size=fitStack(parts,tw,inner-.32*(parts.length-1),16,12),used=parts.reduce((n,t)=>n+textHeight(t,size,tw),0),gap=parts.length>1?Math.min(alignTop?.32:.5,(inner-used)/(parts.length-1)):0;let yy=y+.4+.16+(alignTop?.06:Math.max(0,(inner-used-gap*(parts.length-1))/2));
   parts.forEach((t,i)=>{const th=textHeight(t,size,tw);txt(t,x+.14,yy,tw,th+.04,size,c.darkest,i===0&&parts.length>1);if(i<parts.length-1)line(x+.14,yy+th+gap/2,tw,c.connector,1);yy+=th+gap;});};
- const chart=(d:NativeChart,x:number,y:number,w:number,h:number)=>nodes.push({kind:"image",x,y,w,h,src:chartPreviewDataUrl(d,c),alt:`${d.kind} · 단위 ${d.unit}`,chart:d});
+ const chart=(d:NativeChart,x:number,y:number,w:number,h:number)=>nodes.push({kind:"image",x,y,w,h,src:chartPreviewDataUrl(d,c,w/h),alt:`${d.kind} · 단위 ${d.unit}`,chart:d});
  const common=S[kind].parse(slide.data);if(common.tag)tag(common.tag,11.7,1.55);
  // 판단·근거 계열(stage 1) 표·칸: 글자를 칸 가운데(가로·세로)에 두고, 칸을 고르게 채우는 하나의 글자 크기로 통일한다.
  const balance=(start:number)=>{
@@ -70,8 +70,11 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
  case "composition-donut":{const d=S[kind].parse(slide.data);chart({kind:"donut",categories:d.items.map(r=>r.label),series:[{name:"구성비",values:d.items.map(r=>r.value)}],unit:d.unit,focusIndex:d.focusIndex},X,Y,W,H);break;}
  case "horizontal-formula":{const d=S[kind].parse(slide.data),w=d.interpretation?8.65:W;chart({kind:"horizontal",categories:d.items.map(r=>r.label),series:[{name:"산출 예시",values:d.items.map(r=>r.value)}],unit:d.unit},X,Y,w,2.65);
  // 근거 문구는 막대 아래 겹치지 않도록 항목별 한 줄 목록으로, 가정·산식은 남은 높이에 맞춰 둔다.
- const bTop=Y+2.78,fl=`[가정] ${d.assumption}  ·  [산식] ${d.formula}`,fSize=fitStack([fl],w,.62,13,11),fh=textHeight(fl,fSize,w),bRows=d.items.map(r=>`${r.label} · ${r.basis}`),bh=(6.1-fh-.12-bTop)/bRows.length,bSize=Math.min(...bRows.map(t=>fitStack([t],w,bh-.04,12,11)));
- bRows.forEach((t,i)=>txt(t,X,bTop+i*bh,w,bh-.02,bSize,c.muted));txt(fl,X,6.1-fh,w,fh+.02,fSize,c.primary,true);if(d.interpretation)panel("계산의 해석",[d.interpretation],9.3,Y,3.6,H);break;}
+ const fl=`가정: ${d.assumption}\n산식: ${d.formula}`,bRows=d.items.map(r=>`${r.label} · ${r.basis}`),bSize=12,
+ rowHeights=bRows.map(t=>textHeight(t,bSize,w)+.045),fSize=12,fh=textHeight(fl,fSize,w)+.04,
+ total=rowHeights.reduce((a,b)=>a+b,0)+fh+.12,chartH=Math.min(2.65,Math.max(1.45,H-total)),bTop=Y+chartH+.12;
+ const chartNode=nodes.at(-1);if(chartNode?.kind==="image"){chartNode.h=chartH;if(chartNode.chart)chartNode.src=chartPreviewDataUrl(chartNode.chart,c,chartNode.w/chartH);}
+ let by=bTop;bRows.forEach((t,i)=>{txt(t,X,by,w,rowHeights[i],bSize,c.muted);by+=rowHeights[i];});txt(fl,X,by+.08,w,fh,fSize,c.primary,true);if(d.interpretation)panel("계산의 해석",[d.interpretation],9.3,Y,3.6,H);break;}
  case "calculation-flow":{
   // 가정·산식·결과 세 열을 같은 높이로 채우고, 산식은 단계별, 결과는 값별 칸으로 나눠 가운데 정렬한다.
   const d=S[kind].parse(slide.data),w=3.88,top=Y+.4,bottom=5.62,height=bottom-top,gap=.12;
@@ -178,11 +181,11 @@ break;}
  nodes.push({kind:"ellipse",x:cx-1.25,y:cyy-.62,w:2.5,h:1.24,fill:c.darkest});txt(d.center,cx-1.05,cyy-.17,2.1,.36,15,"#FFFFFF",true,"center");
  d.steps.forEach((v,i)=>{const [px,py]=pt(2*Math.PI*i/n),x=px-cw/2,y=Math.min(6.1-ch,Math.max(Y,py-ch/2));box(x,y,cw,ch,c.panel,c.connector);nodes.push({kind:"ellipse",x:x+.14,y:y+.13,w:.34,h:.34,fill:c.primary});txt(String(i+1),x+.14,y+.17,.34,.26,11,"#FFFFFF",true,"center");
   txt(v.name,x+.58,y+.14,cw-.7,.3,14,c.primary,true);txt(v.detail,x+.14,y+.54,cw-.28,ch-.6,12,c.darkest);});break;}
- case "evidence-convergence":{const d=S[kind].parse(slide.data),n=d.evidences.length,ew=5.9,gap=.14,eh=(6.1-Y-gap*(n-1))/n,lw=1.45,fx=X+ew+.18,fw=1.5,kx=fx+fw+.12,kw=X+W-kx,kh=2.5,ky=(Y+6.1)/2-kh/2;
+ case "evidence-convergence":{const d=S[kind].parse(slide.data),n=d.evidences.length,ew=5.9,gap=.14,eh=(6.1-Y-gap*(n-1))/n,lw=Math.min(2.4,Math.max(1.45,...d.evidences.map(v=>[...v.label].reduce((sum,ch)=>sum+(/[\u1100-\uFFFF]/.test(ch)?1:.55),0)*14/72/2+.2))),fx=X+ew+.18,fw=1.5,kx=fx+fw+.12,kw=X+W-kx,kh=Math.min(6.1-Y,Math.max(2.5,1.44+textHeight(d.conclusion.detail,13,kw-.4)+.22)),ky=(Y+6.1)/2-kh/2;
  nodes.push({kind:"triangle",x:fx,y:Y,w:fw,h:6.1-Y,fill:c.tint,rotate:90});
- d.evidences.forEach((v,i)=>{const y=Y+i*(eh+gap);box(X,y,lw,eh,c.tint,c.connector);txt(v.label,X+.1,y+eh/2-.25,lw-.2,.3,14,c.primary,true,"center");txt(v.tag,X+.1,y+eh/2+.08,lw-.2,.22,10,c.muted,true,"center");
-  box(X+lw+.06,y,ew-lw-.06,eh,c.panel,c.connector);const th=Math.min(eh-.16,richLines(v.fact,13,ew-lw-.36).length*13*1.3/72+.06);txt(v.fact,X+lw+.21,y+(eh-th)/2,ew-lw-.36,th,13,c.darkest);});
- box(kx,ky,kw,kh,c.darkest);txt("결론",kx+.2,ky+.2,kw-.4,.24,10,c.onDarkSub,true);txt(d.conclusion.title,kx+.2,ky+.48,kw-.4,.7,18,"#FFFFFF",true);line(kx+.2,ky+1.22,kw-.4,c.onDarkSub,1);txt(d.conclusion.detail,kx+.2,ky+1.34,kw-.4,kh-1.44,13,"#FFFFFF");break;}
+ d.evidences.forEach((v,i)=>{const y=Y+i*(eh+gap),pt=fitStack([v.label],lw-.2,eh-.42,14,12),lh=textHeight(v.label,pt,lw-.2),ly=y+(eh-lh-.25)/2;box(X,y,lw,eh,c.tint,c.connector);txt(v.label,X+.1,ly,lw-.2,lh+.02,pt,c.primary,true,"center");txt(v.tag,X+.1,ly+lh+.06,lw-.2,.22,10,c.muted,true,"center");
+  box(X+lw+.06,y,ew-lw-.06,eh,c.panel,c.connector);const factPt=fitStack([v.fact],ew-lw-.36,eh-.16,13,10),th=eh-.16;txt(v.fact,X+lw+.21,y+.08,ew-lw-.36,th,factPt,c.darkest);});
+ box(kx,ky,kw,kh,c.darkest);txt("결론",kx+.2,ky+.2,kw-.4,.24,10,c.onDarkSub,true);txt(d.conclusion.title,kx+.2,ky+.48,kw-.4,.7,18,"#FFFFFF",true);line(kx+.2,ky+1.22,kw-.4,c.onDarkSub,1);txt(d.conclusion.detail,kx+.2,ky+1.34,kw-.4,kh-1.44,fitStack([d.conclusion.detail],kw-.4,kh-1.44,13,10),"#FFFFFF");break;}
  case "kpi-tree":{const d=S[kind].parse(slide.data),total=d.drivers.reduce((s,v)=>s+v.kpis.length,0),gw=2.55,dx=X+gw+.55,dw=2.9,kx=dx+dw+.55,kw=X+W-kx,gap=.1,dgap=.18,rh=(6.1-Y-gap*(total-d.drivers.length)-dgap*(d.drivers.length-1))/total,vline=(x:number,y:number,h:number)=>nodes.push({kind:"line",x,y,w:0,h,fill:c.connector,stroke:c.connector,strokeWidth:1.5});
  const gh=2.1,gy=(Y+6.1)/2-gh/2;box(X,gy,gw,gh,c.darkest);txt("최종 목표",X+.16,gy+.18,gw-.32,.24,10,c.onDarkSub,true);txt(d.goal.name,X+.16,gy+.46,gw-.32,.66,16,"#FFFFFF",true);line(X+.16,gy+1.2,gw-.32,c.onDarkSub,1);txt(d.goal.target,X+.16,gy+1.32,gw-.32,.6,18,"#FFFFFF",true);
  let y=Y;const dc:number[]=[];const t1=X+gw+.27,t2=dx+dw+.27;
@@ -231,3 +234,4 @@ break;}
  }
  balance(start);conclusion(common.takeaway);return true;
 }
+

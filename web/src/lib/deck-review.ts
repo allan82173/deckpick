@@ -3,7 +3,7 @@ import { reviewSchema, type DeckReview } from "./task-model";
 import { draftSlide } from "./draft-workflow";
 import { canvasHeadline } from "./canvas-edits";
 import { makeScene } from "./scene";
-import { inspectSlide, textArtifacts, MAX_QUALITY_RETRIES,isRendererWarning, excessHedgeIndices, HEDGE_HEADLINE_LIMIT, answerFirstIndex, isWeakSummaryHeadline } from "./slide-quality";
+import { inspectSlide, textArtifacts, MAX_QUALITY_RETRIES,isRendererWarning, excessHedgeIndices, HEDGE_HEADLINE_LIMIT, answerFirstIndex, isWeakSummaryHeadline, repairSafetyScore } from "./slide-quality";
 import type { Deck, SlideSpec } from "./model";
 import { withBudget, remainingBudgetMs } from "./run-budget";
 import { mapConcurrent } from "./concurrency";
@@ -26,7 +26,10 @@ export async function assessDeck(c: Connection, deck: Deck, focus?: number[]): P
     const slide = draftSlide(deck, index);
     if (focus && !focus.includes(index)) return { index, headline: slide ? canvasHeadline(slide) : item.message, role: item.role };
     return { index, headline: slide ? canvasHeadline(slide) : item.message, role: item.role,
-      text: slide ? makeScene(slide, deck.designSystem, index + 1, deck.input.topic, deck.outline.map(row => row.section)).nodes.filter(node => node.kind === "text").map(node => node.kind === "text" ? node.text : "").join("\n") : "미생성",
+      text: slide ? reviewVisibleContent(slide, deck, index).text : "미생성",
+      charts: slide ? reviewVisibleContent(slide, deck, index).charts : [],
+      contentContract:slide?.contentContract ?? item.contentContract,
+      designSystem: deck.designSystem.name,
       evidenceRefs: slide?.evidenceRefs ?? item.evidenceRefs, claimType: slide?.claimType, argument: item.argument };
   });
   const result = await structured(c, wireSchema,
@@ -109,6 +112,12 @@ export async function reviewAndRepairDeck(c: Connection, initial: Deck) {
     for (const outcome of outcomes) {
       if (outcome.status === "rejected") { const error = outcome.reason; if (error instanceof AIError && [401, 429, 504].includes(error.status)) throw error; if (error instanceof Error && "status" in error && error.status === 504) throw error; continue; }
       const { index, current, slide } = outcome.value;
+      const item=deck.outline[index],previous=deck.outline.slice(0,index).map((_,page)=>draftSlide(deck,page)?.layoutId??"");
+      const before=inspectSlide(current,item,deck.input,deck.researchRecord?.evidence??[],previous),after=inspectSlide(slide,item,deck.input,deck.researchRecord?.evidence??[],previous);
+      if(repairSafetyScore(after.warnings)>repairSafetyScore(before.warnings)){
+        review={...review,issues:[...review.issues,{index,category:"구성" as const,reason:"자동 보완이 새로운 본문 누락·넘침을 만들어 기존 초안을 보존했습니다.",repair:"해당 장의 경고를 확인한 뒤 필요한 부분만 보완하세요."}].slice(0,80)};
+        continue;
+      }
       const slot = deck.picked[index] ?? 0;
       const candidates = [...(deck.candidates[index] ?? [])]; candidates[slot] = slide;
       deck = { ...deck, candidates: { ...deck.candidates, [index]: candidates } };
@@ -125,13 +134,16 @@ export async function reviewAndRepairDeck(c: Connection, initial: Deck) {
     const merged = [...next.issues, ...previousIssues.filter(old => !next.issues.some(issue => issue.index === old.index && issue.reason === old.reason))];
     review = { ...next, issues: merged.slice(0, 80), checklist: next.checklist.length ? next.checklist : review.checklist, rounds: round + 1 };
   }
-  for (const issue of review.issues) {
-    const slide = draftSlide(deck, issue.index);
-    if (!slide) continue;
-    slide.quality = { ...slide.quality, warnings: [...new Set([...(slide.quality?.warnings ?? []), issue.reason])], fillRatio: slide.quality?.fillRatio ?? 0, attempts: slide.quality?.attempts ?? 0 };
-  }
+  // Review issues live in review. Do not mutate replacement.before (shared with
+  // the original candidate); doing so falsely reports a concurrent user edit.
   return { replacements, review,slides:deck.outline.map((_,index)=>draftSlide(deck,index)) };
   });}catch(error){if(!(error instanceof Error&&"status" in error&&error.status===504))throw error;
     return {replacements,review:{status:"incomplete" as const,checklist:[],issues:[],rounds:0,reviewedAt:new Date().toISOString(),summary:"검토 미완료 · 시간 제한으로 중단했습니다. 생성된 장표는 보존했습니다. 전체 검토를 다시 실행할 수 있습니다."},slides:deck.outline.map((_,index)=>draftSlide(deck,index))};
   }
+}
+
+export function reviewVisibleContent(slide: SlideSpec, deck: Deck, index: number) {
+  const scene = makeScene(slide, deck.designSystem, index + 1, deck.input.topic, deck.outline.map(row => row.section));
+  return { text: scene.nodes.flatMap(node => node.kind === "text" ? [node.text] : []).join("\n"),
+    charts: scene.nodes.flatMap(node => node.kind === "image" && node.chart ? [node.chart] : []) };
 }

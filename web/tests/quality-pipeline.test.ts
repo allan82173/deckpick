@@ -109,6 +109,7 @@ test("failed slides get at most two quality repairs and retain warnings, evidenc
   let calls = 0;
   globalThis.fetch = async (_url, init) => {
     const body = JSON.parse(String(init?.body)); assert.equal(body.model, c.model);
+    if(body.text?.format?.schema?.properties?.requirements){const p=JSON.parse(body.input);return response({version:1,requirements:[{id:"test-source",kind:"fact",quote:p.item.message,anchors:[p.item.message],display:"body"}],comparisonDimensions:[]});}
     if(body.text?.format?.schema?.properties?.warnings)return response({warnings:[]});
     calls++;
     const prompt = JSON.parse(body.input);
@@ -141,4 +142,13 @@ test("all new analytical layouts render in bounds and export native editable tex
   const zip = await JSZip.loadAsync(await (await exportDeck(deck, false)).write({ outputType: "nodebuffer" }) as Buffer);
   assert.ok((await zip.file("ppt/slides/slide1.xml")!.async("string")).includes("<p:sp>"));
   assert.ok((await zip.file("ppt/notesSlides/notesSlide1.xml")!.async("string")).includes("2026-11-05"));
+});
+
+test("a timed-out repair retains a valid draft with an explicit warning",async()=>{
+ const {GENERATION_CONFIG}=await import("../src/lib/generation-config");
+ const original=fetch,backoff=GENERATION_CONFIG.reliability.backoffMs;let batches=0;
+ GENERATION_CONFIG.reliability.backoffMs=1;
+ const item:OutlineItem={index:2,section:"흐름",message:"조건에 따라 경로가 달라집니다.",contentHint:"",role:"흐름",evidenceRefs:["1"],contentContract:{version:1,requirements:[{id:"condition",kind:"condition",quote:"조건에 따라 경로가 달라집니다.",anchors:["조건"],display:"notes"}],comparisonDimensions:[]}};
+ globalThis.fetch=async(_,init)=>{const b=JSON.parse(String(init?.body));if(b.text.format.schema.properties.warnings)return response({warnings:[]});if(++batches>1)throw new DOMException("timeout","TimeoutError");const p=JSON.parse(b.input);return response({slides:p.slotPlan.map((slot:{layoutId:LayoutId})=>({layoutId:slot.layoutId,section:"흐름",headline:"조건을 확인합니다.",dataJson:JSON.stringify(sampleData(slot.layoutId,item)),sourceUrls:[],notes:""}))});};
+ try{const slides=await generateCandidates(c,input,item,[],"",[],true,[item],"",0,[],[],undefined,evidence);assert.ok(slides.length);assert.ok(slides[0].quality?.warnings.some(w=>w.includes("자동 보완 시간 초과")));assert.ok(slides[0].headline);}finally{globalThis.fetch=original;GENERATION_CONFIG.reliability.backoffMs=backoff;}
 });

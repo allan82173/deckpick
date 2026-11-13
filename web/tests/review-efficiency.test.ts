@@ -31,6 +31,7 @@ test("레이아웃 반복만 지적된 장은 새로 만들지 않고 기존 후
     assert.equal(candidateCalls, 0, "반복만 지적된 첫 수정 라운드에서는 AI로 다시 만들지 않는다(재검토 뒤 지적은 이 테스트 대상이 아님)");
     const swap = reviewed.replacements.find(r => r.index === target) as { swapWith?: number } | undefined;
     assert.ok(swap && typeof swap.swapWith === "number" && swap.swapWith > 0);
+    assert.deepEqual((swap as unknown as {before:unknown}).before,deck.candidates[target][0],"후속 검토 경고가 적용 전 스냅샷을 변경해 가짜 충돌을 만들지 않는다");
     assert.notEqual(reviewed.slides[target]?.layoutId, candidates[2][0].layoutId);
     assert.deepEqual(focuses[0], undefined, "첫 검토는 덱 전체");
     assert.deepEqual(focuses[1], [target], "재검토는 바뀐 장만");

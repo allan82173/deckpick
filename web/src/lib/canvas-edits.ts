@@ -46,5 +46,5 @@ export function clearCanvasNode(slide:SlideSpec,original:SceneNode):SlideSpec{
 /** Merge into the latest saved element, never an older render's geometry/text. */
 export function patchCanvasNode(slide:SlideSpec,original:SceneNode,edit:CanvasEdit):SlideSpec{
   const current=applyCanvasEdits([original],slide.canvasEdits)[0],cleared=clearCanvasNode(slide,original),key=sceneNodeKey(original,0);
-  return {...cleared,...(!Object.keys(slide.canvasEdits??{}).length?{rendererVersion:"adaptive-v3" as const}:{}),canvasEdits:{...cleared.canvasEdits,[key]:{x:current.x,y:current.y,w:current.w,h:current.h,...(current.kind==="text"?{text:current.text,color:current.color,size:current.size,bold:current.bold}:current.kind!=="image"?{fill:current.fill}:{}),...canvasEditSchema.parse(edit)}}};
+  return {...cleared,...(!Object.keys(slide.canvasEdits??{}).length?{rendererVersion:slide.rendererVersion??"adaptive-v4" as const}:{}),canvasEdits:{...cleared.canvasEdits,[key]:{x:current.x,y:current.y,w:current.w,h:current.h,...(current.kind==="text"?{text:current.text,color:current.color,size:current.size,bold:current.bold}:current.kind!=="image"?{fill:current.fill}:{}),...canvasEditSchema.parse(edit)}}};
 }

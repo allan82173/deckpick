@@ -78,6 +78,7 @@ test("the draft screen exposes resume and an explicit incomplete-review retry",(
 test("mixed bad rows still reach storyline, all slides, and the deck review",async()=>{
  const native=fetch;
  globalThis.fetch=async(_,init)=>{const b=JSON.parse(String(init?.body)),properties=b.text.format.schema.properties;
+  if(properties.requirements){const p=JSON.parse(String(b.input));return reply({version:1,requirements:[{id:"test-source",kind:"fact",quote:p.item.message,anchors:[p.item.message],display:"body"}],comparisonDimensions:[]});}
   if(properties.rows)return reply({rows:[row,{...row,url:url+"-second"},{...row,claim:"인용 미확인",originalText:"존재하지 않는 문구"},{...row,url:"https://invalid.example/not-returned"},{...row,questionIds:["WRONG"]}]});
   if(properties.warnings)return reply({warnings:[]});
   if(properties.checklist)return reply({checklist:[{id:"count",passed:true,reason:"5장"}],issues:[],summary:"합성 검증"});

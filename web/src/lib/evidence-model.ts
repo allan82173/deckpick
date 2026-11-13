@@ -56,6 +56,8 @@ export const researchRecordSchema = z.object({
 });
 export type ResearchRecord = z.infer<typeof researchRecordSchema>;
 export const slideQualitySchema = z.object({
+  suitableCandidateCount:z.number().int().min(1).max(3).optional(),
+  excludedCandidates:z.array(z.string().max(1000)).max(3).optional(),
   warnings: z.array(z.string()),
   attempts: z.number().int().min(0).max(2),
   fillRatio: z.number().min(0).max(1),

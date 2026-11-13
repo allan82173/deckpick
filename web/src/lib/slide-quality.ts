@@ -1,3 +1,5 @@
+import { chartSemanticWarnings } from "./chart-semantics";
+import {inspectContentContract} from "./content-contract";
 import { GENERATION_CONFIG } from "./generation-config";
 import { inspectSceneGeometry } from "./visual-quality";
 import { expandedKind, expandedRegistry } from "./expanded-layouts";
@@ -8,13 +10,15 @@ import { makeScene, wrap } from "./scene";
 import { design } from "./design";
 import type { Calculation, TaskAnalysis } from "./task-model";
 import { applyCalculation } from "./scenario-calculation";
+import { copyBudgetWarnings } from "./copy-budgets";
+import { missingCalculationOutputs } from "./calculation-coverage";
 
 export const roleLayoutKinds = {
   "사실 제시": ["evidence-table", "comparison-table", "before-after", "trend"],
   "비교": ["comparison-table", "before-after", "quadrants", "positioning"],
   "흐름": ["journey", "cause-chain", "system-flow", "swimlane"],
   "우선순위": ["quadrants", "comparison-table", "before-after"],
-  "계산": ["formula-cards", "contract-bars", "comparison-table", "trend"],
+  "계산": ["formula-cards", "comparison-table", "trend"],
   "일정": ["calendar", "contract-bars", "swimlane", "journey"],
   "판단": ["quadrants", "comparison-table"],
   "근거": ["evidence-table", "comparison-table"],
@@ -46,7 +50,7 @@ export function isHedgeHeadline(text: string): boolean {
  */
 export function isDeckMetaHeadline(text: string): boolean {
   const plain = text.replace(/\*\*/g, "");
-  return /(?:목차|구성|순서)(?:는|가|이)?\s.*(?:적합|배치|붙이|검토합니다|둡니다)|결론을 먼저|근거(?:를|는)?\s*(?:뒤|앞)에|근거\s*(?:수준|강도|유형)(?:이|가|은|는)?\s*(?:다르|달라|약하|낮)|근거(?:뿐|만 있)|(?:원문|근거)\s*확인\s*(?:근거만|건만)|(?:가설|추정)(?:·[가-힣]+)?(?:으로|로)\s*나눠|비교에\s*주의|단정하고\s*나머지/.test(plain);
+  return /(?:목차|구성|순서)(?:는|가|이)?\s.*(?:적합|배치|붙이|검토합니다|둡니다)|결론을 먼저|근거(?:를|는)?\s*(?:뒤|앞)에|근거\s*(?:수준|강도|유형)(?:이|가|은|는)?\s*(?:다르|달라|약하|낮)|근거(?:뿐|만 있)|(?:원문|근거)\s*확인\s*(?:근거만|건만)|(?:가설|추정)(?:·[가-힣]+)?(?:으로|로)\s*나눠|비교에\s*주의|단정하고\s*나머지|(?:이번|본)\s*(?:조사|발표|분석)(?:는|에서는)\s.*(?:검토|구분|정리)|현황\s*판단은\s*원문\s*확인|미확인\s*자료는\s*추론으로\s*구분/.test(plain);
 }
 /**
  * 동한 문체 가이드(docs/동한-문체-가이드.md)의 AI 문체 키메시지: 대비 연출·격언·포장어·겹 얼버무림·대시·화살표.
@@ -144,10 +148,15 @@ function strings(value: unknown): string[] {
 }
 export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInput, evidence: Evidence[], previousLayouts: string[] = []):NonNullable<SlideSpec["quality"]> {
   const warnings: string[] = [];
+  warnings.push(...copyBudgetWarnings(slide),...chartSemanticWarnings(slide,item,evidence));
+  if(slide.layoutId.endsWith("survey-findings")||(slide.layoutId.endsWith("interview-quotes")&&slide.data.basis==="실제 조사"))warnings.push(...unverifiedQuoteWarnings(slide.data.quotes,evidence));
   const exempt = item.index === 0 || ["표지", "목차", "출처"].includes(item.section) || item.role === "합의 사항";
   const compositionExempt = item.index === 0 || ["표지", "목차"].includes(item.section);
   const refs = (slide.evidenceRefs ?? []).filter(id => evidence.some(e => e.id === id));
-  if (isPlanHeadline(slide.headline)) warnings.push("키메시지가 판단·질문 대신 계획형으로 끝납니다.");
+  const missingRefs = (slide.evidenceRefs ?? []).filter(id => !evidence.some(e => e.id === id));
+  if (missingRefs.length) warnings.push(`근거표에 없는 ID를 참조합니다: ${[...new Set(missingRefs)].join(", ")}`);
+  if (!exempt && isDeckMetaHeadline(slide.headline)) warnings.push("키메시지가 주제 주장 대신 조사 방법·근거 분류를 설명합니다. 본문 근거 범위 안의 주장으로 고치세요.");
+  if (!compositionExempt && isPlanHeadline(slide.headline)) warnings.push("키메시지가 판단·질문 대신 계획형으로 끝납니다.");
   if (visibleQaStatus(slide.data).length) warnings.push("본문에 원문 확인·검수 상태나 출처 개수 문구가 있습니다. 검수 상태는 노트로 옮기고 화면에는 내용과 기준 연도만 남기세요.");
   if (swappedSeriesChart(slide.data)) warnings.push("차트의 계열마다 값이 범주 전체에서 같습니다. 서로 다른 지표를 범주로 두거나 단일 막대·핵심 숫자로 바꾸세요.");
   if (allZeroChart(slide.data)) warnings.push("차트 수치가 모두 0이거나 0/1 표시뿐입니다. 확인되지 않은 항목은 차트 대신 가설·검증 계획으로 보여 주세요.");
@@ -156,7 +165,13 @@ export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInp
   const body = strings(slide.data).filter(s => s.trim().length > 8);
   if (!compositionExempt && body.length && body.filter(s => /(?:확인합니다|살핍니다|검토합니다|조사합니다|비교합니다|확인 필요|추가 조사 필요)[.!\s]*$/.test(s)).length / body.length >= .6) warnings.push("본문 대부분이 할 일·확인 목록으로 구성돼 있습니다.");
   const scene = makeScene(slide, design(input.designSystemId, input.customPrimary), item.index + 1, input.topic);
-  const textBoxes = scene.nodes.filter(n => n.kind === "text" && n.y >= 1.7 && n.y < 6.3 && n.h >= .35);
+  if(item.role==="계산"&&item.calculation){const missing=missingCalculationOutputs(scene,item.calculation);if(missing.length)warnings.push(`계산 결과 누락: ${missing.map(v=>`${v.label} ${v.value}${v.unit}`).join(" / ")}. 차트 또는 본문에 값과 단위를 모두 표시하고, 합산값과 부분값의 관계도 설명하세요.`);}
+  warnings.push(...inspectContentContract(slide.contentContract ?? item.contentContract,scene,item.role==="비교"));
+  const bodyText=scene.nodes.filter(n=>n.kind==="text"&&n.y>=1.7&&n.y<6.3&&n.h>0);
+  const spacious=bodyText.filter(n=>n.h>=.35);
+  // Adaptive rows use measured single-line boxes. Excluding all of them yielded
+  // a false 0% fill and triggered destructive layout changes on full tables.
+  const textBoxes=spacious.length?spacious:bodyText;
   let available = 0, occupied = 0;
   for (const node of textBoxes) {
     if (node.kind !== "text") continue;
@@ -194,6 +209,21 @@ export function textArtifacts(text: string, analysis?: TaskAnalysis): string[] {
   if (/TODO|TBD|\[\s*\]|데이터\s*입력\s*후\s*산출|실제 계약 일정 입력 후 산출/i.test(text)) warnings.push("빈 양식이나 자리표시자가 남아 있습니다.");
   let visible = text;
   for (const term of analysis?.terminology ?? []) visible = visible.split(term.term).join("");
-  if ((analysis?.language ?? "ko").startsWith("ko") && /[\u3040-\u30ff\u4e00-\u9fff]/.test(visible)) warnings.push("한국어 덱에 승인하지 않은 한자·가나가 섞여 있습니다.");
+  if ((analysis?.language ?? "ko").startsWith("ko") && /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fc-\u30ff\u4e00-\u9fff]/.test(visible)) warnings.push("한국어 덱에 승인하지 않은 한자·가나가 섞여 있습니다.");
   return warnings;
+}
+
+/** Preserve a usable draft when automatic repair introduces more omissions or overflow. */
+export function repairSafetyScore(warnings:string[]){return warnings.reduce((score,w)=>score+(/^차트 의미|^계산 결과 누락|^필수 내용|^비교 기준 누락|^인용 \d/.test(w)?10:/텍스트가.*넘|문구 축약 필요|본문 채움|빈 양식|차트 수치가 모두/.test(w)?1:0),0);}
+
+/** A URL or paraphrased case summary is not a verbatim survey/interview quote. */
+export function unverifiedQuoteWarnings(value:unknown,evidence:Evidence[]){
+ if(!Array.isArray(value))return [];
+ const normalize=(text:string)=>text.normalize("NFKC").replace(/[\s“”"'‘’]/g,"");
+ return value.flatMap((q,index)=>{if(!q||typeof q!=="object"||typeof q.text!=="string")return [];
+  if(/^https?:\/\/\S+$/i.test(q.text.trim()))return [`인용 ${index+1}: URL을 발언처럼 표시하지 말고 출처 노트에 두세요.`];
+  if(/인용\s*아님|요약/.test(String(q.speaker??"")))return [`인용 ${index+1}: 자료 요약은 실제 인터뷰 인용 대신 사례 설명 영역에 두세요.`];
+  const quote=normalize(q.text);
+  return evidence.some(row=>!!row.originalText&&(row.kind==="내부 전제"||row.originalVerified===true)&&normalize(row.originalText).includes(quote))?[]:[`인용 ${index+1}: 제공된 원문에서 직접 대조할 수 없습니다. 실제 인용만 사용하거나 다른 사례 설명 형식을 고르세요.`];
+ });
 }

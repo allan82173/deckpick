@@ -5,6 +5,7 @@ export const callMetricSchema = z.object({
   requestCharacters:z.number().optional(),estimatedInputTokens:z.number().optional(),estimationMethod:z.string().optional(),
   networkRetry:z.number().optional(),outputRetry:z.number().optional(),
   inputTokens: z.number().optional(), outputTokens: z.number().optional(), totalTokens: z.number().optional(), cachedInputTokens: z.number().optional(), reasoningTokens: z.number().optional(),
+  transport: z.enum(["api", "cli"]).optional(), limitsEnforced: z.boolean().optional(),
 });
 export type CallMetric = z.infer<typeof callMetricSchema>;
 export const evidenceScopeSchema=z.object({id:z.string(),stage:z.string(),slideIndex:z.number().optional(),availableRows:z.number(),sentRows:z.number(),attachmentRows:z.number(),confirmedDecisions:z.number(),evidenceIds:z.array(z.string())});

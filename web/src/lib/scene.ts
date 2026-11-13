@@ -299,28 +299,28 @@ export function makeScene(
         else placeholder(6.633333, 0, 6.7, 7.5, "선택한 장표에서 프로젝트 사진을 넣어 주세요", false);
         box(0, 0, 6.633333, 7.5, "#FFFFFF");
         line(0.65, 0.8, 0.7, c.primary, 4);
-        txt("PROJECT PROPOSAL", 0.65, 1.12, 5.25, 0.4, 11, c.primary, true);
+        txt(d.eyebrow ?? "PROJECT PROPOSAL", 0.65, 1.12, 5.25, 0.4, 11, c.primary, true);
         coverTitle(d.title,0.65,2.12,5.3,2.4,30,c.darkest);
-        txt(d.subtitle, 0.65, 4.85, 5.25, 0.8, 14, c.muted);
+        txt(d.subtitle, 0.65, 4.85, 5.25, d.eyebrow ? 1.35 : 0.8, 14, c.muted);
         txt(d.author, 0.65, 6.7, 5.3, 0.35, 11, c.muted);
         if (d.referencePhoto && !d.photoId) txt("사진: 맹그로브 공식 홈페이지", 0.65, 7.15, 5.3, 0.18, 7, c.muted);
         break;
       }
       if (d.coverStyle === "white") {
         box(0, 0, 0.2, 7.5, c.primary);
-        txt("STRATEGY REPORT", 0.8, 0.8, 10.8, 0.4, 12, c.primary, true);
+        txt(d.eyebrow ?? "STRATEGY REPORT", 0.8, 0.8, 10.8, 0.4, 12, c.primary, true);
         coverTitle(d.title,.8,2.2,11.6,1.9,36,c.darkest);
         line(0.8, 4.55, 11.7, c.primary, 1.5);
-        txt(d.subtitle, 0.8, 4.95, 10.7, 0.85, 16, c.muted);
+        txt(d.subtitle, 0.8, 4.95, 10.7, d.eyebrow ? 1.35 : 0.85, 16, c.muted);
         txt(d.author, 0.8, 6.65, 10.7, 0.35, 12, c.muted);
         break;
       }
       if (d.coverStyle === "type") {
         box(0, 0, SLIDE.w, 7.5, c.panel);
         box(9.9, 0, 3.43, 7.5, c.primary);
-        txt("PROPOSAL", 0.7, 0.65, 8.4, 0.4, 12, c.primary, true);
+        txt(d.eyebrow ?? "PROPOSAL", 0.7, 0.65, 8.4, 0.4, 12, c.primary, true);
         coverTitle(d.title,.7,2,8.35,2.3,37,c.darkest);
-        txt(d.subtitle, 0.7, 4.85, 8.35, 0.9, 16, c.muted);
+        txt(d.subtitle, 0.7, 4.85, 8.35, d.eyebrow ? 1.35 : 0.9, 16, c.muted);
         txt(d.author, 0.7, 6.6, 8.35, 0.35, 12, c.muted);
         txt("01", 10.35, 5.9, 2.3, 1, 54, "#FFFFFF", true, "center");
         break;
@@ -599,3 +599,4 @@ export function makeScene(
   }
   return { nodes:applyCanvasEdits(fitTextNodes(nodes,warnings),slide.canvasEdits), warnings: [...new Set(warnings)] };
 }
+

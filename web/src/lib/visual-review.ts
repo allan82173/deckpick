@@ -8,6 +8,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { GENERATION_CONFIG } from "./generation-config";
 const esc=(s:string)=>s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"})[c]!);
+export function scaleSvgUnits(markup:string,scale:number){
+ return markup.replace(/\b(x|y|x1|x2|y1|y2|cx|cy|rx|ry|width|height|font-size|stroke-width|dy)="(-?[\d.e+-]+)"/g,(_,key,value)=>`${key}="${Number(value)*scale}"`)
+  .replace(/points="([^"]+)"/g,(_,points:string)=>`points="${points.replace(/-?[\d.e+]+/g,v=>String(Number(v)*scale))}"`)
+  .replace(/rotate\(([-\d.]+) ([-\d.]+) ([-\d.]+)\)/g,(_,a,x,y)=>`rotate(${a} ${Number(x)*scale} ${Number(y)*scale})`);
+}
 export async function renderSlidePng(slide:SlideSpec,ds:DesignSystem,page=1,topic="DeckPick",sections:string[]=[]){
  const scene=makeScene(slide,ds,page,topic,sections),parts:string[]=[];
  for(const n of scene.nodes){
@@ -25,7 +30,11 @@ export async function renderSlidePng(slide:SlideSpec,ds:DesignSystem,page=1,topi
   else if(n.kind==="triangle"||n.kind==="trapezoid")parts.push(`<polygon points="${n.kind==="trapezoid"?`${n.x},${n.y} ${n.x+n.w},${n.y} ${n.x+n.w-.2},${n.y+n.h} ${n.x+.2},${n.y+n.h}`:n.rotate===90?`${n.x},${n.y} ${n.x+n.w},${n.y+n.h/2} ${n.x},${n.y+n.h}`:`${n.x+n.w/2},${n.y} ${n.x+n.w},${n.y+n.h} ${n.x},${n.y+n.h}`}" fill="${n.fill}"/>`);
   else parts.push(`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="${n.fill}" stroke="${n.stroke??n.fill}" stroke-width="${(n.strokeWidth??1)/72}"${n.rotate?` transform="rotate(${n.rotate} ${n.x+n.w/2} ${n.y+n.h/2})"`:""}/>`);
  }
- return sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${GENERATION_CONFIG.visual.width}" height="${GENERATION_CONFIG.visual.width*SLIDE.h/SLIDE.w}" viewBox="0 0 ${SLIDE.w} ${SLIDE.h}"><rect width="${SLIDE.w}" height="${SLIDE.h}" fill="white"/>${parts.join("")}</svg>`)).png().toBuffer();
+ // Rasterize in pixel units. Sub-pixel font sizes in an inch-sized SVG viewBox
+ // were rounded by the text rasterizer, producing broken glyphs and false warnings.
+ const scale=GENERATION_CONFIG.visual.width/SLIDE.w,height=GENERATION_CONFIG.visual.width*SLIDE.h/SLIDE.w;
+ const markup=scaleSvgUnits(parts.join(""),scale);
+ return sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${GENERATION_CONFIG.visual.width}" height="${height}" viewBox="0 0 ${GENERATION_CONFIG.visual.width} ${height}"><rect width="100%" height="100%" fill="white"/>${markup}</svg>`)).png().toBuffer();
 }
 const resultSchema=z.object({warnings:z.array(z.string().min(1).max(500)).max(12)});
 export async function visualReview(c:ReturnType<typeof connection>,slide:SlideSpec,ds:DesignSystem,page:number,topic:string,sections:string[]=[]){

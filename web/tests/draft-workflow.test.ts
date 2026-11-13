@@ -59,3 +59,11 @@ test("initial sidebar renders three populated candidates without asking to load 
  assert.equal((html.match(/aria-label="1번 장 후보 /g)??[]).length,3);
  assert.doesNotMatch(html,/초안과 함께 준비할 후보입니다/);
 });
+
+test("rejected third slot is not regenerated after saving and restoring two valid choices",()=>{
+ const d=fixture(),options=demoCandidates(d.input,d.outline[0]).slice(0,2).map(s=>({...s,quality:{warnings:[],fillRatio:1,attempts:2,suitableCandidateCount:2,excludedCandidates:["순위 막대 제외"]}}));
+ const next=applyDraftCandidates(d,0,options),restored=JSON.parse(JSON.stringify(next));
+ assert.equal(next.candidates[0].length,2);assert.equal(draftNeedsCandidates(restored,0),false);assert.equal(sameDraftContext(d,next),true);
+ const html=renderToStaticMarkup(createElement(DraftCandidateSidebar,{deck:restored,index:0,busy:false,disabled:false,onLoad:()=>{},onSelect:()=>{},onCompare:()=>{}}));
+ assert.equal((html.match(/aria-label="1번 장 후보 /g)??[]).length,2);
+});
