@@ -52,7 +52,7 @@ export const researchRecordSchema = z.object({
   requiresReview: z.boolean().optional(),
   acceptedLimits: z.boolean().optional(),
   queries: z.array(z.string()).optional(),
-  originalPages: z.array(z.object({ url: z.string(), opened: z.boolean(), checkedAt: z.string(), error: z.string().optional(), format:z.enum(["html","text","pdf"]).optional(), questionIds:z.array(z.string()).optional(),originalCharacters:z.number().optional(),excerptCharacters:z.number().optional() })).optional(),
+  originalPages: z.array(z.object({ url: z.string(), discoveredFrom: z.string().optional(), opened: z.boolean(), checkedAt: z.string(), error: z.string().optional(), format:z.enum(["html","text","pdf"]).optional(), questionIds:z.array(z.string()).optional(),originalCharacters:z.number().optional(),excerptCharacters:z.number().optional() })).optional(),
 });
 export type ResearchRecord = z.infer<typeof researchRecordSchema>;
 export const slideQualitySchema = z.object({

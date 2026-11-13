@@ -4,6 +4,7 @@ import path from "node:path";
 import {prepareTask,runResearch,createStoryline} from "../src/lib/research-pipeline";
 import {generateCandidates} from "../src/lib/ai";
 import {withExecution,executionSnapshot} from "../src/lib/execution-scope";
+import {mergeExecution} from "../src/lib/execution-model";
 import {withRunContext} from "../src/lib/run-checkpoints";
 import {localAgentStatus,cliOnlyRequested} from "../src/lib/local-agent";
 import {design} from "../src/lib/design";
@@ -20,10 +21,11 @@ async function main(){
  const old=await readFile(path.join(dir,"progress.json"),"utf8").then(JSON.parse).catch(()=>null);
  if(old&&JSON.stringify(old.deck.input)!==JSON.stringify(input))throw Error("실행 ID의 입력이 다릅니다. 다른 ID를 사용하세요.");
  let deck:Deck=old?.deck??{id:crypto.randomUUID(),input,designSystem:design(input.designSystemId),outline:[],research:[],candidates:{},picked:{},edited:{},chat:{setup:[],outline:[],slides:{}},demo:false};
+ const previousExecution=deck.execution;
  const c={provider:"anthropic" as const,key:"",model:"gpt-6.1-sol",localAgent:"codex" as const,language:"ko" as const};
  let stage=old?.stage??"start",status="running";
  const save=async()=>{
-  const execution=executionSnapshot();if(execution)deck.execution=execution;
+  const execution=executionSnapshot();if(execution)deck.execution=mergeExecution(previousExecution,execution);
   const progress={runId,stage,status,apiKeyUsed:false,exported:false,reviewDeferredUntilSelection:true,deck};
   await writeFile(path.join(dir,"progress.json"),JSON.stringify(progress,null,2));
   const file=path.join(previewDir,runId+".json"),temp=file+".tmp";

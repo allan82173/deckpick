@@ -30,7 +30,7 @@ export async function prepareTask(c: Connection, input: DeckInput, attachment: s
   const plan = await checkpoint("research-plan",{model:c.model,analysis,previousQueries:previous?.queries,gaps:previous?.gaps},()=>planResearch(c, analysis, previous));
   return { evidence: material.evidence,rejectedRows:material.rejectedRows, attachmentFingerprint:material.fingerprint,confirmedDecisions,searchStatus: "not-requested" as const, notice: "첨부 근거표·과제 해석·질문별 조사 계획을 준비했습니다.", query: "", analysis, plan, gaps: [], requiresReview: false, acceptedLimits: false, queries: [] } satisfies ResearchRecord;
 }
-export async function runResearch(c: Connection, input: DeckInput, record: ResearchRecord, attachment: string, messages: ChatMessage[], images: VisionImage[] = [], services:{search?:typeof research;readPage?:typeof readOriginalPage;questionId?:string}={}) {
+export async function runResearch(c: Connection, input: DeckInput, record: ResearchRecord, attachment: string, messages: ChatMessage[], images: VisionImage[] = [], services:Parameters<typeof runQuestionResearch>[3]={}) {
   const analysis = record.analysis;
   if (!analysis || !record.plan) throw new AIError("과제 해석과 조사 계획을 먼저 준비해 주세요.", 400);
   if (analysis.fingerprint !== taskFingerprint(input, attachment, messages)) throw new AIError("입력이나 첨부가 바뀌었습니다. 과제 해석부터 다시 진행해 주세요.", 409);

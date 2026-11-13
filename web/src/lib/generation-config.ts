@@ -34,7 +34,7 @@ export const GENERATION_CONFIG = {
   measurement: { encoding:"o200k_base", imageInputFallbackTokens:3000 },
   /** 2026-11-08 사용자 결정: 근거가 부족한 질문이 있어도 사용할 근거(공개 또는 첨부)가 하나라도 있으면 확인 화면 없이 현재 범위로 진행하고, 부족한 범위는 안내·덱 한계로 남긴다. */
   autoProceedLimitedEvidence: true,
-  research: { roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, citedOriginalsPerQuestion: 3, parallelSearches: 1, questionConcurrency: 2, originalsPerDeck: 20, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
+  research: { policyVersion: "2026-11-13-original-recovery-v1", originalAttemptsPerQuestion: 6, documentLinksPerPage: 4, roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, citedOriginalsPerQuestion: 3, parallelSearches: 1, questionConcurrency: 2, originalsPerDeck: 20, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
   attachments: { chunkCharacters: 12000, rowsPerChunk: 80, extractVersion: "3", imagesPerExtraction: 4, contextTokens: 2400, researchTokens: 7200 },
   candidates: { maximum: 3 },
   generationEfficiency: { contractsInStoryline: true, finalVisualBatch: true, visualBatchSize: 3, compactSlideContext: true, repairAdvisoryCopy: false, batchCandidateRepairs: true, searchDiscoveryOnly: true, searchSummaryCharacters: 1200, searchSnippetCharacters: 500 },

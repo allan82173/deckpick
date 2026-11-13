@@ -9,3 +9,5 @@ For explicit selection-first trials, local content and geometry checks still run
 The hosted preview supports the prepared synthetic example, editing and PPTX export. Real research/generation requires the local subscription CLI workflow. No owner's API key is provided. Private source decks, attachments, execution reports, CLI jobs and authentication files are excluded from this repository/deployment.
 
 현재 개선의 전체 덱 품질·시간 절감률은 새로운 실측으로 확인해야 합니다. 오프라인 테스트 통과와 제출 수준 검증은 별개입니다.
+
+Original-source recovery: query results are genuinely interleaved, blocked pages do not consume the successful-page target, and a bounded next-source retry follows real report/document links. The direct document URL and discovery origin are recorded separately. Empty fact extraction can use the remaining research round; download listings alone are not treated as substantive task evidence. A controlled same-input recovery can reuse discovered URLs without repeating the initial searches.

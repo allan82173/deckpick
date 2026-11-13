@@ -45,9 +45,9 @@ test("bad URL and question rows are isolated while unmatched originalText is ret
  try{const result=await runResearch(c,input,base(),"",[],[],services);assert.equal(result.researchRecord.evidence.length,1);assert.equal(result.researchRecord.rejectedRows?.length,2*result.researchRecord.searchRounds!.length);const unconfirmed=result.researchRecord.evidence.flatMap(e=>[e,...(e.relatedFacts??[])]).find(e=>e.claim==="원문 미확인 주장")!;assert.equal(unconfirmed.originalText,"");assert.equal(unconfirmed.verificationStatus,"원문 미확인");assert.equal(unconfirmed.originalVerified,false);assert.ok(calls>=1);assert.equal(result.researchRecord.requiresReview,true);}finally{globalThis.fetch=native;}
  }finally{strictGate.autoProceedLimitedEvidence=previousGate;}
 });
-test("zero valid rows retry once then become a gap instead of failing the pipeline",async()=>{
- const native=fetch;let calls=0;globalThis.fetch=async()=>{calls++;return reply({rows:[{...row,url:"https://invalid.example/wrong"}]});};
- try{const result=await runResearch(c,input,base(),"",[],[],services);assert.equal(calls,1+GENERATION_CONFIG.reliability.emptyRowsRetries);assert.equal(result.researchRecord.evidence.length,0);assert.equal(result.researchRecord.gaps?.length,1);assert.equal(result.researchRecord.rejectedRows?.length,calls);}finally{globalThis.fetch=native;}
+test("zero valid rows retry per round then become a gap instead of failing the pipeline",async()=>{
+ const native=fetch;let calls=0;globalThis.fetch=async(_,init)=>{const b=JSON.parse(String(init?.body));if(b.text.format.schema.properties.localQuery)return reply({localQuery:"new source",englishQuery:"new English source"});calls++;return reply({rows:[{...row,url:"https://invalid.example/wrong"}]});};
+ try{const result=await runResearch(c,input,base(),"",[],[],services);assert.equal(calls,GENERATION_CONFIG.research.roundsPerQuestion*(1+GENERATION_CONFIG.reliability.emptyRowsRetries));assert.equal(result.researchRecord.evidence.length,0);assert.equal(result.researchRecord.gaps?.length,1);assert.equal(result.researchRecord.rejectedRows?.length,calls);}finally{globalThis.fetch=native;}
 });
 test("attachment validation keeps other rows and flags unconfirmed text without whole-call retry",async()=>{
  const native=fetch;let calls=0;const text="사용자가 제공한 원문 조건은 42일입니다.",locator="synthetic.txt · 1행";

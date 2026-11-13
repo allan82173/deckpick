@@ -6,7 +6,7 @@ import { isIP } from "node:net";
 import { gunzipSync, brotliDecompressSync } from "node:zlib";
 import { extractAttachment } from "./attachments";
 
-export type OriginalPage = { url: string; text: string; opened: boolean; checkedAt: string; error?: string; format?: "html" | "text" | "pdf" };
+export type OriginalPage = { url: string; text: string; opened: boolean; checkedAt: string; error?: string; format?: "html" | "text" | "pdf"; links?: {title:string;url:string}[] };
 const MAX_PAGE_BYTES = GENERATION_CONFIG.research.maxPageBytes;
 export const MAX_ORIGINAL_PAGES = GENERATION_CONFIG.research.originalsPerDeck;
 
@@ -79,6 +79,17 @@ export function plainHtml(html: string): string {
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
     .replace(/\s+/g, " ").trim();
 }
+/** Follow only document URLs actually present in the fetched page, never guessed URLs. */
+export function originalDocumentLinks(html:string,base:string,limit=6):{title:string;url:string}[]{
+ const found:{title:string;url:string;score:number}[]=[],seen=new Set<string>();
+ const clean=html.replace(/<(script|style|nav|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi," ");
+ for(const match of clean.matchAll(/<a\b[^>]*href\s*=\s*(["'])([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi)){
+  const title=plainHtml(match[3]),href=match[2].replace(/&amp;/g,"&");
+  if(!title||/^(?:javascript:|mailto:|tel:|#)/i.test(href)||!/\.pdf(?:[?#]|$)|annual.{0,12}report|financial.{0,20}(?:report|result|statement)|10[- ]?k|20[- ]?f|(?:html|pdf).{0,12}(?:format|download)|연차.{0,8}보고서|사업보고서|재무.{0,8}(?:제표|보고서)/i.test(title+" "+href))continue;
+  try{const url=validatePublicUrl(new URL(href,base).href);url.hash="";if(url.href===base||seen.has(url.href))continue;seen.add(url.href);found.push({title:title.slice(0,240),url:url.href,score:/10[- ]?k|20[- ]?f|annual|연차|사업보고서/i.test(title+" "+href)?3:/html/i.test(title)?2:1});}catch{/* Private or non-HTTP links are not source candidates. */}
+ }
+ return found.sort((a,b)=>b.score-a.score).slice(0,limit).map(({title,url})=>({title,url}));
+}
 export function quoteExists(quote: string, text: string): boolean {
   const normalize = (value: string) => value.normalize("NFKC").replace(/\s+/g, "").trim();
   const excerpt = quote.trim().replace(/^[“\"'「『]+|[”\"'」』]+$/g, "");
@@ -117,17 +128,18 @@ async function readPage(value: string, signal: AbortSignal): Promise<OriginalPag
         url = validatePublicUrl(new URL(result.location, url).href); continue;
       }
       if (result.status !== 200) throw Error(`원문 HTTP ${result.status}`);
-      let text: string;let format: "pdf"|"html"|"text"="html";
+      let text: string;let format: "pdf"|"html"|"text"="html";let links:OriginalPage["links"];
       if (result.type.includes("pdf") || result.bytes.subarray(0, 5).toString() === "%PDF-") {
         format="pdf";text = (await extractAttachment("public-source.pdf", result.bytes)).sections.map(section => section.text).join("\n");
       } else if (/text\/html|text\/plain|application\/xhtml/.test(result.type)) {
         format=result.type.includes("text/plain")?"text":"html";
         if(format==="html"&&/<input[^>]+type=["']password/i.test(result.bytes.toString())&&!/<article\b/i.test(result.bytes.toString()))throw Error("원문을 읽으려면 로그인이 필요합니다.");
         const charset = result.type.match(/charset=([^; ]+)/i)?.[1] ?? "utf-8";
-        text = plainHtml(new TextDecoder(charset).decode(result.bytes));
+        const html=new TextDecoder(charset).decode(result.bytes);
+        text = plainHtml(html);if(format==="html")links=originalDocumentLinks(html,url.href);
       } else throw Error("지원하는 원문 형식이 아닙니다.");
       if (text.length < 80) throw Error("원문 본문을 충분히 읽지 못했습니다.");
-      return { url: value, text, opened: true, checkedAt,format };
+      return { url: value, text, opened: true, checkedAt,format,...(links?.length?{links}:{}) };
     }
     throw Error("원문 리다이렉트가 너무 많습니다.");
   } catch (error) {
