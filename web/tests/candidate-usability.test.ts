@@ -13,3 +13,8 @@ test("final gate removes ordinal magnitude, retains real counts and records reas
 test("all-invalid batches fail clearly instead of inserting fake alternatives",()=>{
  assert.throws(()=>retainMeaningfulCandidates([chart("순위")],item),/후보를 제공하지/);
 });
+
+test("rechecking cached valid choices retains excluded-slot provenance",()=>{
+ const first=retainMeaningfulCandidates([chart("순위"),chart("명")],item),again=retainMeaningfulCandidates(first,item);
+ assert.equal(again.length,1);assert.deepEqual(again[0].quality?.excludedCandidates,first[0].quality?.excludedCandidates);
+});

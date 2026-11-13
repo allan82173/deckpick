@@ -681,7 +681,8 @@ async function generateCandidateBatch(
 }
 
 export async function generateCandidates(...args: Parameters<typeof generateCandidateBatch>) {
-  return withBudget("candidate",()=>checkpoint(`candidate:${args[2].index}`,{model:args[0].model,args:args.slice(1)},()=>generateCandidatesBody(...args)));
+  const candidates=await withBudget("candidate",()=>checkpoint(`candidate:${args[2].index}`,{model:args[0].model,args:args.slice(1)},()=>generateCandidatesBody(...args)));
+  return retainMeaningfulCandidates(candidates,args[2],args[13]??[]);
 }
 async function generateCandidatesBody(...args: Parameters<typeof generateCandidateBatch>) {
   const [c, input, originalItem, sources, instruction, excluded = [], single = false,
@@ -759,4 +760,3 @@ async function generateCandidatesBody(...args: Parameters<typeof generateCandida
   }
   return retainMeaningfulCandidates(current,item,evidence);
 }
-

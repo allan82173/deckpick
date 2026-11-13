@@ -67,3 +67,9 @@ test("rejected third slot is not regenerated after saving and restoring two vali
  const html=renderToStaticMarkup(createElement(DraftCandidateSidebar,{deck:restored,index:0,busy:false,disabled:false,onLoad:()=>{},onSelect:()=>{},onCompare:()=>{}}));
  assert.equal((html.match(/aria-label="1번 장 후보 /g)??[]).length,2);
 });
+
+test("existing primary accepts a reduced batch without refilling the rejected slot",()=>{
+ const d=fixture(),options=demoCandidates(d.input,d.outline[0]).slice(0,2).map(s=>({...s,quality:{warnings:[],fillRatio:1,attempts:2,suitableCandidateCount:2,excludedCandidates:["순위 막대 제외"]}}));
+ const initial=applyPrimaryDraft(d,0,options[0]),next=applyDraftCandidates(initial,0,options);
+ assert.equal(next.candidates[0].length,2);assert.equal(next.outline[0].acceptedCandidateCount,2);assert.equal(draftNeedsCandidates(next,0),false);
+});

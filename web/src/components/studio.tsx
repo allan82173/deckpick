@@ -1421,7 +1421,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
         else {
           const picked = { ...previous.picked }, edited = { ...previous.edited };
           delete picked[index]; delete edited[index];
-          result = { ...previous, candidates: { ...previous.candidates, [index]: candidates }, picked, edited };
+          result = { ...previous, outline:previous.outline.map((item,i)=>i===index?{...item,acceptedCandidateCount:candidates[0]?.quality?.suitableCandidateCount}:item), candidates: { ...previous.candidates, [index]: candidates }, picked, edited };
         }
         result = { ...result, candidateRounds: { ...previous.candidateRounds, [index]: (round + 1) % 10000 } };
         deckRef.current = result;
@@ -1463,7 +1463,7 @@ function Picker({ onError }: { onError: (s: string) => void }) {
   async function requestInitialCandidates(snapshot:Deck,index:number):Promise<SlideSpec[]>{
     const item=snapshot.outline[index],primary=draftSlide(snapshot,index);
     const existing=snapshot.candidates[index]??(primary?[primary]:[]);
-    const target=candidatePlan(snapshot.input,item).length;
+    const target=candidateTargetCount(snapshot,index);
     if(existing.length>=target)return existing;
     const sources=[...new Map([...snapshot.research,...(primary?.sources??[])].map(s=>[s.url,s])).values()];
     const base={input:snapshot.input,item,outline:snapshot.outline,sources,researchRecord:snapshot.researchRecord,previousLayouts:snapshot.outline.slice(0,index).map((item,i)=>draftSlide(snapshot,i)?.layoutId??candidatePlan(snapshot.input,item)[0]).filter(Boolean),...slideAttachmentOptions(snapshot,index)};
@@ -2169,4 +2169,3 @@ function Final({ onError }: { onError: (s: string) => void }) {
     </main>
   );
 }
-

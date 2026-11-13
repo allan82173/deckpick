@@ -53,7 +53,8 @@ export function applyDraftCandidates(deck:Deck,index:number,incoming:SlideSpec[]
  incoming.forEach(s=>slideSchema.parse(s));
  const normalized=initializeDraftSelections(deck);
  if(!draftSlide(normalized,index))return {...normalized,outline:normalized.outline.map((item,i)=>i===index?{...item,acceptedCandidateCount:incoming[0]?.quality?.suitableCandidateCount}:item),candidates:{...normalized.candidates,[index]:incoming.slice(0,3)},picked:{...normalized.picked,[index]:0}};
- let next=normalized;
+ const accepted=incoming[0]?.quality?.excludedCandidates?.length?incoming[0].quality.suitableCandidateCount:undefined;
+ let next=accepted?{...normalized,outline:normalized.outline.map((item,i)=>i===index?{...item,acceptedCandidateCount:accepted}:item)}:normalized;
  for(const slide of incoming){const existing=next.candidates[index]??[];if(existing.length>=3)break;if(existing.some(s=>candidateSignature(s)===candidateSignature(slide)||(!slide.layoutId.endsWith("cover")&&s.layoutId===slide.layoutId)))continue;next=appendDraftAlternative(next,index,slide);}
  return next;
 }
