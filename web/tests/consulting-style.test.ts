@@ -29,7 +29,7 @@ test("consulting generation receives curated rules and previous-slide context", 
     const body = JSON.parse(String(init?.body));
     assert.match(body.instructions, /최대 75자/);
     assert.match(body.instructions, /분모/);
-    assert.deepEqual(JSON.parse(body.input).narrativeContext.previous, previous);
+    assert.deepEqual(JSON.parse(body.input).narrativeContext.previous, {index:previous.index,section:previous.section,message:previous.message});
     const plannedId = JSON.parse(body.input).slotPlan[0].layoutId;
     return Response.json({ status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify({ slides: [{ layoutId: plannedId, section: item.section, headline: "해당 문제를 해결하기 위해 저희의 솔루션을 설계할 예정입니다.", dataJson: JSON.stringify(sampleData(plannedId, item)), sourceUrls: [], notes: "검증용" }] }) }] }] });
   };

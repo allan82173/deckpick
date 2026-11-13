@@ -9,3 +9,6 @@ export async function withExecution<T>(fn:()=>Promise<T>):Promise<{result:T;exec
   const execution:Execution={startedAt,updatedAt:startedAt,calls:[],config:structuredClone(GENERATION_CONFIG)};
   const result=await scope.run(execution,fn);execution.updatedAt=new Date().toISOString();return {result,execution};
 }
+
+/** A private progress snapshot lets long runs preserve measured usage on failure. */
+export function executionSnapshot(){const current=scope.getStore();return current?structuredClone({...current,updatedAt:new Date().toISOString()}):undefined;}

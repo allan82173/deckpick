@@ -89,6 +89,8 @@ export function applyCalculation(slide: SlideSpec, calculation?: Calculation | n
 
 /** Prevent capacity loss before any model call. Explicit unsuitable choices fail visibly. */
 export function calculationLayoutFits(layoutId: string, calculation?: Calculation | null) {
-  if (!calculation || !layoutId.endsWith("formula-cards")) return true;
-  return calculation.steps.length <= 3;
+  if (!calculation) return true;
+  if (layoutId.endsWith("horizontal-formula")) return calculation.steps.length >= 2 && new Set(calculation.steps.map(step => step.unit)).size === 1;
+  if (layoutId.endsWith("formula-cards")) return calculation.steps.length <= 3;
+  return true;
 }

@@ -1,3 +1,4 @@
+import {visualFixture} from "./editorial-fixture";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
@@ -39,7 +40,7 @@ test("deck-level repairs retain the image review result in the generation report
  globalThis.fetch=async(_,init)=>{const b=body(init),properties=(b.text as {format:{schema:{properties:Record<string,unknown>}}}).format.schema.properties;
   if(properties.requirements){const p=JSON.parse(String(b.input));return reply({version:1,requirements:[{id:"test-source",kind:"fact",quote:p.item.message,anchors:[p.item.message],display:"body"}],comparisonDimensions:[]});}
   if(properties.checklist)return reply({checklist:[],issues:++reviews===1?[{index:0,category:"구성",reason:"표지 설명 보완",repair:"설명 보완"}]:[],summary:"검토"});
-  if(properties.warnings)return reply({warnings:[]});
+  if(properties.warnings)return reply(visualFixture(b));
   return reply({slides:[{layoutId:slide.layoutId,section:slide.section,headline:slide.headline,dataJson:JSON.stringify(slide.data),sourceUrls:[],notes:""}]});
  };
  try{const result=await reviewAndRepairDeck(c,deck);assert.equal(result.replacements.length,1);const repaired=result.replacements[0].slide;assert.equal(repaired.quality?.visual?.status,"passed");assert.ok(repaired.quality!.attempts>=1&&repaired.quality!.attempts<=GENERATION_CONFIG.qualityRetries);const report=generationReport({...deck,candidates:{0:[repaired]},review:result.review});assert.equal(report.slides[0].visualReview?.status,"passed");assert.equal(report.slides[0].regenerationCount,repaired.quality!.attempts);}finally{globalThis.fetch=original;}

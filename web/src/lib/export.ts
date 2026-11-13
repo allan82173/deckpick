@@ -32,6 +32,7 @@ export async function exportDeck(deck: Deck, download = true) {
             text: run.text,
             options: {
               bold: n.bold || run.bold,
+              ...(run.link?{hyperlink:{url:run.link}}:{}),
               color: run.bold
                 ? deck.designSystem.colors.primary.slice(1)
                 : n.color.slice(1),

@@ -27,10 +27,10 @@ test("R3 결론 요약은 앞쪽, 벤치마킹 카드·포지셔닝은 한 번",
   for (const id of ["c-benchmark-cards", "c-positioning"]) assert.match(deckLayoutIssue(id, ["c-cover", id, "c-a", "c-b", "c-c", "c-d"], 20) ?? "", /한 번/);
 });
 
-test("R5 규칙을 지키는 후보 중 아직 쓰지 않은 구성을 먼저 고른다", () => {
+test("R5 적합한 1순위 구성을 유지하고 충돌할 때만 다른 구성을 고른다", () => {
   const plan = ["c-funnel", "c-matrix", "c-timeline"] as LayoutId[];
   assert.deepEqual(avoidDeckRepeats(plan, ["c-cover", "c-funnel"], ["c-trend"] as LayoutId[], true, 20), ["c-matrix"]);
-  assert.deepEqual(avoidDeckRepeats(plan, ["c-cover", "c-funnel", "c-a", "c-b", "c-c", "c-matrix"], [] as LayoutId[], true, 20), ["c-timeline"]);
+  assert.deepEqual(avoidDeckRepeats(plan, ["c-cover", "c-funnel", "c-a", "c-b", "c-c", "c-matrix"], [] as LayoutId[], true, 20), ["c-funnel"]);
   // 규칙을 지킬 후보가 없으면 바로 앞 장 중복만 피한다.
   assert.deepEqual(avoidDeckRepeats(["c-funnel"] as LayoutId[], ["c-cover", "c-funnel"], [] as LayoutId[], true, 20), ["c-funnel"]);
   assert.equal(avoidDeckRepeats(plan, ["c-cover"], [], false, 20).length, 3);

@@ -25,9 +25,10 @@ export const layoutPurpose: Record<LayoutId, string> = {
 const autoAllowed = (id: string) => !GENERATION_CONFIG.layouts.autoExcludedKinds.some(kind => id.endsWith("-" + kind));
 /** 포지셔닝 맵은 경쟁 구도·위치 비교가 장의 핵심일 때만 자동 후보가 된다(컨셉·우선순위·판단 장 남용 방지). */
 export const positioningFits = (item: OutlineItem) => (item.argument?.preferredLayouts ?? []).some(id => id.endsWith("-positioning")) || /포지셔닝|경쟁.{0,6}(위치|구도|지형)|지각도|시장.?지도/.test(`${item.section} ${item.message} ${item.contentHint}`);
+export const sectionDividerFits=(item:OutlineItem)=>/^(?:섹션|절|파트)\s*구분$|^section divider$/i.test(item.section.trim())||/본문 없는 전환 장|섹션 구분 장|전환 표지/.test(item.contentHint);
 export function candidatePlan(input: DeckInput, item: OutlineItem, excluded: string[] = [], rotation = 0, count = 3, requested?:LayoutId): LayoutId[] {
   if (requested && !calculationLayoutFits(requested, item.calculation)) throw Error("이 구성은 계산 결과를 모두 담을 수 없습니다. 전체 결과를 표시하는 다른 구성을 선택하세요.");
-  excluded = [...excluded, ...layoutIds.filter(id => !calculationLayoutFits(id, item.calculation))];
+  excluded = [...excluded, ...layoutIds.filter(id => !calculationLayoutFits(id, item.calculation)||(!requested&&id.endsWith("-section-divider")&&!sectionDividerFits(item)))];
   if (requested && item.role && !roleLayouts(input.deckType, item.role).includes(requested)) throw Error("이 장의 역할에 맞는 레이아웃을 선택해 주세요.");
   if(requested){if(count!==1||item.index===0||requested.endsWith("cover")||requested==="c-toc"||!requested.startsWith(input.deckType==="consulting"?"c-":"m-")||excluded.includes(requested))throw Error("현재 장표에 사용할 수 없는 구성입니다. 다른 후보에 없는 본문 구성을 골라 주세요.");return [requested];}
   if (item.index === 0) return Array(count).fill(input.deckType === "consulting" ? "c-cover" : "m-cover") as LayoutId[];
@@ -150,7 +151,7 @@ export function deckLayoutIssue(id: string, previous: string[], deckSize: number
 /** 역할에 맞는 자동 사용 가능 레이아웃 전체. 덱 규칙 때문에 첫 계획을 못 쓸 때 대안으로 쓴다. */
 export function widerPool(input: DeckInput, item: OutlineItem): LayoutId[] {
   if (!item.role || item.index === 0) return [];
-  return (roleLayouts(input.deckType, item.role) ?? []).filter(id => autoAllowed(id) && calculationLayoutFits(id,item.calculation) && (!id.endsWith("-positioning") || positioningFits(item)));
+  return (roleLayouts(input.deckType, item.role) ?? []).filter(id => autoAllowed(id) && calculationLayoutFits(id,item.calculation) && (!id.endsWith("-positioning") || positioningFits(item))&&(!id.endsWith("-section-divider")||sectionDividerFits(item)));
 }
 /** 덱 규칙을 지키고 아직 쓰지 않은 레이아웃을 앞에 둔다. 지킬 수 있는 후보가 없으면 바로 앞 장 중복만 피한다. */
 export function avoidDeckRepeats(plan: LayoutId[], previous: string[], wider: LayoutId[], single: boolean, deckSize: number): LayoutId[] {
@@ -159,7 +160,8 @@ export function avoidDeckRepeats(plan: LayoutId[], previous: string[], wider: La
   const allowed = pool.filter(id => !deckLayoutIssue(id, previous, deckSize));
   if (!allowed.length) return avoidPreviousLayout(plan, previous.at(-1), wider, single);
   const used = new Set(previous);
-  const ordered = [...allowed.filter(id => !used.has(id)), ...allowed.filter(id => used.has(id))];
+  const best=allowed.includes(plan[0])?plan[0]:undefined;
+  const ordered = [...(best?[best]:[]),...allowed.filter(id => id!==best&&!used.has(id)), ...allowed.filter(id => id!==best&&used.has(id))];
   if (single) return [ordered[0]];
   const result: LayoutId[] = [];
   for (const id of [...ordered, ...plan]) if (!result.includes(id) && !result.some(r => families[r] === families[id])) { result.push(id); if (result.length === plan.length) break; }

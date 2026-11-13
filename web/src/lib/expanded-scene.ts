@@ -58,6 +58,15 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
  case "validation-plan":{const d=S[kind].parse(slide.data),widths=[3,3,2.1,4.39],xs=[X,X+3,X+6,X+8.1],rh=3.72/d.rows.length;
  ["검증 질문","방법","대상·규모","이 결과가 나오면 바꿀 판단"].forEach((s,i)=>header(s,xs[i],Y,widths[i],i===3));d.rows.forEach((r,i)=>[r.question,r.method,r.sample,r.change].forEach((s,j)=>cell(s,xs[j],Y+.4+i*rh,widths[j],rh,j===3)));break;}
  case "evidence-scope":{
+  const bibliography=S[kind].parse(slide.data);
+  if(bibliography.mode==="bibliography"){
+   const columns=bibliography.rows.length>6?2:1,gap=.46,w=(W-gap*(columns-1))/columns,per=Math.ceil(bibliography.rows.length/columns);
+   for(let col=0;col<columns;col++){
+    const rows=bibliography.rows.slice(col*per,(col+1)*per),x=X+col*(w+gap),tw=w-.66,heights=rows.map(r=>textHeight(r.material,12,tw)+.40),spare=Math.max(0,H-heights.reduce((a,b)=>a+b,0))/Math.max(1,rows.length);let y=Y;
+    rows.forEach((r,i)=>{const th=textHeight(r.material,12,tw);txt(r.code,x,y+.02,.48,.26,11,c.primary,true);txt(r.material,x+.64,y,tw,th+.02,12,c.darkest,true);const meta=[r.dateLabel,r.url?`[원문 보기](${r.url})`:"원문 URL 없음"].filter(Boolean).join(" · ");txt(meta,x+.64,y+th+.06,tw,.24,10,c.muted);line(x,y+heights[i]+spare-.1,w,c.connector,.7);y+=heights[i]+spare;});
+   }
+   conclusion(bibliography.takeaway);break;
+  }
  // 판단할 수 있는 것은 연녹색 칸·주색 굵은 글자(✓), 판단할 수 없는 것은 흰 칸·위험색 글자(✕), 코드는 진한 표식으로 강조한다.
  const d=S[kind].parse(slide.data),widths=[.75,3.1,4.05,4.59],xs=[X,X+.75,X+3.85,X+7.9],rh=3.76/d.rows.length;
  header("코드",xs[0],Y,widths[0],true);header("자료",xs[1],Y,widths[1]);header("✓ 판단할 수 있는 것",xs[2],Y,widths[2]);box(xs[3],Y,widths[3],.4,c.risk);txt("✕ 판단할 수 없는 것",xs[3]+.1,Y+.075,widths[3]-.2,.28,12,"#FFFFFF",true);
@@ -168,8 +177,8 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
   const room=h-.62-.2,size=n>4?13:14,th=Math.min(room,richLines(v.state,size,sw-.28).length*size*1.3/72+.06);txt(v.state,x+.14,y+.72,sw-.28,th,size,c.darkest,tgt);
   if(cur||tgt){const label=cur?"현재 위치":"목표",tw=1.1;box(x+(sw-tw)/2,y-.42,tw,.3,cur?c.primary:c.darkest);txt(label,x+(sw-tw)/2,y-.38,tw,.24,11,"#FFFFFF",true,"center");}});
 break;}
- case "org-chart":{const d=S[kind].parse(slide.data),tw=3.6,th=.92,tx=X+(W-tw)/2,n=d.units.length,gap=.22,uw=(W-gap*(n-1))/n,bus=Y+th+.36,uy=bus+.32,vline=(x:number,y:number,h:number)=>nodes.push({kind:"line",x,y,w:0,h,fill:c.connector,stroke:c.connector,strokeWidth:1.5});
- box(tx,Y,tw,th,c.darkest);txt(d.top.name,tx+.15,Y+.1,tw-.3,.34,16,"#FFFFFF",true,"center");txt(d.top.role,tx+.15,Y+.48,tw-.3,.36,11,c.onDarkSub,false,"center");
+ case "org-chart":{const d=S[kind].parse(slide.data),tw=3.6,topRoleH=Math.max(.36,textHeight(d.top.role,11,tw-.3)),th=Math.max(.92,.48+topRoleH+.08),tx=X+(W-tw)/2,n=d.units.length,gap=.22,uw=(W-gap*(n-1))/n,bus=Y+th+.36,uy=bus+.32,vline=(x:number,y:number,h:number)=>nodes.push({kind:"line",x,y,w:0,h,fill:c.connector,stroke:c.connector,strokeWidth:1.5});
+ box(tx,Y,tw,th,c.darkest);txt(d.top.name,tx+.15,Y+.1,tw-.3,.34,16,"#FFFFFF",true,"center");txt(d.top.role,tx+.15,Y+.48,tw-.3,topRoleH,11,c.onDarkSub,false,"center");
  d.advisors.forEach(a=>{const aw=2.8,ax=tx+tw+.9;line(tx+tw,Y+th/2,.9,c.connector,1.5);box(ax,Y+.06,aw,th-.12,c.tint,c.primary);txt(a.name,ax+.12,Y+.12,aw-.24,.28,13,c.primary,true,"center");txt(a.role,ax+.12,Y+.44,aw-.24,.34,11,c.darkest,false,"center");});
  vline(X+W/2,Y+th,bus-Y-th);const cxs=d.units.map((_,i)=>X+i*(uw+gap)+uw/2);line(cxs[0],bus,cxs[n-1]-cxs[0],c.connector,1.5);
  d.units.forEach((u,i)=>{const x=X+i*(uw+gap),h=6.1-uy;vline(cxs[i],bus,uy-bus);header(u.name,x,uy,uw);box(x,uy+.4,uw,h-.4,c.panel,c.connector);

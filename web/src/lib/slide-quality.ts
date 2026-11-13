@@ -36,6 +36,8 @@ export const MIN_BODY_FILL: Record<LayoutId, number> = Object.fromEntries(
   layoutIds.map(id => [id, minimumByKind[id.slice(2)] ?? GENERATION_CONFIG.visual.defaultMinimumFill]),
 ) as Record<LayoutId, number>;
 export const MAX_QUALITY_RETRIES = GENERATION_CONFIG.qualityRetries;
+/** Length guidance remains visible; fitting text does not justify another model call. */
+export function isAdvisoryWarning(warning:string){return !GENERATION_CONFIG.generationEfficiency.repairAdvisoryCopy&&warning.startsWith("문구 길이:");}
 export function isRendererWarning(warning:string){return /텍스트.*넘|한 줄 텍스트|텍스트끼리|라벨.*겹|본문 하단|본문 글자 크기|본문 채움|겹침|넘침|잘림|글꼴 대체|폰트|글자.*(?:작|크기)|여백.*(?:과도|크)/.test(warning);}
 /** 유보형 키메시지(판단 보류) — 덱당 상한을 넘으면 잠정 판단 형태로 고친다. */
 export const HEDGE_HEADLINE_LIMIT = 2;
@@ -206,6 +208,9 @@ export function includeScenario(slide: SlideSpec, calculation?: Calculation | nu
 
 export function textArtifacts(text: string, analysis?: TaskAnalysis): string[] {
   const warnings: string[] = [];
+  // Empty structural arrays (e.g. leaf-node children) are not visible blanks.
+  // A literal "[]" inside displayed text remains a genuine placeholder.
+  try{const value:unknown=JSON.parse(text),strings:string[]=[];const collect=(v:unknown)=>{if(typeof v==="string")strings.push(v);else if(Array.isArray(v))v.forEach(collect);else if(v&&typeof v==="object")Object.values(v).forEach(collect);};collect(value);text=strings.join("\n");}catch{/* Plain visible text is already suitable for scanning. */}
   if (/TODO|TBD|\[\s*\]|데이터\s*입력\s*후\s*산출|실제 계약 일정 입력 후 산출/i.test(text)) warnings.push("빈 양식이나 자리표시자가 남아 있습니다.");
   let visible = text;
   for (const term of analysis?.terminology ?? []) visible = visible.split(term.term).join("");

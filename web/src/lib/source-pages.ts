@@ -67,6 +67,9 @@ async function download(url: URL, signal: AbortSignal): Promise<{ bytes: Buffer;
 
 export function plainHtml(html: string): string {
   return html.replace(/<(script|style|nav|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    // Official financial tables are often images with author-provided alt text.
+    // Preserve that source text instead of paying for another search or OCR.
+    .replace(/<img\b[^>]*\balt\s*=\s*(["'])([\s\S]*?)\1[^>]*>/gi,(_tag,_quote:string,alt:string)=>" "+alt+" ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&#(x[0-9a-f]+|\d+);/gi, (_, code: string) => {
       const value = code.startsWith("x") ? parseInt(code.slice(1), 16) : Number(code);

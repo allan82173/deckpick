@@ -1,3 +1,4 @@
+import {GENERATION_CONFIG} from "./generation-config";
 /** Private loopback-only CLI transport. No API-key fallback or credential copying. */
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -99,10 +100,10 @@ export async function localAgentCall(agent: LocalAgent, model: string, body: Rec
     const search = tools.some(t => (t.type ?? "").startsWith("web_search"));
     const outputFormat = body.output_config as { format?: { schema?: unknown } } | undefined;
     const schema = outputFormat?.format?.schema ?? tools.find(t => t.name === "return_result")?.input_schema;
-    const searchSchema = { type: "object", properties: { summary: { type: "string" }, sources: { type: "array", items: { type: "object", properties: { title: { type: "string" }, url: { type: "string" }, snippet: { type: "string" } }, required: ["title", "url", "snippet"], additionalProperties: false } } }, required: ["summary", "sources"], additionalProperties: false };
+    const searchSchema = { type: "object", properties: { summary: { type: "string", maxLength:GENERATION_CONFIG.generationEfficiency.searchSummaryCharacters }, sources: { type: "array", maxItems:GENERATION_CONFIG.research.sourcesPerQuery, items: { type: "object", properties: { title: { type: "string" }, url: { type: "string" }, snippet: { type: "string" } }, required: ["title", "url", "snippet"], additionalProperties: false } } }, required: ["summary", "sources"], additionalProperties: false };
     const shape = search ? searchSchema : schema;
     const messages = Array.isArray(body.messages) ? body.messages as { role?: string; content?: unknown }[] : [];
-    const prompt = [flatten(body.system), ...messages.map(m => `${m.role}: ${flatten(m.content)}`), shape ? `JSON 값 하나만 반환하세요. 스키마: ${JSON.stringify(shape)}` : "", search ? "실제 웹 도구로 조사하고 URL을 제시하세요. 제안 URL은 서버의 별도 원문 대조 전에는 검증 완료가 아닙니다." : "도구를 호출하지 말고 전달된 자료만 사용하세요."].join("\n\n");
+    const prompt = [flatten(body.system), ...messages.map(m => `${m.role}: ${flatten(m.content)}`), shape ? `JSON 값 하나만 반환하세요. 스키마: ${JSON.stringify(shape)}` : "", search ? `실제 검색 도구로 URL 후보만 수집하세요. 최대 ${GENERATION_CONFIG.research.toolCallsPerQuery}회 검색하고 페이지 열기·추가 탐색·사실 검증은 하지 않습니다. 원문은 별도 서버가 확인하므로 중복해서 읽지 마세요. 검색 결과에 없는 URL을 만들지 마세요. summary는 짧은 검색 요약이고 검증된 근거가 아닙니다.` : "도구를 호출하지 말고 전달된 자료만 사용하세요."].join("\n\n");
     // Keep isolated job assets in the project, preserve failure evidence, never expose credentials.
     const jobRoot = path.resolve(process.cwd(), ".cli-jobs");
     const { mkdir } = await import("node:fs/promises"); await mkdir(jobRoot, { recursive: true });

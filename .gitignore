@@ -7,3 +7,9 @@
 **/.generation-runs/
 
 **/.attachments/
+
+.vercel/
+
+**/public/examples/
+
+**/public/cover-assets/

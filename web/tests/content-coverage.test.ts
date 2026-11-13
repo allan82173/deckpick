@@ -22,6 +22,15 @@ const item={index:5,section:"배분",message:"다섯 자산에 나눕니다",con
 const slide={layoutId:"c-horizontal-formula",section:"배분",headline:"다섯 자산에 나눕니다.",data:{},sources:[]} as SlideSpec;
 const deck={id:"original",input,designSystem:design("lemonade"),outline:[item],candidates:{5:[slide]},picked:{5:0},edited:{},research:[],chat:{setup:[],outline:[],slides:{}},demo:false} as Deck;
 
+test("서로 다른 단위를 같은 수치 축에 강제하지 않고 전체 결과를 표시할 구성을 남긴다",()=>{
+ const mixed={...calc,steps:calc.steps.map((s,i)=>({...s,unit:i===0?"비율":"원"}))};
+ const mixedItem={...item,calculation:mixed};
+ const plan=candidatePlan(input,mixedItem);
+ assert.ok(plan.length>0);assert.ok(!plan.includes("c-horizontal-formula"));assert.ok(!plan.includes("c-formula-cards"));
+ assert.ok(!widerPool(input,mixedItem).includes("c-horizontal-formula"));
+ assert.throws(()=>candidatePlan(input,mixedItem,[],0,1,"c-horizontal-formula"),/모두 담을/);
+});
+
 test("5개 계산 결과를 카드 3개로 자르지 않고 계획과 실제 차트 모두 보존한다",()=>{
  assert.throws(()=>calculationCards(calc),/최대 3개/);
  const plan=candidatePlan(input,item);

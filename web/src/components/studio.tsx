@@ -1585,6 +1585,9 @@ function Picker({ onError }: { onError: (s: string) => void }) {
   useEffect(()=>{
     if(sharedPreview)return;
     cancel.current=false;
+    // Imported selection-first trials wait for the user, then independent review.
+    // Entering a completed draft must not launch another whole-deck generation.
+    if(deckRef.current?.generation?.status==="awaiting-review")return;
     if(["failed","incomplete"].includes(deckRef.current?.generation?.status??""))return;
     if(deckRef.current?.generation?.completedStages.some(stage=>stage.startsWith("candidate:"))&&deckRef.current.outline.some((_,i)=>!draftSlide(deckRef.current!,i)))return;
     const timer=window.setTimeout(()=>void buildDraft(),0);

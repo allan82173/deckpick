@@ -1,3 +1,4 @@
+import {visualFixture} from "./editorial-fixture";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -8,7 +9,7 @@ import { taskAnalysisSchema } from "../src/lib/task-model";
 import { taskFingerprint } from "../src/lib/task-analysis";
 import { runResearch } from "../src/lib/research-pipeline";
 import { extractAttachmentEvidence } from "../src/lib/attachment-evidence";
-import { structured,generateCandidates } from "../src/lib/ai";
+import { AIError,structured,generateCandidates } from "../src/lib/ai";
 import { createStoryline } from "../src/lib/storyline";
 import { withExecution } from "../src/lib/execution-scope";
 import { reviewAndRepairDeck } from "../src/lib/deck-review";
@@ -27,6 +28,14 @@ const input:DeckInput={topic:"안정화 합성 과제",purpose:"행 검증과 �
 const reply=(value:unknown)=>Response.json({output:[{content:[{type:"output_text",text:JSON.stringify(value)}]}],usage:{input_tokens:100,output_tokens:10,total_tokens:110}});
 function base(){const analysis=taskAnalysisSchema.parse({questions:["Q1","Q2"].map(id=>({id,question:"공개 근거 선택",publicQuestion:"공개 선택",judgmentForm:"선택",needsPublicEvidence:id==="Q1"})),publicContext:[],privateConditions:[],internalPremises:[],stage:"중간",language:"ko",slideCount:5,requiredSections:[],checklist:[{id:"count",requirement:"5장"}],terminology:[],notationRules:[],fingerprint:taskFingerprint(input,"",[])});return {analysis,plan:{questions:[{questionId:"Q1",evidenceNeeded:"원문",preferredMaterials:["기관·기업 공식 안내" as const],localQuery:"공식 자료",englishQuery:"official evidence"}]},evidence:[],searchStatus:"not-requested" as const,query:"",notice:""};}
 const url="https://example.org/official",originalText="원문에서 확인할 수 있는 숫자 42와 조건을 제시합니다.";
+
+test("cached candidate drafts must still pass the current reuse predicate",async()=>{
+ const id=`reuse-policy-${randomUUID()}`;let calls=0;
+ await withRunContext(id,()=>checkpoint("candidate-draft",{},async()=>{calls++;return {compatible:false};}));
+ const recovered=await withRunContext(id,()=>checkpoint("candidate-draft",{},async()=>{calls++;return {compatible:true};},value=>value.compatible));
+ assert.equal(calls,2);assert.equal(recovered.compatible,true);
+ await withRunContext(id,()=>checkpoint<{compatible:boolean}>("candidate-draft",{},async()=>{throw Error("must reuse");},value=>value.compatible));
+});
 const row={claim:originalText,title:"공식 자료",url,kind:"공개 사실",locator:"본문",originalText,publishedAt:"",materialType:"기관·기업 공식 안내",contextMatch:"일치",contextReason:"지역과 대상 일치",questionIds:["Q1"]};
 const services={search:async()=>({text:originalText,sources:[{title:"공식 자료",url}]}),readPage:async()=>({url,text:originalText,opened:true,checkedAt:"today",format:"html" as const})};
 test("bad URL and question rows are isolated while unmatched originalText is retained",async()=>{
@@ -56,6 +65,15 @@ test("forced review timeout returns the original slides and an incomplete review
  const outline=[{index:0,section:"표지",message:input.topic,contentHint:""}],slide=demoCandidates(input,outline[0])[0];const deck:Deck={id:randomUUID(),input,designSystem:forest,research:[],outline,candidates:{0:[slide]},picked:{0:0},edited:{},chat:{setup:[],outline:[],slides:{}},demo:false};
  try{const result=await reviewAndRepairDeck(c,deck);assert.equal(result.review.status,"incomplete");assert.deepEqual(result.slides,[slide]);assert.deepEqual(result.replacements,[]);assert.deepEqual(deck.candidates[0],[slide]);}finally{globalThis.fetch=native;GENERATION_CONFIG.reliability.deadlines.review=deadline;}
 });
+
+test("review timeout after a completed assessment preserves its unresolved issues",async()=>{
+ const native=fetch,deadline=GENERATION_CONFIG.reliability.deadlines.review,reserve=GENERATION_CONFIG.review.roundReserveMs;
+ GENERATION_CONFIG.reliability.deadlines.review=300;GENERATION_CONFIG.review.roundReserveMs=0;let calls=0;
+ globalThis.fetch=async()=>++calls===1?reply({checklist:[{id:"source",passed:false,reason:"검증 필요"}],issues:[{index:0,category:"판단",reason:"이전 검토의 구체 지적",repair:"확인된 근거로 보완"}],summary:"직전 완료 검토"}):new Promise<Response>(()=>{});
+ const outline=[{index:0,section:"표지",message:input.topic,contentHint:""}],slide=demoCandidates(input,outline[0])[0];
+ const deck:Deck={id:randomUUID(),input,designSystem:forest,research:[],outline,candidates:{0:[slide]},picked:{0:0},edited:{},chat:{setup:[],outline:[],slides:{}},demo:false};
+ try{const result=await reviewAndRepairDeck(c,deck);assert.equal(result.review.status,"incomplete");assert.ok(result.review.issues.some(i=>i.reason==="이전 검토의 구체 지적"));assert.ok(result.review.checklist.some(i=>i.id==="source"&&!i.passed));}finally{globalThis.fetch=native;GENERATION_CONFIG.reliability.deadlines.review=deadline;GENERATION_CONFIG.review.roundReserveMs=reserve;}
+});
 test("a checkpoint interruption resumes after the last completed stage",async()=>{
  const id=randomUUID();let taskCalls=0,storyCalls=0;
  await assert.rejects(withRunContext(id,async()=>{await checkpoint("task-analysis",input,async()=>{taskCalls++;return {questions:["Q1"]};});await checkpoint("storyline",input,async()=>{storyCalls++;throw Error("synthetic interruption");});}),/synthetic interruption/);
@@ -80,7 +98,7 @@ test("mixed bad rows still reach storyline, all slides, and the deck review",asy
  globalThis.fetch=async(_,init)=>{const b=JSON.parse(String(init?.body)),properties=b.text.format.schema.properties;
   if(properties.requirements){const p=JSON.parse(String(b.input));return reply({version:1,requirements:[{id:"test-source",kind:"fact",quote:p.item.message,anchors:[p.item.message],display:"body"}],comparisonDimensions:[]});}
   if(properties.rows)return reply({rows:[row,{...row,url:url+"-second"},{...row,claim:"인용 미확인",originalText:"존재하지 않는 문구"},{...row,url:"https://invalid.example/not-returned"},{...row,questionIds:["WRONG"]}]});
-  if(properties.warnings)return reply({warnings:[]});
+  if(properties.warnings)return reply(visualFixture(b));
   if(properties.checklist)return reply({checklist:[{id:"count",passed:true,reason:"5장"}],issues:[],summary:"합성 검증"});
   if(properties.slides){const data=JSON.parse(String(b.input)) as {item:{section:string;message:string};slotPlan:{layoutId:string}[];layoutExamples:Record<string,unknown>};return reply({slides:data.slotPlan.map(slot=>({layoutId:slot.layoutId,section:data.item.section,headline:data.item.message,dataJson:JSON.stringify(data.layoutExamples[slot.layoutId]),sourceUrls:[],notes:""}))});}
   return reply(pipelineFixture(b,input));
@@ -98,4 +116,10 @@ test("HTTP 520 is a transient retry and does not spend the format retry budget",
  const native=fetch,backoff=GENERATION_CONFIG.reliability.backoffMs;GENERATION_CONFIG.reliability.backoffMs=1;let count=0;
  globalThis.fetch=async()=>++count===1?new Response("temporary upstream failure",{status:520}):reply({ok:true});
  try{const measured=await withExecution(()=>structured(c,z.object({ok:z.boolean()}),"test","test",undefined,[],"story"));assert.equal(measured.result.ok,true);assert.deepEqual(measured.execution.calls.map(v=>v.status),[520,200]);assert.deepEqual(measured.execution.calls.map(v=>v.networkRetry),[0,1]);assert.ok(measured.execution.calls.every(v=>v.stage==="story"));assert.equal(measured.execution.calls[0].inputTokens,undefined);}finally{globalThis.fetch=native;GENERATION_CONFIG.reliability.backoffMs=backoff;}
+});
+
+test("one timed-out search does not discard successful sources before evidence extraction",async()=>{
+ const native=fetch,rounds=GENERATION_CONFIG.research.roundsPerQuestion;GENERATION_CONFIG.research.roundsPerQuestion=1;let extracts=0;
+ globalThis.fetch=async()=>{extracts++;return reply({rows:[row]});};
+ try{const result=await runResearch(c,input,base(),"",[],[],{...services,search:async(_connection,query)=>{if(query.includes("official"))throw new AIError("synthetic search timeout",504);return services.search();}});assert.equal(extracts,1);assert.equal(result.researchRecord.evidence.length,1);assert.equal(result.researchRecord.evidence[0].originalVerified,true);assert.ok(result.researchRecord.evidenceWarnings?.some(w=>w.reason.includes("개별 검색 요청 시간 초과")));}finally{globalThis.fetch=native;GENERATION_CONFIG.research.roundsPerQuestion=rounds;}
 });

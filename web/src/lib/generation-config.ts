@@ -5,7 +5,8 @@ const medium = { effort: "medium" as Effort, maxOutputTokens: 16000 };
 const low = { effort: "low" as Effort, maxOutputTokens: 10000 };
 /** All generation budgets live here. This module is safe to import in the UI. */
 export const GENERATION_CONFIG = {
-  version: "2026-11-13-content-contract-v4",
+  version: "2026-11-13-editorial-quality-v6",
+  editorialPolicy: "four-point-v1",
   /** Checkpoint compatibility key. Bump only when a saved stage result can no longer be reused (schema or stage meaning changed), not for every budget/version change. */
   checkpointVersion: "2026-11-13-content-contract-v4",
   stages: {
@@ -22,7 +23,7 @@ export const GENERATION_CONFIG = {
   transport: { heartbeatMs: 10000 },
   // Subscription CLI runs are serialized and include CLI startup/search latency.
   // Keep API budgets unchanged; a queued call must not use another call's time.
-  localCli: { providerTimeoutMs: 180000, storyTimeoutMs: 600000,
+  localCli: { providerTimeoutMs: 180000, storyTimeoutMs: 600000, researchQuestionConcurrency: 2,
     deadlines: { researchQuestion: 900000, storyline: 1200000, candidate: 900000, review: 900000 } },
   hosting: { stageBudgetMs: 270000, providerReserveMs: 10000 },
   reliability: { networkRetries: 2, backoffMs: 1000, emptyRowsRetries: 1,
@@ -36,12 +37,13 @@ export const GENERATION_CONFIG = {
   research: { roundsPerQuestion: 2, partialStopEvidence: 3, followupQueries: 1, originalsPerQuestion: 3, citedOriginalsPerQuestion: 3, parallelSearches: 1, questionConcurrency: 2, originalsPerDeck: 20, matchingEvidencePerQuestion: 2, toolCallsPerQuery: 1, sourcesPerQuery: 8, queryCharacters: 500, summaryCharactersPerRound: 6000, maxPageBytes: 8 * 1024 * 1024, pageTimeoutMs: 20000, redirectLimit: 3 },
   attachments: { chunkCharacters: 12000, rowsPerChunk: 80, extractVersion: "3", imagesPerExtraction: 4, contextTokens: 2400, researchTokens: 7200 },
   candidates: { maximum: 3 },
+  generationEfficiency: { contractsInStoryline: true, finalVisualBatch: true, visualBatchSize: 3, compactSlideContext: true, repairAdvisoryCopy: false, batchCandidateRepairs: true, searchDiscoveryOnly: true, searchSummaryCharacters: 1200, searchSnippetCharacters: 500 },
   /** 자동 후보에서 빼는 레이아웃(사용자가 직접 고를 때만 사용). 4단계 사람 평가에서 장표 점수가 가장 낮았다: calculation-flow 평균 2.38(16덱 중 11덱이 2점 이하), system-flow 2.14(7덱 중 5덱). */
   // 2026-11-08 사용자 결정: 텍스트 격자형 표(행·열에 문장을 채우는 표)도 자동 후보에서 제외 — comparison-table, validation-plan, cross-matrix, evidence-scope, compare. 출처 장의 evidence-table은 유지.
   layouts: { autoExcludedKinds: ["calculation-flow", "system-flow", "validation-plan", "cross-matrix", "evidence-scope", "compare"] as string[] },
   /** Deck review: start another repair round only if this much of the review budget remains (repairs run in parallel, then one re-assessment). */
   review: { roundReserveMs: 120000, repairConcurrency: 3 },
-  visual: { enabled: true, width: 1280, minFontPt: 10, overlapAreaFraction: .15, toleranceInches: .025, bodyTop: 1.7, bodyBottom: 6.3, emptyBottomFraction: .30, defaultMinimumFill: .18,
+  visual: { enabled: true, reviewFormatAttempts: 1, width: 1280, minFontPt: 10, overlapAreaFraction: .15, toleranceInches: .025, bodyTop: 1.7, bodyBottom: 6.3, emptyBottomFraction: .30, defaultMinimumFill: .18,
     minimumFill: { "comparison-table": .20, calendar: .16, quadrants: .17, "contract-bars": .14, "formula-cards": .22, "evidence-table": .17, journey: .17, "cause-chain": .18, "system-flow": .17, swimlane: .16 } as Record<string,number> },
   rendererRepair: {layouts:["c-argument-board","c-metrics-panel","c-comparison-table"] as string[],top:1.95,bottom:6.85,padding:.10,gap:.08,safety:.10,compactSafety:.035,bodyPt:12,minBodyPt:11,denseBodyPt:10,denseGap:.04,metricValuePt:18,minMetricValuePt:14},
   reports: { topicCharacters: 36, maxRequestBytes: 4 * 1024 * 1024 },

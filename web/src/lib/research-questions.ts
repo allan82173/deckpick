@@ -28,6 +28,8 @@ export function verifyAgainstOriginal(row:{claim:string;originalText:string},tex
  return snippet?{method:"수치",originalText:snippet}:{originalText:""};
 }
 type Services={search?:typeof research;readPage?:typeof readOriginalPage;questionId?:string};
+/** Overlap independent HTTP reads; the transport still serializes every local CLI call. */
+export const researchQuestionWorkers=(local:boolean)=>local?GENERATION_CONFIG.localCli.researchQuestionConcurrency:GENERATION_CONFIG.research.questionConcurrency;
 export async function runQuestionResearch(c:ReturnType<typeof connection>,input:DeckInput,record:ResearchRecord,services:Services={}){
  const analysis=record.analysis!,search=services.search??research,readPage=services.readPage??readOriginalPage;
  const planned=record.plan!.questions.filter(q=>(!services.questionId||q.questionId===services.questionId)&&analysis.questions.some(a=>a.id===q.questionId&&a.needsPublicEvidence));
@@ -51,7 +53,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
      const perQuery:Source[][]=[];
      for(const outcome of searched){
       if(outcome.status==="fulfilled"){const found=outcome.value;summary+="\n"+found.text;perQuery.push(found.sources);continue;}
-      const error=outcome.reason;if(!(error instanceof AIError)||error.status!==502)throw error;state.warnings.push({questionId:question.questionId,url:"",reason:error.message});
+      const error=outcome.reason;if(!(error instanceof AIError)||![502,504].includes(error.status))throw error;state.warnings.push({questionId:question.questionId,url:"",reason:error.status===504?"개별 검색 요청 시간 초과 · 성공한 검색 결과의 원문 확인과 근거 추출은 계속합니다.":error.message});
      }
      for(const s of interleaveSources(perQuery))if(!state.sources.some(existing=>existing.url===s.url))state.sources.push(s);
      // 원문 열기는 순서대로 기다리지 않고 한 번에 연다(질문당 3개 × 최대 20초가 순차로 쌓여 시간 제한에 걸리던 문제).
@@ -99,7 +101,7 @@ export async function runQuestionResearch(c:ReturnType<typeof connection>,input:
   },value=>value.complete);
   for(const page of result.pages)if(!pageCache.has(page.url))pageCache.set(page.url,Promise.resolve(page));
   return result;
- },c.localAgent?1:GENERATION_CONFIG.research.questionConcurrency);
+ },researchQuestionWorkers(!!c.localAgent));
  const parts=outcomes.map(outcome=>{if(outcome.status==="rejected")throw outcome.reason;return outcome.value;});
  const sources=[...new Map(parts.flatMap(p=>p.sources).map(s=>[s.url,s])).values()];
  const rawEvidence=[...record.evidence,...parts.flatMap(p=>p.evidence)].map((e,index)=>({...e,id:String(index+1)}));

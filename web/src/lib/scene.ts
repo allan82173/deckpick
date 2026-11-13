@@ -47,7 +47,7 @@ function weight(c: string) {
         ? 0.3
         : 0.55;
 }
-export type RichRun = { text: string; bold: boolean };
+export type RichRun = { text: string; bold: boolean; link?:string };
 /** 글 높이(인치). 장면 텍스트 기본 줄 간격 1.25 기준. */
 export const textHeight = (text: string, size: number, width: number) => richLines(text, size, width).length * size * 1.25 / 72;
 /** 여러 글을 세로로 쌓을 때(간격 gap) 높이 h 안에 들어가는 가장 큰 글자 크기. 칸을 비워 두지 않도록 max부터 줄여 본다. */
@@ -58,8 +58,12 @@ export function fitStack(texts: string[], width: number, height: number, max: nu
 export function richLines(text: string, size: number, width: number, oneLine=false) {
   const max=oneLine?Infinity:Math.max(.1,(width*72)/size),lines:RichRun[][]=[[]];
   if(oneLine)text=text.replace(/\n/g," ");
-  const units:{char:string;bold:boolean}[]=[];let bold=false;
-  for(let i=0;i<text.length;i++){if(text.slice(i,i+2)==="**"){bold=!bold;i++;}else units.push({char:text[i],bold});}
+  const units:{char:string;bold:boolean;link?:string}[]=[];let bold=false;
+  for(let i=0;i<text.length;i++){
+    const link=text[i]==="["?text.slice(i).match(/^\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/):null;
+    if(link){for(const char of link[1])units.push({char,bold,link:link[2]});i+=link[0].length-1;}
+    else if(text.slice(i,i+2)==="**"){bold=!bold;i++;}else units.push({char:text[i],bold});
+  }
   let n=0;
   for(let i=0;i<units.length;i++){
     const unit=units[i],char=unit.char;
@@ -71,7 +75,7 @@ export function richLines(text: string, size: number, width: number, oneLine=fal
     const cw=weight(char);
     if(n+cw>max&&lines.at(-1)!.length){lines.push([]);n=0;if(/\s/.test(char))continue;}
     const line=lines.at(-1)!;
-    if(line.at(-1)?.bold===unit.bold)line.at(-1)!.text+=char;else line.push({text:char,bold:unit.bold});
+    if(line.at(-1)?.bold===unit.bold&&line.at(-1)?.link===unit.link)line.at(-1)!.text+=char;else line.push({text:char,bold:unit.bold,...(unit.link?{link:unit.link}:{})});
     n+=cw;
   }
   return lines;

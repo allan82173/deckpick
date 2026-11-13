@@ -70,12 +70,17 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
     }
     case "calendar": {
       // 달력 표 대신 기간 축 위의 막대로 그린다. 같은 내용이 이어지는 칸은 한 막대로 합치고, 빈 칸('—')은 비워 둔다. 검증 전·가정 일정은 연한 막대.
-      const d = schemas.calendar.parse(slide.data), lw = 2.0, left = .42 + lw + .1, gw = 12.91 - left, w = gw / d.periods.length, top = 1.95, rh = (5.9 - top - .45) / d.events.length;
-      d.periods.forEach((p, i) => { txt(p, left + i * w, top, w, .3, 13, c.primary, true, "center"); g.nodes.push({ kind: "line", x: left + i * w, y: top + .38, w: 0, h: 5.9 - top - .38, fill: c.tint, stroke: c.tint, strokeWidth: 1 }); });
-      g.line?.(left, top + .38, gw, c.primary, 1.5);
+      const d = schemas.calendar.parse(slide.data), lw = 2.0, left = .42 + lw + .1, gw = 12.91 - left, w = gw / d.periods.length, top = 1.95;
+      const headerH=Math.max(.38,...d.periods.map(p=>textHeight(p,13,w)+.08)),rowTop=top+(headerH===.38?.45:headerH+.07),rh=headerH===.38?(5.9-top-.45)/d.events.length:(5.9-rowTop)/d.events.length;
+      const dense=d.events.some(e=>e.cells.some(v=>textHeight(v,12,w-.32)>Math.min(.62,rh-.2)-.08));
+      let densePt=12;const rowNeeds=(pt:number)=>d.events.map(e=>Math.max(textHeight(e.name,13,lw-.2),...e.cells.map(v=>textHeight(v,pt,w-.32)))+.24);
+      while(dense&&densePt>10&&rowNeeds(densePt).reduce((a,b)=>a+b,0)>5.9-rowTop)densePt-=.5;
+      const needs=rowNeeds(densePt),extra=Math.max(0,5.9-rowTop-needs.reduce((a,b)=>a+b,0))/d.events.length,rowHeights=dense?needs.map(h=>h+extra):d.events.map(()=>rh);
+      d.periods.forEach((p, i) => { txt(p, left + i * w, top, w, headerH===.38?.3:headerH-.04, 13, c.primary, true, "center"); g.nodes.push({ kind: "line", x: left + i * w, y: top + headerH, w: 0, h: 5.9 - top - headerH, fill: c.tint, stroke: c.tint, strokeWidth: 1 }); });
+      g.line?.(left, top + headerH, gw, c.primary, 1.5);
       const tentative = (v: string) => /검증|예시|가정|미정|확인|예정|후보/.test(v);
       d.events.forEach((event, r) => {
-        const y = top + .45 + r * rh, mid = y + rh / 2;
+        const rowH=rowHeights[r],y = dense?rowTop+rowHeights.slice(0,r).reduce((a,b)=>a+b,0):rowTop + r * rh, mid = y + rowH / 2;
         const lh = textHeight(event.name, 13, lw - .2);
         txt(event.name, .42, mid - lh / 2, lw - .2, lh + .04, 13, c.darkest, true);
         g.line?.(left, mid, gw, c.connector, 1);
@@ -83,9 +88,9 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
         for (let i = 0; i < event.cells.length;) {
           const v = event.cells[i]; if (blank(v)) { i++; continue; }
           let j = i + 1; while (j < event.cells.length && event.cells[j] === v) j++;
-          const x = left + i * w + .06, bw = (j - i) * w - .12, bh = Math.min(.62, rh - .2), soft = tentative(v);
+          const x = left + i * w + .06, bw = (j - i) * w - .12, bh = Math.min(rowH-.12,Math.max(.62,textHeight(v,dense?densePt:12,bw-.2)+.12)), soft = tentative(v);
           box(x, mid - bh / 2, bw, bh, soft ? c.tint : c.primary, soft ? c.primary : undefined);
-          const size = fitStack([v], bw - .2, bh - .08, 13, 11), th = textHeight(v, size, bw - .2);
+          const size = dense?densePt:fitStack([v], bw - .2, bh - .08, 13, 10), th = textHeight(v, size, bw - .2);
           txt(v, x + .1, mid - th / 2, bw - .2, th + .03, size, soft ? c.primary : "#FFFFFF", true, "center");
           i = j;
         }
@@ -177,6 +182,17 @@ export function drawAnalytical(slide: SlideSpec, c: DesignSystem["colors"], g: D
       // BOTH claim and scope before drawing; a later scope box must never hide text.
       const d = schemas[kind].parse(slide.data), cols = d.rows.length >= 5 ? 3 : d.rows.length >= 4 ? 2 : 1, rowsN = Math.ceil(d.rows.length / cols), gap = .2, cw = (12.49 - gap * (cols - 1)) / cols, top = 1.95, ch = (6.12 - top - gap * (rowsN - 1)) / rowsN, tw = cw - .32;
       const bodySize = Math.min(...d.rows.map(v => fitStack([v.claim, v.scope], tw, ch - .64, 14, 12, .16)));
+      // Long bibliographic metadata has many explicit line breaks. A wide table
+      // preserves all words, with natural wrapping, instead of six clipped cards.
+      if(d.rows.some(v=>textHeight(v.claim,bodySize,tw)+textHeight(v.scope,bodySize,tw)+.16>ch-.64)){
+        const widths=[.85,4.9,6.74],clean=(s:string)=>s.replace(/\n+/g," · "),rows=d.rows.map(v=>({...v,claim:clean(v.claim),scope:clean(v.scope)})),hh=.3,available=6.12-top-hh;
+        let pt=12;const needs=(size:number)=>rows.map(v=>Math.max(textHeight(v.claim,size,widths[1]-.2),textHeight(v.scope,size,widths[2]-.2),textHeight(v.id,size,widths[0]-.16))+.08);
+        while(pt>10&&needs(pt).reduce((a,b)=>a+b,0)>available)pt-=.5;
+        let x=.42;["근거 ID","자료·기간","본문 적용 범위·제약"].forEach((label,i)=>{box(x,top,widths[i],hh,c.primary);txt(label,x+.08,top+.04,widths[i]-.16,hh-.06,12,"#FFFFFF",true);x+=widths[i];});
+        const heights=needs(pt),extra=Math.max(0,available-heights.reduce((a,b)=>a+b,0))/rows.length;let y=top+hh;
+        rows.forEach((v,i)=>{const h=heights[i]+extra;x=.42;[v.id,v.claim,v.scope].forEach((value,j)=>{box(x,y,widths[j],h,i%2?"#FFFFFF":c.panel,c.connector);txt(value,x+.08,y+.04,widths[j]-.16,h-.08,pt,j===0?c.primary:c.darkest,j===0);x+=widths[j];});y+=h;});
+        conclusion(d.takeaway);break;
+      }
       d.rows.forEach((v, i) => {
         const x = .42 + (i % cols) * (cw + gap), y = top + Math.floor(i / cols) * (ch + gap);
         box(x, y, cw, ch, c.panel, c.tint);

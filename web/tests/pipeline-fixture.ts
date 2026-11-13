@@ -1,10 +1,11 @@
+import {visualFixture} from "./editorial-fixture";
 import type { DeckInput } from "../src/lib/model";
 import { demoOutline } from "../src/lib/demo";
 export function pipelineFixture(body: Record<string, unknown>, input: DeckInput, claim = "첨부 자료의 검토 대상입니다.", publicEvidence = false) {
   const properties = (body.text as any)?.format?.schema?.properties ?? {};
   if(properties.attachmentRows){const inputText=Array.isArray(body.input)?(body.input[0] as any).content.find((c:any)=>c.type==="input_text")?.text:body.input;const context=JSON.parse(String(inputText));return {attachmentRows:[{content:String(context.sources[0].text).slice(0,1600),type:"내부 전제",locator:context.sources[0].locator}].map(r=>({...r,type:"내부 전제"}))};}
   if(properties.localQuery)return {localQuery:"공식 공개 자료 조사 "+String(body.input).length,englishQuery:"official public evidence "+String(body.input).length};
-  if(properties.warnings)return {warnings:[]};
+  if(properties.warnings)return visualFixture(body);
   const questions = ["Q1", "Q2"].map(id => ({ id, question: "현재 선택은 무엇인가요?", publicQuestion: "공개 대안 비교", judgmentForm: "선택", needsPublicEvidence: publicEvidence }));
   if (properties.publicContext) return { questions, publicContext: [{ dimension: "지역", value: "한국" }], privateConditions: [{ value: "MGRV 5실 200만원", reason: "내부 조건" }], internalPremises: [claim], stage: "중간발표", language: "ko", slideCount: input.slideCount, requiredSections: [], checklist: [{ id: "count", requirement: `${input.slideCount}장` }], terminology: [], notationRules: [] };
   if (properties.questions) return { questions: questions.map(q => ({ questionId: q.id, evidenceNeeded: "대안의 공식 조건", preferredMaterials: ["기관·기업 공식 안내"], localQuery: "한국 공개 대안 비교", englishQuery: "Korea public alternatives" })) };
