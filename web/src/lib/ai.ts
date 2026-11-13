@@ -598,6 +598,9 @@ async function generateCandidateBatch(
   };
   const checkSlide = (s: SlideSpec) => {
       const kind = expandedKind(s.layoutId);
+      // New proposals use compact actors and relationship lines. Saved decks
+      // keep their old rendering unless the user changes them.
+      if (kind === "business-structure" && s.data.compact === undefined) s.data.compact = true;
       if (kind === "screenshot-notes" && !images.some(image => image.id && s.data.imageSrc === `/api/attachments/${image.id}`)) throw Error("실제 업로드한 이미지 경로만 사용할 수 있습니다.");
       if (kind === "persona-cards" && s.data.basis === "실제 조사" && (!Array.isArray(s.data.evidenceIds) || !s.data.evidenceIds.every(id => evidence.some(row => row.id === id)))) throw Error("실제 조사 페르소나는 확인 가능한 조사 근거 ID가 필요합니다.");
       if (kind === "metrics-panel" && Array.isArray(s.data.metrics) && s.data.metrics.filter((m: { value?: unknown }) => /\d/.test(String(m?.value ?? ""))).length < 2) throw Error("지표 패널은 숫자 값이 있는 지표가 2개 이상일 때만 씁니다. 수치가 없으면 다른 구성으로 바꾸세요.");
