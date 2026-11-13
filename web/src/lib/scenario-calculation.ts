@@ -90,7 +90,14 @@ export function applyCalculation(slide: SlideSpec, calculation?: Calculation | n
 /** Prevent capacity loss before any model call. Explicit unsuitable choices fail visibly. */
 export function calculationLayoutFits(layoutId: string, calculation?: Calculation | null) {
   if (!calculation) return true;
-  if (layoutId.endsWith("horizontal-formula")) return calculation.steps.length >= 2 && new Set(calculation.steps.map(step => step.unit)).size === 1;
-  if (layoutId.endsWith("formula-cards")) return calculation.steps.length <= 3;
+  if (layoutId.endsWith("horizontal-formula")) {
+    // This shared assumption line is constructed by code, not by the model.
+    // Reject an over-capacity layout before spending a call on its content.
+    const amount=(v:number)=>v.toLocaleString("ko-KR",{maximumSignificantDigits:15});
+    const display=(v:number,u:string)=>u==="비율"?`${amount(v*100)}%`:u==="원"&&Number.isInteger(v/1e8)&&Math.abs(v)>=1e8?`${amount(v/1e8)}억 원`:u==="원"&&Number.isInteger(v/1e4)&&Math.abs(v)>=1e4?`${amount(v/1e4)}만 원`:`${amount(v)}${u}`;
+    const assumption=calculation.assumptions.map(v=>`${v.label} ${display(v.value,v.unit)}(${v.origin})`).join(" · ");
+    return assumption.length<=220&&calculation.steps.length>=2&&new Set(calculation.steps.map(step=>step.unit)).size===1;
+  }
+  if (layoutId.endsWith("formula-cards")) {try {calculationCards(calculation); return true;}catch{return false;}}
   return true;
 }

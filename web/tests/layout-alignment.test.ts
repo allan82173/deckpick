@@ -25,3 +25,5 @@ test("cause tree child stacks align to their parent blocks despite different chi
   const nodes=scene("c-cause-tree").nodes;const parents=nodes.filter(n=>n.kind==="rect"&&n.x===4.02);for(const parent of parents){const children=nodes.filter(n=>n.kind==="rect"&&n.x===7.07&&n.y>=parent.y-.001&&n.y<parent.y+1.2);near(children[0].y,parent.y);near(children.at(-1)!.y+children.at(-1)!.h,parent.y+parent.h);}
 });
 test("equal tracks preserve both edges and identical gaps for variable counts",()=>{for(const count of [2,3,4,5,6]){const tracks=equalTracks(.42,12.49,count,.3);near(tracks[0].start,.42);near(tracks.at(-1)!.start+tracks.at(-1)!.size,12.91);for(let i=1;i<count;i++)near(tracks[i].start-tracks[i-1].start-tracks[i-1].size,.3);}});
+
+test("seven-section decks keep the same tab positions across active sections",()=>{const sections=["Brief","As-Is","Market","Rivals","Strategy","Execute","출처"]; const first=sectionTabs(sections,"Brief"),last=sectionTabs(sections,"출처");assert.equal(first.length,7);assert.deepEqual(first.map(({label,start,size})=>({label,start,size})),last.map(({label,start,size})=>({label,start,size})));assert.equal(last.filter(t=>t.active).length,1);});

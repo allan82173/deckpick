@@ -12,6 +12,7 @@ import type { Calculation, TaskAnalysis } from "./task-model";
 import { applyCalculation } from "./scenario-calculation";
 import { copyBudgetWarnings } from "./copy-budgets";
 import { missingCalculationOutputs } from "./calculation-coverage";
+import {visibleProductionMetaIssue} from "./editorial-quality";
 
 export const roleLayoutKinds = {
   "사실 제시": ["evidence-table", "comparison-table", "before-after", "trend"],
@@ -167,6 +168,10 @@ export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInp
   const body = strings(slide.data).filter(s => s.trim().length > 8);
   if (!compositionExempt && body.length && body.filter(s => /(?:확인합니다|살핍니다|검토합니다|조사합니다|비교합니다|확인 필요|추가 조사 필요)[.!\s]*$/.test(s)).length / body.length >= .6) warnings.push("본문 대부분이 할 일·확인 목록으로 구성돼 있습니다.");
   const scene = makeScene(slide, design(input.designSystemId, input.customPrimary), item.index + 1, input.topic);
+  // Scene text excludes notes, source metadata and the internal layout rationale.
+  // A TOC may describe the agenda, but must not advertise its own layout choice.
+  const productionMeta=scene.nodes.flatMap(node=>node.kind==="text"?[visibleProductionMetaIssue(node.text,input.topic)]:[]).find(Boolean);
+  if(productionMeta)warnings.push(`제작 메타 문구: ${productionMeta}`);
   if(item.role==="계산"&&item.calculation){const missing=missingCalculationOutputs(scene,item.calculation);if(missing.length)warnings.push(`계산 결과 누락: ${missing.map(v=>`${v.label} ${v.value}${v.unit}`).join(" / ")}. 차트 또는 본문에 값과 단위를 모두 표시하고, 합산값과 부분값의 관계도 설명하세요.`);}
   warnings.push(...inspectContentContract(slide.contentContract ?? item.contentContract,scene,item.role==="비교"));
   const bodyText=scene.nodes.filter(n=>n.kind==="text"&&n.y>=1.7&&n.y<6.3&&n.h>0);

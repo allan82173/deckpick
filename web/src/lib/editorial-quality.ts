@@ -1,5 +1,17 @@
 import {z} from "zod";
 
+/** Inspect audience copy, never notes or the separately stored layout rationale. */
+export function visibleProductionMetaIssue(text:string,topic=""):string|null {
+ const plain=text.replace(/\*\*/g,"").replace(/\s+/g," ").trim();
+ const deckSelfReference=/(?:이|본|해당)\s*(?:장표|슬라이드|덱)의?\s*(?:구성|레이아웃|형식|배치|시각화)|(?:이|본|해당)\s*(?:후보|레이아웃)(?:는|은|이|가|를|을)/.test(plain);
+ const designIsSubject=/발표\s*(?:디자인|형식)|장표\s*(?:디자인|형식)|프레젠테이션\s*디자인|(?:문서|UI|UX|시각|정보)\s*디자인|레이아웃\s*(?:비교|연구|평가)|가독성\s*(?:연구|평가)|목차\s*(?:유형|형식)\s*(?:비교|연구)/i.test(topic);
+ // A presentation about design may legitimately compare layouts as its subject.
+ if(designIsSubject&&!deckSelfReference)return null;
+ const formatComparison=/(?:요약표|번호형\s*목차|카드형\s*(?:구성|배치)?|순서형\s*흐름|레이아웃|장표\s*형식)(?:에|에서는|보다|은|는|이|가)?.{0,90}(?:보다|배치|구성|시각화|읽기)/.test(plain);
+ const productionVerdict=/(?:읽기|비교하기|이해하기)\s*(?:에\s*)?(?:유리|편리|쉽|좋)|(?:구성|형식|배치|시각화|후보|레이아웃)(?:이|가|는|로)?\s*(?:가장\s*)?(?:적합|적절|유리)|(?:배치|시각화)(?:했|하였|합니다|했습니다)|(?:구성|형식)입니다|(?:후보|레이아웃)(?:를|을)\s*선택/.test(plain);
+ return productionVerdict&&(deckSelfReference||formatComparison)?"내용의 결론 대신 장표 형식의 선택·배치 이유를 설명합니다. 형식 선택 이유는 내부 기록에 두고 관객에게는 해당 주제의 판단을 제시하세요.":null;
+}
+
 /** Application guidance adapted from Humanizer 2.8.2, without another model call. */
 export const humanizerWritingRules=`문장 퇴고 기준(Humanizer): 실제 판단·원인·수치·조건을 평이한 한국어로 씁니다. '생존의 열쇠·새로운 패러다임' 같은 포장이나 임의 브랜드명으로 분석을 대신하지 않습니다. '이에 따라·그래서'를 모든 제목에 반복하지 말고 앞 장에서 생긴 질문에 구체적인 내용으로 답합니다. 불필요한 삼단 나열·격언·과장·명사 연결·대비 구문·기계적 강조를 줄입니다. 주체와 행동을 명확히 쓰고 번역투를 피합니다. 정확한 수치·단위·비교 범위·고유명사·불확실성은 보존합니다. 전문 분석에 경험·감정·인용을 새로 만들지 않습니다. 문장을 고쳤다고 근거가 강해졌다고 평가하지 않습니다.`;
 
