@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { deckLayoutIssue, avoidDeckRepeats, cardFamilyLimit, plannedFirstLayouts } from "../src/lib/candidate-plan";
 import { expandedRegistry } from "../src/lib/expanded-layouts";
 import type { LayoutId } from "../src/lib/model";
+import { roleLayouts } from "../src/lib/slide-quality";
+import { relationshipLayoutFits } from "../src/lib/consulting-policy";
 
 test("R1 같은 레이아웃은 덱당 2회, 4장 이상 간격", () => {
   const before = ["c-cover", "c-toc", "c-funnel", "c-timeline", "c-matrix"];
@@ -36,7 +38,7 @@ test("R5 적합한 1순위 구성을 유지하고 충돌할 때만 다른 구성
   assert.equal(avoidDeckRepeats(plan, ["c-cover"], [], false, 20).length, 3);
 });
 
-test("20장 역할 덱의 장별 첫 계획은 규칙을 지키고 14종 이상을 쓴다", () => {
+test("20장 역할 덱은 종류 수를 채우기보다 장의 역할·핵심 관계와 반복 규칙을 지킨다", () => {
   const roles = ["판단", "흐름", "사실 제시", "근거", "비교", "흐름", "사실 제시", "우선순위", "계산", "일정", "근거", "비교", "사실 제시", "판단", "흐름", "근거", "일정", "우선순위", "마무리"];
   const outline = [{ index: 0, section: "표지", message: "표지", contentHint: "" }, ...roles.map((role, i) => ({ index: i + 1, section: role === "흐름" ? "목차" : "본문", role, message: `${role} 메시지`, contentHint: "" }))];
   const input = { deckType: "consulting", topic: "협력업체 교섭력", slideCount: 20 } as never;
@@ -44,7 +46,17 @@ test("20장 역할 덱의 장별 첫 계획은 규칙을 지키고 14종 이상�
   assert.equal(plan.length, 20);
   const violations = plan.map((id, i) => i ? deckLayoutIssue(id, plan.slice(0, i), 20) : null).filter(Boolean);
   assert.ok(violations.length <= 2, JSON.stringify({ plan, violations }));
-  assert.ok(new Set(plan).size >= 14, JSON.stringify(plan));
+  // 이 fixture의 흐름 3장은 모두 목차다. 같은 의미의 목차를 다른 형식으로
+  // 강제해 종류 수만 늘리기보다 역할과 우선순위 관계를 보존한다.
+  assert.equal(plan[1], "c-priority-path", "앞쪽 판단 요약은 우선순위 위계를 우선한다");
+  assert.equal(plan[2], "c-numbered-agenda", "목차는 분석 결과 대신 번호 흐름을 보여 준다");
+  for (let i = 1; i < plan.length; i++) {
+    const item = outline[i] as {section:string;role?:string;message:string;contentHint:string;index:number};
+    assert.ok((item.section === "목차" && ["c-numbered-agenda", "c-toc", "c-arrow-flow"].includes(plan[i])) || roleLayouts("consulting", item.role as never).includes(plan[i]), `${i}: ${plan[i]} / ${item.role}`);
+    assert.equal(relationshipLayoutFits(plan[i], item as never, input), true, `${i}: 핵심 관계 보존`);
+    assert.equal(plan[i].endsWith("-comparison-table"), false, "장문 격자 표를 자동 추천하지 않는다");
+    assert.notEqual(plan[i], plan[i - 1], "인접 본문을 같은 레이아웃으로 채우지 않는다");
+  }
 });
 
 test("R6 레이아웃 설명이 내용 맞춤 조건을 담는다", () => {

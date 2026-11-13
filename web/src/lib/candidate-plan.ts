@@ -1,3 +1,4 @@
+import {relationshipLayoutKinds,relationshipLayoutFits,isClosingSection} from "./consulting-policy";
 import { GENERATION_CONFIG } from "./generation-config";
 import { expandedIds, expandedRegistry, expandedKind, type ExpandedId } from "./expanded-layouts";
 import { layoutIds, type DeckInput, type LayoutId, type OutlineItem, type SlideSpec, type Deck } from "./model";
@@ -22,7 +23,7 @@ export const layoutPurpose: Record<LayoutId, string> = {
   "m-cover": "브랜드와 제안", "m-big-message": "하나의 큰 카피", "m-image-copy": "사용 장면과 카피", "m-big-number": "검증된 핵심 수치", "m-feature-cards": "가치와 특징 비교", "m-quote-cta": "메시지와 행동 제안",
 };
 /** 사람 평가에서 장표 품질이 낮았던 레이아웃은 자동 후보에서 제외한다(직접 선택은 허용). */
-const autoAllowed = (id: string) => !GENERATION_CONFIG.layouts.autoExcludedKinds.some(kind => id.endsWith("-" + kind));
+const autoAllowed = (id: string) => !id.endsWith("-comparison-table")&&!GENERATION_CONFIG.layouts.autoExcludedKinds.some(kind => id.endsWith("-" + kind));
 /** 포지셔닝 맵은 경쟁 구도·위치 비교가 장의 핵심일 때만 자동 후보가 된다(컨셉·우선순위·판단 장 남용 방지). */
 export const positioningFits = (item: OutlineItem) => (item.argument?.preferredLayouts ?? []).some(id => id.endsWith("-positioning")) || /포지셔닝|경쟁.{0,6}(위치|구도|지형)|지각도|시장.?지도/.test(`${item.section} ${item.message} ${item.contentHint}`);
 export const sectionDividerFits=(item:OutlineItem)=>/^(?:섹션|절|파트)\s*구분$|^section divider$/i.test(item.section.trim())||/본문 없는 전환 장|섹션 구분 장|전환 표지/.test(item.contentHint);
@@ -52,16 +53,23 @@ export function calculationTimeLayoutFits(id: LayoutId, item: OutlineItem): bool
 }
 export function candidatePlan(input: DeckInput, item: OutlineItem, excluded: string[] = [], rotation = 0, count = 3, requested?:LayoutId): LayoutId[] {
   if (requested && !calculationLayoutFits(requested, item.calculation)) throw Error("이 구성은 계산 결과를 모두 담을 수 없습니다. 전체 결과를 표시하는 다른 구성을 선택하세요.");
-  excluded = [...excluded, ...layoutIds.filter(id => !calculationLayoutFits(id, item.calculation)||(!requested&&(!calculationTimeLayoutFits(id,item)||(id.endsWith("-section-divider")&&!sectionDividerFits(item)))))];
+  excluded = [...excluded, ...layoutIds.filter(id => !calculationLayoutFits(id, item.calculation)||(!requested&&(!calculationTimeLayoutFits(id,item)||!relationshipLayoutFits(id,item,input)||(id.endsWith("-section-divider")&&!sectionDividerFits(item)))))];
   if (requested && item.role && !roleLayouts(input.deckType, item.role).includes(requested)) throw Error("이 장의 역할에 맞는 레이아웃을 선택해 주세요.");
   if(requested){if(count!==1||item.index===0||requested.endsWith("cover")||requested==="c-toc"||!requested.startsWith(input.deckType==="consulting"?"c-":"m-")||excluded.includes(requested))throw Error("현재 장표에 사용할 수 없는 구성입니다. 다른 후보에 없는 본문 구성을 골라 주세요.");return [requested];}
   if (item.index === 0) return Array(count).fill(input.deckType === "consulting" ? "c-cover" : "m-cover") as LayoutId[];
   if (item.section === "출처" && count === 1 && !excluded.includes(input.deckType === "consulting" ? "c-evidence-table" : "m-evidence-table")) return [input.deckType === "consulting" ? "c-evidence-table" : "m-evidence-table"];
+  if(input.deckType==="consulting"&&isClosingSection(item.section)&&item.section!=="출처"){
+    const id="c-end-divider" as LayoutId;if(layoutIds.includes(id)&&!excluded.includes(id))return [id];
+  }
+  if(input.deckType==="consulting"&&item.section==="목차"){
+    const agenda=relationshipLayoutKinds(item,input).map(k=>`c-${k}` as LayoutId).filter(id=>layoutIds.includes(id)&&!excluded.includes(id));if(agenda.length)return agenda.slice(0,count);
+  }
   if(item.role){
     const needsCompleteCalculation = item.role === "계산" && (item.calculation?.steps.length ?? 0) > 3;
     const rolePool=roleLayouts(input.deckType,item.role).filter(id=>!excluded.includes(id)&&autoAllowed(id)&&(!id.endsWith("-positioning")||positioningFits(item)));
     const calculationFirst=item.role==="계산"&&item.calculation?.steps.length?`${input.deckType==="consulting"?"c":"m"}-${needsCompleteCalculation?"horizontal-formula":"formula-cards"}`:undefined;
-    const preferred=[...(calculationFirst&&rolePool.includes(calculationFirst as LayoutId)?[calculationFirst]:[]),...(item.argument?.preferredLayouts??[])].filter((id):id is LayoutId=>rolePool.includes(id as LayoutId));
+    const relationFirst=relationshipLayoutKinds(item,input).map(k=>`${input.deckType==="consulting"?"c":"m"}-${k}` as LayoutId).filter(id=>rolePool.includes(id));
+    const preferred=[...relationFirst,...(calculationFirst&&rolePool.includes(calculationFirst as LayoutId)?[calculationFirst]:[]),...(item.argument?.preferredLayouts??[])].filter((id):id is LayoutId=>rolePool.includes(id as LayoutId));
     const rest=rolePool.filter(id=>!preferred.includes(id));
     const shift=rest.length?rotation%rest.length:0;
     const ordered=[...new Set([...preferred,...rest.slice(shift),...rest.slice(0,shift)])];
@@ -175,7 +183,7 @@ export function deckLayoutIssue(id: string, previous: string[], deckSize: number
 /** 역할에 맞는 자동 사용 가능 레이아웃 전체. 덱 규칙 때문에 첫 계획을 못 쓸 때 대안으로 쓴다. */
 export function widerPool(input: DeckInput, item: OutlineItem): LayoutId[] {
   if (!item.role || item.index === 0) return [];
-  return (roleLayouts(input.deckType, item.role) ?? []).filter(id => autoAllowed(id) && calculationLayoutFits(id,item.calculation) && calculationTimeLayoutFits(id,item) && (!id.endsWith("-positioning") || positioningFits(item))&&(!id.endsWith("-section-divider")||sectionDividerFits(item)));
+  return (roleLayouts(input.deckType, item.role) ?? []).filter(id => autoAllowed(id) && calculationLayoutFits(id,item.calculation) && calculationTimeLayoutFits(id,item) && relationshipLayoutFits(id,item,input) && (!id.endsWith("-positioning") || positioningFits(item))&&(!id.endsWith("-section-divider")||sectionDividerFits(item)));
 }
 /** 덱 규칙을 지키고 아직 쓰지 않은 레이아웃을 앞에 둔다. 지킬 수 있는 후보가 없으면 바로 앞 장 중복만 피한다. */
 export function avoidDeckRepeats(plan: LayoutId[], previous: string[], wider: LayoutId[], single: boolean, deckSize: number): LayoutId[] {

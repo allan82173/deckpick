@@ -2,6 +2,16 @@ import type { SlideSpec } from "./model";
 
 /** Writing budgets are repair instructions, never silent substring operations. */
 const limits:Record<string,Record<string,number>>={
+ "numbered-agenda":{"steps.*.title":18,"steps.*.question":38},
+ "priority-path":{"first.action":24,"first.reason":42,"first.result":32,"parallel.action":24,"parallel.reason":42,"parallel.result":32,"later.action":24,"later.trigger":42,"later.result":32},
+ "share-comparison":{"panels.*.title":28,"panels.*.denominator":42,"panels.*.insight":42},
+ "service-ecosystem":{"sources.*.name":20,"sources.*.entry":32,"hub.name":24,"hub.job":42,"services.*":20,"value":42},
+ "spotlight-comparison":{"options.*.name":20,"options.*.finding":40,"options.*.implication":36,"verdict":46},
+ "benchmark-cards":{"cases.*.company":24,"cases.*.region":20,"cases.*.what":42,"cases.*.result":42,"cases.*.lesson":38,"application":68},
+ "business-structure":{"actors.*.name":22,"actors.*.responsibility.*":32,"transactions.*":20},
+ "hub-spoke":{"hub.name":18,"hub.detail":42,"spokes.*.name":18,"spokes.*.detail":40},
+ "value-chain":{"primary.*.name":18,"primary.*.detail":40,"support.*.name":18,"support.*.detail":65,"goal.name":24,"goal.detail":50},
+
  "cover":{"title":30,"subtitle":110,"eyebrow":24},
  "executive-summary":{"rows.*.section":18,"rows.*.finding":64,"rows.*.implication":52},
  "argument-board":{"panels.*.title":24,"panels.*.rows.*.label":24,"panels.*.rows.*.detail":78},

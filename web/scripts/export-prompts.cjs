@@ -22,10 +22,10 @@ const descriptions = {
 function enclosingFunction(node, source) { let p=node.parent; while(p) { if(ts.isFunctionDeclaration(p)) return p.name?.text || '(익명 함수)'; if(ts.isArrowFunction(p)||ts.isFunctionExpression(p)) { if(ts.isVariableDeclaration(p.parent))return p.parent.name.getText(source); } p=p.parent; } return '(모듈)'; }
 const sections=[];
 sections.push('# DeckPick 전체 프롬프트와 생성 계약\n');
-sections.push('추출 기준일: 2026-11-07. 이 문서는 현재 앱 소스에서 자동 추출한 원문과 동적 조합식을 함께 제공합니다. 실제 API 키·토큰·인증 헤더 값·사용자의 첨부 원문·실제 대화·모델 응답 로그는 포함하지 않습니다. 앱의 코드는 변경하지 않습니다.\n');
+sections.push('추출 기준일: 2026-11-14. 이 문서는 현재 앱 소스에서 자동 추출한 원문과 동적 조합식을 함께 제공합니다. 실제 API 키·토큰·인증 헤더 값·사용자의 첨부 원문·실제 대화·모델 응답 로그는 포함하지 않습니다. 앱의 코드는 변경하지 않습니다.\n');
 sections.push('## 읽는 방법\n\n한 개의 긴 시스템 프롬프트로 모두 보내는 구조가 아닙니다. 같은 선택 모델을 과제 해석 → 조사 계획 → 전체 첨부 근거표·질문별 두 언어 검색(generation-config.ts에 지정된 라운드)과 원문 근거표 → 판단 → 스토리라인 → 장별 후보 생성 → 검사·수정에 여러 번 호출합니다. 단계마다 아래의 서로 다른 프롬프트와 JSON 데이터가 들어갑니다.\n\n- `text` 블록은 문구 원문입니다.\n- `ts` 블록은 실제로 전송 문자열을 조합하는 코드입니다. `${...}`·변수·`JSON.stringify(...)`는 실행 때 현재 입력으로 채워집니다. 이 문서에 임의의 프로젝트 내용을 채우지 않았습니다.\n- 출력 JSON 스키마·허용 레이아웃·검사기는 프롬프트와 함께 결과를 제한합니다. 프롬프트만 Claude에 붙이는 실험은 같은 렌더러·검색 도구·첨부 추출·검사 조건을 재현하지 않습니다.\n- `generateOutline()`은 보존된 구형 함수이며 현재 UI/API의 새 생성은 `prepareTask/runResearch/createStoryline` 경로입니다. 구형 함수는 아래에서 따로 표시합니다.\n');
 sections.push('## 1. 공통 시스템 프롬프트\n');
-for (const name of ['baseSystem','slideCompositionPrompt','consultingStylePrompt','systemFor']) {
+for (const name of ['baseSystem','slideCompositionPrompt','consultingStylePrompt','consultingAnalysisRules','humanizerWritingRules','slideAcceptanceRules','systemFor']) {
  const document=documents.find(d=>declaration(d,name));if(!document)continue;const node=declaration(document,name);const value=node.initializer;
  sections.push(`### ${name}\n\n출처: \`${relative(document.file)}:${lineOf(document,node)}\`\n`);
  if(ts.isStringLiteral(value)||ts.isNoSubstitutionTemplateLiteral(value)) sections.push(block('text',value.text));else sections.push(block('ts',value.getText(document.source)));
@@ -49,7 +49,7 @@ const vision=documents.find(d=>d.file.endsWith(path.sep+'vision.ts'));const visi
 sections.push('## 6. 공통 형식 오류·검증 재시도\n');
 const structured=functionNode(ai,'structured');sections.push(`출처: \`${relative(ai.file)}:${lineOf(ai,structured)}\`. 최초 응답 뒤 JSON·스키마·검증 실패 이유를 추가하여 같은 모델에 요청합니다. 구조 검증 재시도와 장별 품질 수정 예산은 별개입니다.\n`+block('ts',structured.getText(ai.source)));
 sections.push('## 7. 장 역할·출력 스키마·레이아웃 정보\n\n장 역할 → 허용 레이아웃 매핑과 각 레이아웃 데이터 스키마가 입력에 함께 들어갑니다. 후보를 고르는 코드의 조건도 프롬프트의 효력을 제한하므로 같이 제공합니다.\n');
-for(const filename of ['task-model.ts','evidence-model.ts','candidate-plan.ts','slide-quality.ts','evidence-selection.ts','concurrency.ts','run-budget.ts','run-checkpoints.ts']){const document=documents.find(d=>d.file.endsWith(path.sep+filename));if(!document)continue;sections.push(`### ${filename}\n\n출처: \`${relative(document.file)}:1\`\n`+block('ts',document.text));}
+for(const filename of ['task-model.ts','evidence-model.ts','consulting-policy.ts','consulting-visuals.ts','content-contract.ts','copy-budgets.ts','candidate-plan.ts','candidate-usability.ts','slide-quality.ts','editorial-quality.ts','chart-semantics.ts','source-bibliography.ts','evidence-selection.ts','concurrency.ts','run-budget.ts','run-checkpoints.ts']){const document=documents.find(d=>d.file.endsWith(path.sep+filename));if(!document)continue;sections.push(`### ${filename}\n\n출처: \`${relative(document.file)}:1\`\n`+block('ts',document.text));}
 sections.push('### 출력 스키마 파일과 동적 레지스트리\n\n- `web/src/lib/model.ts`: DeckInput, OutlineItem, SlideSpec 및 기존 레이아웃 dataSchemas.\n- `web/src/lib/analytical-layouts.ts`, `visual-model.ts`: 공용 본문 구조의 필드·최소/최대 데이터.\n- 새 확장 레이아웃·메타데이터는 아래 자동 스키마 부록과 다음 절에 포함됩니다.\n');
 try {
  const model=require(path.join(web,'src/lib/model.ts')); const demo=require(path.join(web,'src/lib/demo.ts'));const quality=require(path.join(web,'src/lib/slide-quality.ts'));const evidence=require(path.join(web,'src/lib/evidence-model.ts'));const z=require('zod');
@@ -72,7 +72,7 @@ const executionConfigFile=path.join(web,'src/lib/generation-config.ts');
 if(fs.existsSync(executionConfigFile))sections.push('## 실행 조건 · 실제 설정 원문\n\n'+block('ts',fs.readFileSync(executionConfigFile,'utf8')));
 sections.push('## 9. 구형·현재 미사용 프롬프트\n\n다음 함수는 소스에 남아 있지만 현재 앱 소스의 호출 참조가 확인되지 않았습니다. 새 파이프라인의 기본 프롬프트로 섞지 마세요.\n');for(const {doc,node,fn}of legacy){const whole=functionNode(doc,fn);sections.push(`### ${fn}\n\n출처: \`${relative(doc.file)}:${lineOf(doc,whole)}\`\n`+block('ts',whole.getText(doc.source)));}
 sections.push('## 10. 코드로 옮긴 참고 지침과 원본의 구분\n\n아래 문서는 작업·설계 기준입니다. 문서 전체가 매 API 요청에 자동으로 붙는 것은 아닙니다. 실제로 붙는 내용은 1~7절의 코드 원문입니다. Claude 원본 스킬셋과 참고 PPT 원문은 이 내보내기에 복제하지 않았습니다.\n');
-for(const name of ['Claude-PPT-스킬셋-적용기준.md','장표-구성-원칙.md','범용-생성품질-요구사항-2026-11-06.md','컨설팅스타일분석.md','마케팅스타일분석.md']){const file=path.join(root,'docs',name);if(fs.existsSync(file)) sections.push(`### ${name}\n\n출처: \`docs/${name}:1\` / 역할: 참고 지침\n`+block('markdown',fs.readFileSync(file,'utf8')));}
+for(const name of ['consulting-output-contract.md','Claude-PPT-스킬셋-적용기준.md','장표-구성-원칙.md','범용-생성품질-요구사항-2026-11-06.md','컨설팅스타일분석.md','마케팅스타일분석.md']){const file=path.join(root,'docs',name);if(fs.existsSync(file)) sections.push(`### ${name}\n\n출처: \`docs/${name}:1\` / 역할: 참고 지침\n`+block('markdown',fs.readFileSync(file,'utf8')));}
 sections.push('## 비교할 때 특히 볼 차이\n\n1. Claude가 자료 전체와 대화 전체를 보고 있는지, DeckPick이 추출·선택한 발췌만 보는지 비교합니다.\n2. 검색 도구·원문 접근·최신 출처 확인이 양쪽에서 같은 조건인지 비교합니다.\n3. 허용 레이아웃과 구조화 출력 schema가 다른지 비교합니다.\n4. “원하는 스타일”이라는 문구 외에 판단·반전 조건·근거 강도·계산 단위·인용 검증이 실제 코드로 연결되어 있는지 비교합니다.\n5. 프롬프트 지침과 코드의 검사·재시도·렌더링 제약을 구분합니다.\n\n이 문서는 학습 완료·파인튜닝·모든 결과의 품질 보증을 뜻하지 않습니다. 현재 앱에 전달되는 지침·계약을 검토할 수 있도록 추출한 문서입니다.\n');
 fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,sections.join('\n'),'utf8');
 const compact=[];let skip=false;

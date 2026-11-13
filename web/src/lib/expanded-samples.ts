@@ -5,6 +5,12 @@ export function expandedSample(id:string,variant=0):Record<string,unknown>|undef
  const a=variant?"업무":"시장",tag="가설",takeaway="합성 예시의 가정이며 실제 조사·성과가 아닙니다.",common={tag,takeaway};
  const short=(s:string)=>`${a} ${s}`;
  switch(kind){
+ case "numbered-agenda":return {...common,steps:[{title:"시장 이해",question:short("규모와 경쟁 범위")},{title:"3C 분석",question:short("기업·고객·경쟁의 차이")},{title:"과제 정의",question:short("해결할 문제의 우선순위")},{title:"전략 도출",question:short("선택한 전략과 근거")}]};
+ case "priority-path":return {...common,first:{action:short("기존 기반 개선"),reason:"기존 고객과 운영 경험을 활용",result:"현재 이탈과 비용 축소"},parallel:{action:short("대안 비교"),reason:"새 접근의 효과를 동일 조건으로 비교",result:"추가 기회의 범위 구분"},later:{action:short("범위 확대"),trigger:"운영과 고객 반응이 함께 개선될 때",result:"검증한 조건에서 확대"}};
+ case "share-comparison":return {...common,panels:[{title:short("기존 집단"),denominator:"기존 집단 응답 전체",period:"합성 1차",items:[{label:"유지",value:72},{label:"변경",value:28}],unit:"%",insight:"기존 이용의 비중이 높음"},{title:short("신규 집단"),denominator:"신규 집단 응답 전체",period:"합성 1차",items:[{label:"유지",value:43},{label:"변경",value:57}],unit:"%",insight:"첫 이용 이후 연결이 약함"}]};
+ case "service-ecosystem":return {...common,sources:[{name:"기존 접점",entry:short("직접 이용에서 시작")},{name:"외부 채널",entry:short("발견·탐색에서 시작")},{name:"제휴 경로",entry:short("추천·안내에서 시작")}],hub:{name:short("과업 완료"),job:"시작점이 달라도 같은 과업 완료"},services:["탐색·이용","결제·지원","반복 사용"],value:"완료 경험을 자사 서비스와 연결",relation:"제안 구조"};
+ case "spotlight-comparison":return {...common,options:[{name:"기존 방식",finding:short("운영 경험 활용"),implication:"확장 경로 구분"},{name:"선정 대안",finding:short("접점과 후속 경험 연결"),implication:"이용과 비용을 함께 개선"},{name:"전면 전환",finding:short("초기 구축과 이전 필요"),implication:"현재 수익과 이전 비용 분리"}],focus:1,verdict:"현재 기반을 활용하는 대안부터 실행합니다."};
+ case "end-divider":return {...common,label:variant?"Appendix":"E.O.D.",subtitle:variant?"상세 계산과 공개 근거":"본 발표를 마칩니다."};
  case "evaluation-matrix":return {...common,criteria:["적합성","접근성","비용"],rows:Array.from({length:variant?6:4},(_,i)=>({name:`대안 ${i+1}`,subtitle:short("후보"),grades:i%2?["부분","높음","낮음"]:["높음","부분","낮음"],judgment:i?"조건부 검토":"우선 검증"})),highlight:0};
  case "cross-matrix":return {...common,columns:["현재","대안","조건"],rows:["수요","접점","운영","비용"].slice(0,variant?4:3).map(label=>({label,cells:[short("조건 구분"),short("가설 비교"),"전제가 바뀌면 재검토"],note:"판단 범위 확인"})),highlights:[{row:0,col:1}]};
  case "judgment-reversal":return {...common,priorities:Array.from({length:variant?3:2},(_,i)=>({name:`대안 ${i+1}`,why:short("접근이 쉬운 후보"),reversal:"적격 반응이 낮으면 순서 변경",method:"같은 기간·기준으로 반응 비교"}))};

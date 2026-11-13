@@ -14,11 +14,14 @@ test("최종 발표 모드: 단계 값과 20~30장 덱을 받는다", () => {
   assert.equal(deckInputSchema.safeParse({ ...base, stage: "draft" }).success, false);
 });
 
-test("최종 발표 흐름이 스토리라인·과제 해석 지시에 들어 있다", async () => {
-  const story = await readFile("src/lib/storyline.ts", "utf8");
-  for (const part of ["input.stage", "최종 발표(final)", "사업 컨셉", "벤치마킹", "실행 로드맵", "KPI", "기대효과", "문제 정의와 컨셉은 빼지 않습니다"]) assert.ok(story.includes(part), part);
-  const task = await readFile("src/lib/task-analysis.ts", "utf8");
-  assert.ok(task.includes("input.stage가 final"));
+test("최종 발표 계획은 분석 네 단계와 EOD 뒤 Appendix를 보존한다", async () => {
+  const {storySlidePlan}=await import("../src/lib/storyline");
+  const {consultingResearchSteps}=await import("../src/lib/consulting-policy");
+  const plan=storySlidePlan({...base,stage:"final",appendSources:true});
+  assert.equal(plan.totalSlides,24);
+  assert.deepEqual(consultingResearchSteps.map(step=>step.name),["시장 이해","3C 분석","과제 정의","전략 수립"]);
+  assert.ok(plan.fixed.some(row=>row.startsWith("23장 E.O.D.")));
+  assert.ok(plan.fixed.some(row=>/24장 출처.*Appendix/.test(row)));
 });
 
 test("새 구성 요청 상한이 덱 상한과 같다(20장 하드코딩 제거)", async () => {
@@ -45,6 +48,6 @@ test("최종 발표용 레이아웃 4종: 스키마·장면·정직성 규칙", 
   assert.equal(expandedSchemas["interview-quotes"].safeParse({ ...quotes, basis: "실제 조사", evidenceIds: [] }).success, false, "실제 인터뷰는 근거 ID 필요");
   const photos = expandedSample("c-photo-evidence")! as { photos: object[] };
   assert.equal(expandedSchemas["photo-evidence"].safeParse({ ...photos, photos: [{ ...photos.photos[0], imageSrc: "https://example.com/a.jpg" }] }).success, false, "외부 이미지 URL 금지");
-  const story = await readFile("src/lib/storyline.ts", "utf8");
-  assert.match(story, /executive-summary/); assert.match(story, /benchmark-cards/);
+  const {storyLayoutGuidance}=await import("../src/lib/storyline");
+  const guidance=storyLayoutGuidance("consulting");assert.ok(guidance.roleLayouts["판단"].includes("c-executive-summary"));assert.ok(guidance.roleLayouts["비교"].includes("c-benchmark-cards"));
 });

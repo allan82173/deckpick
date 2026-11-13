@@ -6,9 +6,9 @@ const low = { effort: "low" as Effort, maxOutputTokens: 10000 };
 /** All generation budgets live here. This module is safe to import in the UI. */
 export const GENERATION_CONFIG = {
   version: "2026-11-13-editorial-quality-v6",
-  editorialPolicy: "four-point-v1",
+  editorialPolicy: "consulting-relationships-v2",
   /** Checkpoint compatibility key. Bump only when a saved stage result can no longer be reused (schema or stage meaning changed), not for every budget/version change. */
-  checkpointVersion: "2026-11-13-content-contract-v4",
+  checkpointVersion: "2026-11-13-consulting-relationships-v5",
   stages: {
     interpretTask: { ...high }, judgment: { ...high }, story: { ...high }, assessDeck: { ...high },
     planResearch: { ...medium }, research: { ...medium }, evidence: { ...medium }, attachments: { ...medium },

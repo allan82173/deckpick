@@ -1,3 +1,4 @@
+import {drawConsultingVisual} from "./consulting-visuals";
 import { expandedSchemas as S, expandedRegistry, expandedKind, dateRange, dayNumber, scenarioDays, type ExpandedKind } from "./expanded-layouts";
 import { chartPreviewDataUrl, type NativeChart } from "./native-charts";
 import { drawVisual } from "./visual-scene";
@@ -5,6 +6,7 @@ import { richLines, fitStack, textHeight, type SceneNode, type TextNode, type Sh
 import type { SlideSpec, DesignSystem } from "./model";
 type G = { nodes: SceneNode[]; box:(x:number,y:number,w:number,h:number,fill:string,stroke?:string)=>unknown; txt:(text:string,x:number,y:number,w:number,h:number,size?:number,color?:string,bold?:boolean,align?:"left"|"center"|"right")=>unknown; line:(x:number,y:number,w:number,color:string,width?:number)=>unknown };
 export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boolean {
+ if(drawConsultingVisual(slide,c,g))return true;
  const kind=expandedKind(slide.layoutId); if(!kind)return false;
  const {box,txt,line,nodes}=g, X=.42,Y=1.94,W=12.49,H=4.16;
  const tag=(s:string,x:number,y:number,w=1.13)=>{box(x,y,w,.25,c.tint);txt(s,x+.04,y+.025,w-.08,.22,10,c.primary,true);};
@@ -141,6 +143,15 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
  d.lanes.forEach((lane,i)=>{const y=Y+.4+i*rh;cell(lane.name,X,y,lw,rh,true,true);lane.cells.forEach((v,j)=>{const x=X+lw+j*cw;box(x,y,cw,rh,c.panel,c.connector);txt(v.action,x+.08,y+.1,tw,rh*.34,aSize,c.darkest,true);txt(v.touchpoint+" · "+v.friction,x+.08,y+.12+rh*.34,tw,bodyH,bSize,c.muted);if(v.tag&&hasTag)tag(v.tag,x+.08,y+rh-.31,Math.min(1.13,tw));});});
  if(d.exitPoints){const ey=Y+.4+d.lanes.length*rh+.08,eSize=Math.min(...d.exitPoints.map(t=>fitStack([t],cw-.2,exitH-.12,13,11)));txt("이탈 지점",X+.08,ey+(exitH-.26)/2,lw-.16,.26,11,c.primary,true);d.exitPoints.forEach((t,i)=>{const x=X+lw+i*cw;box(x,ey,cw,exitH,c.tint,c.connector);const eh=textHeight(t,eSize,cw-.2);txt(t,x+.1,ey+(exitH-eh)/2,cw-.2,eh+.03,eSize,c.darkest,true,"center");});}break;}
  case "business-structure":{const d=S[kind].parse(slide.data),gap=.48,w=(W-gap*(d.actors.length-1))/d.actors.length;
+ if(d.compact){
+   const nw=Math.min(2.5,w-.25),cy=3.02;
+   d.actors.forEach((a,i)=>{const x=X+i*(w+gap),nx=x+(w-nw)/2;
+    box(nx,cy,nw,.65,i===0?c.darkest:c.primary);txt(a.name,nx+.1,cy+.16,nw-.2,.34,14,"#FFFFFF",true,"center");
+    line(x+.18,4.12,w-.36,c.connector,1);
+    a.responsibility.forEach((t,j)=>txt(t,x+.15,4.4+j*.62,w-.3,.45,14,c.darkest,j===0,"center"));
+    if(i<d.actors.length-1){const edge=nx+nw,next=X+(i+1)*(w+gap)+(w-nw)/2;line(edge+.07,cy+.325,next-edge-.32,c.connector,1.7);arrow(next-.28,cy+.23);txt(d.transactions[i],edge-.15,2.25,next-edge+.3,.55,11,c.primary,true,"center");}
+   });break;
+ }
  const most=Math.max(...d.actors.map(a=>a.responsibility.length)),rh=(6.1-3.05-(most-1)*.22)/most,rSize=Math.min(...d.actors.flatMap(a=>a.responsibility.map(t=>fitStack([t],w-.3,rh-.2,16,12))));
  d.actors.forEach((a,i)=>{const x=X+i*(w+gap);header(a.name,x,2.55,w,i===d.actors.length-1);a.responsibility.forEach((t,j)=>{const y=3.05+j*(rh+.22),th=textHeight(t,rSize,w-.3);box(x,y,w,rh,j===0?c.tint:c.panel,c.connector);txt(t,x+.15,y+(rh-th)/2,w-.3,th+.04,rSize,c.darkest,j===0);});if(i<d.actors.length-1){txt(d.transactions[i],x+w-.35,2.0,gap+.7,.5,11,c.primary,true,"center");arrow(x+w+.1,2.72);}});break;}
  case "metrics-panel":{const d=S[kind].parse(slide.data),rh=(H+.2)/d.metrics.length;d.metrics.forEach((m,i)=>{const y=Y+i*rh;cell(m.label,X,y,2,rh-.2,true,true);box(2.62,y,5.45,rh-.2,"#FFFFFF",c.connector);txt(m.value,2.8,y+.12,2,.5,25,c.primary,true);txt(m.meaning,4.9,y+.1,2.95,rh-.35,12,c.darkest);});panel(d.panelTitle,d.panel,8.65,Y,4.26,H);break;}

@@ -1859,7 +1859,7 @@ export const sharedSample:Deck = {
       {
         "layoutId": "c-comparison-table",
         "section": "계산",
-        "headline": "이에 따라 월 1,600분 절감 가정과 월 20만 원의 도구 비용을 구분해야 합니다.",
+        "headline": "이에 따라 월 1,600분 절감 가정과 월 20만 원의 도구 비용은 별도 지표입니다.",
         "data": {
           "criteria": [
             "건당 처리시간",
@@ -2001,7 +2001,7 @@ export const sharedSample:Deck = {
       {
         "layoutId": "c-formula-cards",
         "section": "계산",
-        "headline": "이에 따라 월 1,600분 절감 가정과 월 20만 원의 도구 비용을 구분해야 합니다.",
+        "headline": "이에 따라 월 1,600분 절감 가정과 월 20만 원의 도구 비용은 별도 지표입니다.",
         "data": {
           "cards": [
             {

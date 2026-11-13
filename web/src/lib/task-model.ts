@@ -7,8 +7,10 @@ export const questionSchema = z.object({
   publicQuestion: phrase,
   judgmentForm: z.enum(["우선순위", "선택", "규모 추정", "원인 진단", "설명", "실행 제안"]),
   needsPublicEvidence: z.boolean(),
+  analysisStep: z.union([z.literal(1),z.literal(2),z.literal(3),z.literal(4)]).optional(),
 });
 export const taskAnalysisSchema = z.object({
+  analysisMethod:z.literal("consulting-steps").optional(),
   questions: z.array(questionSchema).min(2).max(4),
   publicContext: z.array(z.object({ dimension: z.enum(["지역", "시장", "기관", "기간", "대상", "기타"]), value: phrase })).max(16),
   privateConditions: z.array(z.object({ value: phrase, reason: phrase })).max(30),
@@ -26,6 +28,7 @@ export type TaskAnalysis = z.infer<typeof taskAnalysisSchema>;
 export const materialTypes = ["공식 통계·공공기관", "기관·기업 공식 안내", "원 연구", "신뢰 보도", "업계 리포트", "블로그·커뮤니티", "내부 자료", "도출한 판단", "미확인"] as const;
 export const researchPlanSchema = z.object({
   questions: z.array(z.object({
+    analysisStep: z.union([z.literal(1),z.literal(2),z.literal(3),z.literal(4)]).optional(),
     questionId: z.string(), evidenceNeeded: phrase, preferredMaterials: z.array(z.enum(materialTypes)).min(1).max(4),
     localQuery: phrase, englishQuery: phrase,
     // 한 가지 회사·지표만 겨냥한 짧은 검색어. 긴 키워드 나열 검색어는 검색 결과가 흐려진다.
@@ -50,6 +53,7 @@ export const decisionSchema = z.object({
 });
 export type TaskDecision = z.infer<typeof decisionSchema>;
 export const argumentSchema = z.object({
+  narrative: z.object({analysisStep:z.union([z.literal(1),z.literal(2),z.literal(3),z.literal(4)]),questionFromPrevious:z.string().max(180),whyThisSlide:z.string().min(1).max(180),emphasis:z.enum(["priority","share","convergence","cause","comparison","trend","sequence","evidence"])}).optional(),
   questionId: z.string(),
   judgment: phrase,
   support: z.array(z.object({ text: phrase, evidenceRefs: z.array(z.string()) })).min(1).max(5),

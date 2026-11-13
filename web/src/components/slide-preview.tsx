@@ -35,6 +35,7 @@ export function SlidePreview({
                 width={n.w * px}
                 height={n.h * px}
                 fill={n.fill}
+                fillOpacity={n.opacity}
                 stroke={n.stroke}
                 strokeWidth={n.strokeWidth}
                 transform={n.rotate ? `rotate(${n.rotate} ${(n.x+n.w/2)*px} ${(n.y+n.h/2)*px})` : undefined}
@@ -45,9 +46,9 @@ export function SlidePreview({
               <line
                 key={i}
                 x1={n.x * px}
-                y1={n.y * px}
+                y1={(n.y+(n.flipV?n.h:0)) * px}
                 x2={(n.x + n.w) * px}
-                y2={(n.y + n.h) * px}
+                y2={(n.y+(n.flipV?0:n.h)) * px}
                 stroke={n.stroke}
                 strokeWidth={((n.strokeWidth ?? 1) * 4) / 3}
               />
@@ -61,6 +62,7 @@ export function SlidePreview({
                 rx={(n.w / 2) * px}
                 ry={(n.h / 2) * px}
                 fill={n.fill}
+                fillOpacity={n.opacity}
               />
             );
           if (n.kind === "trapezoid")
@@ -69,6 +71,7 @@ export function SlidePreview({
                 key={i}
                 points={`${n.x * px},${n.y * px} ${(n.x + n.w) * px},${n.y * px} ${(n.x + n.w - 0.2) * px},${(n.y + n.h) * px} ${(n.x + 0.2) * px},${(n.y + n.h) * px}`}
                 fill={n.fill}
+                fillOpacity={n.opacity}
               />
             );
           if (n.kind === "triangle")
@@ -81,6 +84,7 @@ export function SlidePreview({
                     : `${(n.x + n.w / 2) * px},${n.y * px} ${(n.x + n.w) * px},${(n.y + n.h) * px} ${n.x * px},${(n.y + n.h) * px}`
                 }
                 fill={n.fill}
+                fillOpacity={n.opacity}
                 transform={
                   n.rotate === 90
                     ? undefined

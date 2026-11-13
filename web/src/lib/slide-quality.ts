@@ -1,3 +1,4 @@
+import {analysisCopyWarnings,consultingChartWarnings,isClosingSection} from "./consulting-policy";
 import { chartSemanticWarnings } from "./chart-semantics";
 import {inspectContentContract} from "./content-contract";
 import { GENERATION_CONFIG } from "./generation-config";
@@ -151,10 +152,10 @@ function strings(value: unknown): string[] {
 }
 export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInput, evidence: Evidence[], previousLayouts: string[] = []):NonNullable<SlideSpec["quality"]> {
   const warnings: string[] = [];
-  warnings.push(...copyBudgetWarnings(slide),...chartSemanticWarnings(slide,item,evidence));
+  warnings.push(...copyBudgetWarnings(slide),...chartSemanticWarnings(slide,item,evidence),...(input.deckType==="consulting"?consultingChartWarnings(slide,item):[]));
   if(slide.layoutId.endsWith("survey-findings")||(slide.layoutId.endsWith("interview-quotes")&&slide.data.basis==="실제 조사"))warnings.push(...unverifiedQuoteWarnings(slide.data.quotes,evidence));
-  const exempt = item.index === 0 || ["표지", "목차", "출처"].includes(item.section) || item.role === "합의 사항";
-  const compositionExempt = item.index === 0 || ["표지", "목차"].includes(item.section);
+  const exempt = isClosingSection(item.section)||item.index === 0 || ["표지", "목차", "출처"].includes(item.section) || item.role === "합의 사항";
+  const compositionExempt = isClosingSection(item.section)||item.index === 0 || ["표지", "목차"].includes(item.section);
   const refs = (slide.evidenceRefs ?? []).filter(id => evidence.some(e => e.id === id));
   const missingRefs = (slide.evidenceRefs ?? []).filter(id => !evidence.some(e => e.id === id));
   if (missingRefs.length) warnings.push(`근거표에 없는 ID를 참조합니다: ${[...new Set(missingRefs)].join(", ")}`);
@@ -170,6 +171,7 @@ export function inspectSlide(slide: SlideSpec, item: OutlineItem, input: DeckInp
   const scene = makeScene(slide, design(input.designSystemId, input.customPrimary), item.index + 1, input.topic);
   // Scene text excludes notes, source metadata and the internal layout rationale.
   // A TOC may describe the agenda, but must not advertise its own layout choice.
+  warnings.push(...analysisCopyWarnings(scene.nodes.flatMap(node=>node.kind==="text"&&node.y>=.6&&node.y<6.8?[node.text]:[]),item,input));
   const productionMeta=scene.nodes.flatMap(node=>node.kind==="text"?[visibleProductionMetaIssue(node.text,input.topic)]:[]).find(Boolean);
   if(productionMeta)warnings.push(`제작 메타 문구: ${productionMeta}`);
   if(item.role==="계산"&&item.calculation){const missing=missingCalculationOutputs(scene,item.calculation);if(missing.length)warnings.push(`계산 결과 누락: ${missing.map(v=>`${v.label} ${v.value}${v.unit}`).join(" / ")}. 차트 또는 본문에 값과 단위를 모두 표시하고, 합산값과 부분값의 관계도 설명하세요.`);}

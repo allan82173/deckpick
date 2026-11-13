@@ -1,11 +1,12 @@
 import type PptxGenJS from "pptxgenjs";
 import type { DesignSystem } from "./model";
-export type NativeChart = { kind: "bar" | "line" | "waterfall" | "donut" | "horizontal"; categories: string[]; series: { name: string; values: number[] }[]; unit: string; stacked?: boolean; focusIndex?: number };
+export type NativeChart = { kind: "bar" | "line" | "waterfall" | "donut" | "pie" | "horizontal"; categories: string[]; series: { name: string; values: number[] }[]; unit: string; stacked?: boolean; focusIndex?: number; compact?: boolean };
 type Colors = DesignSystem["colors"];
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]!);
 export function validateNativeChart(d: NativeChart) {
  if (!d.categories.length || !d.series.length || !d.unit || d.series.some(s => s.values.length !== d.categories.length || s.values.some(v => !Number.isFinite(v)))) throw Error("차트 범주·계열·단위·값이 잘못됐습니다.");
- if (d.kind === "donut" && (d.series[0].values.some(v => v < 0) || d.series[0].values.reduce((a,b) => a+b,0) <= 0)) throw Error("도넛의 구성비가 잘못됐습니다.");
+ if ((d.kind === "donut" || d.kind === "pie") && (d.series[0].values.some(v => v < 0) || d.series[0].values.reduce((a,b) => a+b,0) <= 0)) throw Error("도넛의 구성비가 잘못됐습니다.");
+ if (d.kind === "pie" && (d.series.length!==1 || (/%|퍼센트/.test(d.unit)&&Math.abs(d.series[0].values.reduce((n,v)=>n+v,0)-100)>.11))) throw Error("원 점유율은 하나의 분모·한 계열과 합계 100이 필요합니다.");
  if (d.kind === "waterfall" && Math.abs(d.series[0].values.slice(0,-1).reduce((a,b) => a+b,0) - d.series[0].values.at(-1)!) > 1e-7) throw Error("워터폴 끝값이 증감 합계와 다릅니다.");
 }
 export function waterfallSeries(d: NativeChart) {
@@ -22,12 +23,16 @@ export function waterfallSeries(d: NativeChart) {
  const labels=d.categories.map((s,i)=>`${s} (${i>0&&i<d.categories.length-1&&d.series[0].values[i]>0?"+":""}${d.series[0].values[i]})`);
  return columns.map((values,i)=>({name:names[i],labels,values}));
 }
-export function chartPreviewDataUrl(d: NativeChart, c: Colors,aspect?:number) {
- validateNativeChart(d); const colors=[c.primary,c.darkest,c.tint,c.muted,c.panel,c.connector];
- const W=900,H=d.kind==="horizontal"&&aspect?Math.max(180,900/aspect):430,L=95,R=28,T=42,B=80, pw=W-L-R,ph=H-T-B;
+export function chartPreviewDataUrl(d: NativeChart, c: Colors,aspect?:number,geometry?:{w:number;h:number}) {
+ validateNativeChart(d); const colors=(d.kind==="pie"||(d.kind==="donut"&&d.categories.length===2))?[c.primary,c.tint,c.accent,c.muted,c.risk,c.darkest]:[c.primary,c.darkest,c.tint,c.muted,c.panel,c.connector];
+ const W=900,H=((d.kind==="horizontal"||(d.kind==="pie"&&d.compact))&&aspect)?Math.max(150,900/aspect):430,L=95,R=28,T=42,B=80, pw=W-L-R,ph=H-T-B;
  const text=(s:string,x:number,y:number,size=15,anchor="start",color=c.darkest)=>`<text x="${x}" y="${y}" font-size="${size}" fill="${color}" text-anchor="${anchor}">${esc(s)}</text>`;
- let svg=text(`단위: ${d.unit}`,L,22);
- if(d.kind==="donut") {
+ const unitPt=d.kind==="pie"&&d.compact&&geometry?10/72*W/geometry.w:15;
+ let svg=text(`단위: ${d.unit}`,d.kind==="pie"&&d.compact?0:L,d.kind==="pie"&&d.compact?unitPt*.95:22,unitPt);
+ if(d.kind==="pie") {
+  const values=d.series[0].values,sum=values.reduce((a,b)=>a+b,0),cx=d.compact?W/2:250,unitHeight=geometry?H*.25/geometry.h:45,cy=d.compact?unitHeight+(H-unitHeight)/2:220,r=d.compact?Math.min(W,H-unitHeight)/2:150;let angle=-Math.PI/2;
+  values.forEach((v,i)=>{const sweep=v/sum*Math.PI*2,end=angle+sweep,mid=angle+sweep/2,x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle),x2=cx+r*Math.cos(end),y2=cy+r*Math.sin(end);if(v/sum>.999999)svg+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${colors[i]}"/>`;else if(v>0)svg+=`<path d="M${cx} ${cy} L${x1} ${y1} A${r} ${r} 0 ${sweep>Math.PI?1:0} 1 ${x2} ${y2} Z" fill="${colors[i]}" stroke="white" stroke-width="3"/>`;if(v/sum>=.07)svg+=text(`${(v/sum*100).toFixed(1)}%`,cx+Math.cos(mid)*r*.65,cy+Math.sin(mid)*r*.65+6,d.compact&&geometry?11/72*W/geometry.w:d.compact?28:22,"middle",i===1?c.darkest:"#FFFFFF");if(!d.compact)svg+=`<rect x="490" y="${80+i*45}" width="18" height="18" fill="${colors[i]}"/>`+text(`${d.categories[i]} · ${(v/sum*100).toFixed(1)}%`,525,95+i*45);angle=end;});
+ }else if(d.kind==="donut") {
   const values=d.series[0].values,sum=values.reduce((a,b)=>a+b,0),focus=d.focusIndex??values.indexOf(Math.max(...values)); let angle=-Math.PI/2;
   values.forEach((v,i)=>{const end=angle+v/sum*Math.PI*2; const x1=250+150*Math.cos(angle),y1=220+150*Math.sin(angle),x2=250+150*Math.cos(end),y2=220+150*Math.sin(end);if(v>0)svg+=`<path d="M250 220 L${x1} ${y1} A150 150 0 ${end-angle>Math.PI?1:0} 1 ${x2} ${y2} Z" fill="${colors[i]}"/>`;angle=end;svg+=`<rect x="490" y="${80+i*45}" width="18" height="18" fill="${colors[i]}"/>`+text(`${d.categories[i]} · ${(v/sum*100).toFixed(1)}%`,525,95+i*45);});
   svg+=`<circle cx="250" cy="220" r="91" fill="white"/>`+text(`${(values[focus]/sum*100).toFixed(1)}%`,250,218,36,"middle",c.primary)+text(d.categories[focus],250,250,17,"middle");
@@ -56,13 +61,19 @@ export function chartPreviewDataUrl(d: NativeChart, c: Colors,aspect?:number) {
 }
 export function addNativeChart(slide:PptxGenJS.Slide,d:NativeChart,c:Colors,g:{x:number;y:number;w:number;h:number}) {
  validateNativeChart(d);
- const colors=[c.primary,c.darkest,c.tint,c.muted,c.panel,c.connector].map(s=>s.slice(1));
+ const colors=((d.kind==="pie"||(d.kind==="donut"&&d.categories.length===2))?[c.primary,c.tint,c.accent,c.muted,c.risk,c.darkest]:[c.primary,c.darkest,c.tint,c.muted,c.panel,c.connector]).map(s=>s.slice(1));
  const data=d.series.map(s=>({name:s.name,labels:d.categories,values:s.values}));
  slide.addText(`단위: ${d.unit}`,{x:g.x,y:g.y,w:g.w,h:.22,fontFace:"Pretendard",fontSize:10,color:c.muted.slice(1),margin:0});
  const options: PptxGenJS.IChartOpts = {...g,y:g.y+.25,h:Math.max(.5,g.h-.25),showTitle:false,showLegend:d.series.length>1,showValue:true,lineDataSymbol:d.kind==="line"?"circle":"none",lineDataSymbolSize:5,legendPos:"b",legendFontFace:"Pretendard",legendFontSize:11,dataLabelFontFace:"Pretendard",dataLabelFontSize:11,catAxisLabelFontFace:"Pretendard",catAxisLabelFontSize:11,valAxisLabelFontFace:"Pretendard",valAxisLabelFontSize:10,dataLabelFormatCode:d.series.every(s=>s.values.every(Number.isInteger))?"#,##0":"0.00",dataLabelColor:d.stacked?"FFFFFF":c.darkest.slice(1),dataLabelBkgrdColors:!!d.stacked,dataLabelPosition:d.kind==="line"?"t":d.stacked?"ctr":"outEnd",chartColors:colors};
  // PptxGenJS passes the OOXML orientation through unchanged, but its types
  // expose only minMax. Reverse the category axis so native bars match preview order.
  if(d.kind==="horizontal")Object.assign(options,{catAxisOrientation:"maxMin"});
+ if(d.kind==="pie"){
+ const values=d.series[0].values,sum=values.reduce((a,b)=>a+b,0),side=Math.min(d.compact?g.w:g.w*.60,g.h-.25),x=d.compact?g.x+(g.w-side)/2:g.x+(g.w*.60-side)/2,y=g.y+.25+(g.h-.25-side)/2;
+ slide.addChart("pie",data,{...options,x,y,w:side,h:side,layout:{x:0,y:0,w:1,h:1},firstSliceAng:0,showLegend:false,showValue:false,showPercent:false});
+ let angle=-Math.PI/2;values.forEach((v,i)=>{const sweep=v/sum*Math.PI*2,mid=angle+sweep/2;if(v/sum>=.07)slide.addText(`${(v/sum*100).toFixed(1)}%`,{x:x+side/2+Math.cos(mid)*side*.325-.32,y:y+side/2+Math.sin(mid)*side*.325-.12,w:.64,h:.3,align:"center",fontFace:"Pretendard",fontSize:d.compact?11:13,bold:true,color:i===1?c.darkest.slice(1):"FFFFFF",margin:0});angle+=sweep;});
+ if(!d.compact){const rowH=Math.min(.52,(g.h-.5)/d.categories.length),top=g.y+(g.h-rowH*d.categories.length)/2;d.categories.forEach((label,j)=>{slide.addShape("rect",{x:g.x+g.w*.65,y:top+j*rowH+.04,w:.16,h:.16,line:{color:colors[j]},fill:{color:colors[j]}});slide.addText(`${label} · ${(values[j]/sum*100).toFixed(1)}%`,{x:g.x+g.w*.65+.26,y:top+j*rowH,w:g.w*.35-.26,h:rowH,fontFace:"Pretendard",fontSize:12,color:c.darkest.slice(1),margin:0});});}
+ return;}
  if(d.kind==="donut"){
  const values=d.series[0].values,sum=values.reduce((a,b)=>a+b,0),i=d.focusIndex??values.indexOf(Math.max(...values));
  const side=Math.min(g.w*.59,g.h-.25),x=g.x+(g.w*.60-side)/2,y=g.y+.25+(g.h-.25-side)/2;

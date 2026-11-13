@@ -13,7 +13,18 @@ export const contentContractSchema=z.object({
   comparisonDimensions:z.array(z.string().min(2).max(35)).max(6),
 });
 export type ContentContract=z.infer<typeof contentContractSchema>;
-const plain=(text:string)=>text.normalize("NFKC").replace(/\*\*/g,"").replace(/[\s·ㆍ,，:：;；()（）\[\]{}]/g,"").toLowerCase().replace(/\d+\.\d+/g, value=>String(Number(value)));
+/** Numeric magnitude spelling may change for readability; currency, sign and period do not. */
+export function normalizeContractText(text:string){
+ const units:Record<string,number>={"조":1e12,"억":1e8,"천만":1e7,"백만":1e6,"만":1e4,"천":1e3};
+ return text.normalize("NFKC").replace(/\*\*/g,"").replace(/[\s·ㆍ,，:：;；()（）\[\]{}]/g,"").toLowerCase()
+  .replace(/([+−-]?\d+(?:\.\d+)?)(조|억|천만|백만|만|천)(?=[원명개대달러엔유로건회%/]|$)/g,(_,v,u)=>String(Number(v.replace("−","-"))*units[u]))
+  .replace(/\d+\.\d+/g,value=>String(Number(value)));
+}
+const plain=normalizeContractText;
+/** A slide owns its audience message and supporting conditions, not the entire research table or design rationale. */
+export function slideContractMaterial(item:{message?:string;contentHint?:string;role?:string;section?:string;argument?:{judgment?:string;support?:{text:string}[];limitation?:string;reversalCondition?:string}},scope:{purpose?:string;stage?:string}={}){
+ return {scope,item:{section:item.section,role:item.role,message:item.message,contentHint:item.contentHint,judgment:item.argument?.judgment,support:item.argument?.support?.map(row=>row.text),limitation:item.argument?.limitation,reversalCondition:item.argument?.reversalCondition}};
+}
 export function contractSource(value:unknown):string {
   if(typeof value==="string")return value;
   if(Array.isArray(value))return value.map(contractSource).join("\n");
@@ -35,6 +46,7 @@ export function visibleSceneContent(scene:Scene):string {
 }
 /** Formatting may insert labels inside a condition; retain every word, number and unit rather than demanding a verbatim sentence. */
 export function anchorSatisfied(anchor:string,visible:string){
+ visible=plain(visible);
  if(visible.includes(plain(anchor)))return true;
  const parts=anchor.replace(/([\p{L}])(?=[+−-]?\d)/gu,"$1 ").split(/[\s·ㆍ・/×+−=]+/).map(plain).filter(Boolean);
  return parts.length>1&&parts.every(part=>visible.includes(part))&&(!/[−-]/.test(anchor)||/[−-]/.test(visible));

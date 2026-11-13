@@ -1,3 +1,4 @@
+import {consultingVisualSchemas,consultingVisualRegistry} from "./consulting-visuals";
 import { z } from "zod";
 const label = z.string().min(1).max(60), body = z.string().min(1).max(220);
 export const natureTag = z.enum(["공개 사실", "내부 전제", "추론", "가설", "계산"]);
@@ -8,6 +9,7 @@ const series = z.object({ name: label, values: z.array(z.number().finite()).min(
 const chartBase = { categories: z.array(label).min(2).max(12), unit: label, interpretation: body.optional(), ...common };
 const aligned = (d: { categories: string[]; series: { values: number[] }[] }) => d.series.every(s => s.values.length === d.categories.length);
 export const expandedSchemas = {
+  ...consultingVisualSchemas,
   "evaluation-matrix": z.object({ criteria: z.array(label).min(3).max(6), rows: z.array(z.object({ name: label, subtitle: label, grades: z.array(z.enum(["높음", "부분", "낮음"])).min(3).max(6), judgment: label })).min(4).max(8), highlight: z.number().int().min(0).max(7).optional(), ...common }).refine(d => d.rows.every(r => r.grades.length === d.criteria.length) && (d.highlight === undefined || d.highlight < d.rows.length), "행·기준 수가 일치하지 않습니다."),
   "cross-matrix": z.object({ columns: z.array(label).min(2).max(4), rows: z.array(z.object({ label, cells: z.array(body).min(2).max(4), note: label.optional() })).min(3).max(6), highlights: z.array(z.object({ row: z.number().int().nonnegative(), col: z.number().int().nonnegative() })).max(12).optional(), ...common }).refine(d => d.rows.every(r => r.cells.length === d.columns.length) && (d.highlights ?? []).every(p => p.row < d.rows.length && p.col < d.columns.length), "셀 좌표·열 수가 잘못됐습니다."),
   "judgment-reversal": z.object({ priorities: z.array(z.object({ name: label, why: body, reversal: body, method: body })).min(2).max(3), ...common }),
@@ -18,14 +20,14 @@ export const expandedSchemas = {
   "multi-bar": z.object({ ...chartBase, mode: z.enum(["그룹", "누적"]), series: z.array(series).min(2).max(4) }).refine(aligned, "차트 계열과 범주 수가 다릅니다."),
   "line-chart": z.object({ ...chartBase, series: z.array(series).min(1).max(3) }).refine(aligned, "차트 계열과 범주 수가 다릅니다."),
   waterfall: z.object({ start: z.object({ label, value: z.number().finite() }), changes: z.array(z.object({ label, value: z.number().finite() })).min(1).max(8), endLabel: label, unit: label, interpretation: body.optional(), ...common }),
-  "composition-donut": z.object({ items: z.array(z.object({ label, value: z.number().nonnegative().finite() })).min(3).max(6), unit: label, focusIndex: z.number().int().nonnegative().optional(), ...common }).refine(d => d.items.reduce((s, v) => s + v.value, 0) > 0 && (d.focusIndex === undefined || d.focusIndex < d.items.length), "구성비 총합·강조 위치가 잘못됐습니다."),
+  "composition-donut": z.object({ items: z.array(z.object({ label, value: z.number().nonnegative().finite() })).min(2).max(6), unit: label, focusIndex: z.number().int().nonnegative().optional(), ...common }).refine(d => d.items.reduce((s, v) => s + v.value, 0) > 0 && (d.focusIndex === undefined || d.focusIndex < d.items.length), "구성비 총합·강조 위치가 잘못됐습니다."),
   "horizontal-formula": z.object({ items: z.array(z.object({ label, value: z.number().finite(), basis: body })).min(2).max(6), unit: label, assumption: body, formula: body, interpretation: body.optional(), ...common, tag: z.literal("계산") }),
   "calculation-flow": z.object({ assumptions: z.array(z.object({ label, value: label })).min(2).max(6), formula: body, result: label, unit: label, limitation: body, ...common, tag: z.literal("계산") }),
   "date-timeline": z.object({ rows: z.array(z.object({ label, periods: z.array(span).min(1).max(5) })).min(2).max(6), milestones: z.array(z.object({ date, label })).max(6), highlight: z.object({ start: date, end: date, label }).optional(), ...common }),
   "scenario-gantt": z.object({ start: date, end: date, scenarios: z.array(z.object({ name: label, periods: z.array(span).min(1).max(6), resultDescription: body })).min(2).max(4), formula: body, ...common, tag: z.literal("계산") }).refine(d => d.start < d.end && d.scenarios.every(s => s.periods.every((p, i) => p.start >= d.start && p.end <= d.end && (i === 0 || p.start > s.periods[i - 1].end))), "시나리오 기간이 범위를 벗어나거나 중복됩니다."),
   "vertical-events": z.object({ events: z.array(z.object({ date: label, title: label, description: body })).min(3).max(6), deliverables: z.array(body).min(1).max(4).optional(), ...common }),
   "journey-lanes": z.object({ stages: z.array(label).min(3).max(5), lanes: z.array(z.object({ name: label, cells: z.array(z.object({ action: body, touchpoint: label, friction: body, tag: natureTag.optional() })).min(3).max(5) })).min(1).max(3), exitPoints: z.array(label).min(3).max(5).optional(), focus: z.number().int().nonnegative().optional(), ...common }).refine(d => d.lanes.every(l => l.cells.length === d.stages.length) && (!d.exitPoints || d.exitPoints.length === d.stages.length) && (d.focus === undefined || d.focus < d.stages.length), "여정 단계·레인 셀 수가 다릅니다."),
-  "business-structure": z.object({ actors: z.array(z.object({ name: label, responsibility: z.array(body).length(2) })).min(3).max(5), transactions: z.array(label).min(2).max(4), ...common }).refine(d => d.transactions.length === d.actors.length - 1, "거래 화살표 수가 맞지 않습니다."),
+  "business-structure": z.object({ compact:z.boolean().optional(), actors: z.array(z.object({ name: label, responsibility: z.array(body).length(2) })).min(3).max(5), transactions: z.array(label).min(2).max(4), ...common }).refine(d => d.transactions.length === d.actors.length - 1, "거래 화살표 수가 맞지 않습니다."),
   "metrics-panel": z.object({ metrics: z.array(z.object({ label, value: label, meaning: body })).min(2).max(4), panelTitle: label, panel: z.array(body).min(2).max(4), ...common }),
   "agreement-next": z.object({ agreements: z.array(body).min(2).max(4), steps: z.array(z.object({ date: label, action: body })).min(3).max(6), ...common }),
   "section-divider": z.object({ number: label, name: label, sections: z.array(label).min(2).max(8), description: body.optional(), ...common }),
@@ -54,6 +56,7 @@ export const expandedDataSchemas = Object.fromEntries(expandedIds.map(id => [id,
 export function expandedKind(id: string): ExpandedKind | undefined { const k = id.slice(2) as ExpandedKind; return k in expandedSchemas ? k : undefined; }
 type Meta = { name: string; stage: number; reference: number; roles: string[]; use: string; avoid: string; minimum: string };
 export const expandedRegistry: Record<ExpandedKind, Meta> = {
+  ...consultingVisualRegistry,
   "evaluation-matrix": { name: "평가 매트릭스", stage: 1, reference: 19, roles: ["판단", "비교", "우선순위"], use: "다수 대상을 동일 기준으로 평가하고 선택할 때(등급=대상의 매력도·적합도)", avoid: "평가 기준이나 등급의 근거가 없을 때, 근거 확인 정도를 등급으로 쓰려 할 때", minimum: "대상4~8, 기준3~6, 3단계 등급과 판단" },
   "cross-matrix": { name: "교차 매트릭스", stage: 1, reference: 20, roles: ["비교", "판단", "우선순위"], use: "두 분류축을 교차해 설명할 때", avoid: "축끼리 독립적이지 않을 때", minimum: "행3~6×열2~4, 교차 셀의 문장" },
   "judgment-reversal": { name: "판단과 반증 조건", stage: 1, reference: 21, roles: ["판단", "우선순위", "마무리"], use: "우선순위와 이를 뒤집는 조건을 합의할 때", avoid: "현재 선택이나 반전 조건이 없을 때", minimum: "대안2~3, 이유·반전 조건·확인 방법" },

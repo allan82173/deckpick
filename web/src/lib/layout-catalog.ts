@@ -18,7 +18,8 @@ export function layoutGroup(id:LayoutId):LayoutGroup {
 export function bodyLayouts(input:Pick<DeckInput,"deckType">) {return layoutIds.filter(id=>id.startsWith(input.deckType==="consulting"?"c-":"m-")&&!id.endsWith("cover")&&id!=="c-toc");}
 
 export function physicalLayoutKey(id: LayoutId): string { return expandedKind(id) || analyticalKind(id) || visualKind(id) ? id.slice(2) : id; }
-export const catalogLayoutIds = layoutIds.filter((id,index) => layoutIds.findIndex(other => physicalLayoutKey(other) === physicalLayoutKey(id)) === index);
+// Keep the old renderer for saved decks, but retire the oversized table from discovery.
+export const catalogLayoutIds = layoutIds.filter((id,index) => !id.endsWith('-comparison-table') && layoutIds.findIndex(other => physicalLayoutKey(other) === physicalLayoutKey(id)) === index);
 export const catalogCounts = { physical: catalogLayoutIds.length, implementations: layoutIds.length, added: expandedKinds.length };
 /** 2026-11-09 레이아웃 점검(깨짐·빈 공간·작은 글자·규칙)에서 배치를 고친 유형. 카탈로그에 '점검 반영' 표시를 단다. */
 export const revisedLayoutKeys = new Set(["c-toc", "c-compare", "comparison-table", "calendar", "contract-bars", "evidence-table", "cross-matrix", "evidence-scope", "calculation-flow", "screenshot-notes", "c-header-boxes", "c-arrow-flow", "journey", "cause-tree", "cause-chain", "positioning", "swimlane", "quadrants", "argument-board", "multi-bar", "line-chart", "waterfall", "horizontal-formula", "date-timeline", "scenario-gantt", "vertical-events", "journey-lanes", "business-structure", "agreement-next", "persona-cards", "interview-quotes", "metrics-panel", "benchmark-cards", "maturity-steps", "evidence-convergence"]);
@@ -29,5 +30,6 @@ export function catalogBadges(id: LayoutId): { label: string; tone: "manual" | "
   if (GENERATION_CONFIG.layouts.autoExcludedKinds.some(kind => id.endsWith("-" + kind))) badges.push({ label: "직접 선택 전용", tone: "manual" });
   if (revisedLayoutKeys.has(key)) badges.push({ label: "점검 반영 11.09", tone: "revised" });
   if (newLayoutKeys.has(key)) badges.push({ label: "신규 11.09", tone: "revised" });
+  if (["numbered-agenda","priority-path","share-comparison","service-ecosystem","spotlight-comparison","end-divider"].includes(key)) badges.push({label:"분석·강조 신규 11.14",tone:"revised"});
   return badges;
 }

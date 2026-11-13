@@ -26,10 +26,10 @@ export async function renderSlidePng(slide:SlideSpec,ds:DesignSystem,page=1,topi
    else if(src.startsWith("/cover-assets/")){const filename=path.basename(src);src="data:image/jpeg;base64,"+(await readFile(path.join(process.cwd(),"public","cover-assets",filename))).toString("base64");}
    else if(!src.startsWith("data:image/"))throw Error("검수 이미지의 로컬 자산을 읽지 못했습니다.");
    parts.push(`<image x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" href="${esc(src)}" preserveAspectRatio="${n.chart?"xMidYMid meet":"xMidYMid slice"}"/>`);
-  }else if(n.kind==="line")parts.push(`<line x1="${n.x}" y1="${n.y}" x2="${n.x+n.w}" y2="${n.y+n.h}" stroke="${n.stroke??n.fill}" stroke-width="${(n.strokeWidth??1)/72}"/>`);
-  else if(n.kind==="ellipse")parts.push(`<ellipse cx="${n.x+n.w/2}" cy="${n.y+n.h/2}" rx="${n.w/2}" ry="${n.h/2}" fill="${n.fill}"/>`);
-  else if(n.kind==="triangle"||n.kind==="trapezoid")parts.push(`<polygon points="${n.kind==="trapezoid"?`${n.x},${n.y} ${n.x+n.w},${n.y} ${n.x+n.w-.2},${n.y+n.h} ${n.x+.2},${n.y+n.h}`:n.rotate===90?`${n.x},${n.y} ${n.x+n.w},${n.y+n.h/2} ${n.x},${n.y+n.h}`:`${n.x+n.w/2},${n.y} ${n.x+n.w},${n.y+n.h} ${n.x},${n.y+n.h}`}" fill="${n.fill}"/>`);
-  else parts.push(`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="${n.fill}" stroke="${n.stroke??n.fill}" stroke-width="${(n.strokeWidth??1)/72}"${n.rotate?` transform="rotate(${n.rotate} ${n.x+n.w/2} ${n.y+n.h/2})"`:""}/>`);
+  }else if(n.kind==="line")parts.push(`<line x1="${n.x}" y1="${n.y+(n.flipV?n.h:0)}" x2="${n.x+n.w}" y2="${n.y+(n.flipV?0:n.h)}" stroke="${n.stroke??n.fill}" stroke-width="${(n.strokeWidth??1)/72}"/>`);
+  else if(n.kind==="ellipse")parts.push(`<ellipse cx="${n.x+n.w/2}" cy="${n.y+n.h/2}" rx="${n.w/2}" ry="${n.h/2}" fill="${n.fill}" fill-opacity="${n.opacity??1}"/>`);
+  else if(n.kind==="triangle"||n.kind==="trapezoid")parts.push(`<polygon points="${n.kind==="trapezoid"?`${n.x},${n.y} ${n.x+n.w},${n.y} ${n.x+n.w-.2},${n.y+n.h} ${n.x+.2},${n.y+n.h}`:n.rotate===90?`${n.x},${n.y} ${n.x+n.w},${n.y+n.h/2} ${n.x},${n.y+n.h}`:`${n.x+n.w/2},${n.y} ${n.x+n.w},${n.y+n.h} ${n.x},${n.y+n.h}`}" fill="${n.fill}" fill-opacity="${n.opacity??1}"/>`);
+  else parts.push(`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="${n.fill}" fill-opacity="${n.opacity??1}" stroke="${n.stroke??n.fill}" stroke-width="${(n.strokeWidth??1)/72}"${n.rotate?` transform="rotate(${n.rotate} ${n.x+n.w/2} ${n.y+n.h/2})"`:""}/>`);
  }
  // Rasterize in pixel units. Sub-pixel font sizes in an inch-sized SVG viewBox
  // were rounded by the text rasterizer, producing broken glyphs and false warnings.

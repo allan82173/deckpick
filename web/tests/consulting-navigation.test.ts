@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {sectionTabs} from '../src/lib/layout-grid';
+import {makeScene} from '../src/lib/scene';
+import {forest} from '../src/lib/design';
+import {sampleData} from '../src/lib/demo';
+import {catalogLayoutIds} from '../src/lib/layout-catalog';
+test('structural pages keep the main analysis rail instead of jumping to the deck end',()=>{const sections=['요약','목차','시장 이해','3C 분석','과제 정의','전략 수립','E.O.D.','Appendix'];for(const active of ['목차','요약','Appendix']){const tabs=sectionTabs(sections,active);assert.deepEqual(tabs.map(t=>t.label),['시장 이해','3C 분석','과제 정의','전략 수립']);assert.ok(tabs.every(t=>!t.active));}});
+test('compact ownership nodes remove oversized responsibility backgrounds while keeping all roles',()=>{const item={index:1,section:'전략',message:'주체별 책임',contentHint:''},data=sampleData('c-business-structure',item),slide={layoutId:'c-business-structure' as const,section:'전략',headline:item.message,data,sources:[]},before=makeScene(slide,forest),after=makeScene({...slide,data:{...data,compact:true}},forest);assert.ok(after.nodes.filter(n=>n.kind==='rect'&&n.h>1).length<before.nodes.filter(n=>n.kind==='rect'&&n.h>1).length);for(const a of (data as any).actors)for(const text of a.responsibility)assert.ok(after.nodes.some(n=>n.kind==='text'&&n.text===text));assert.deepEqual(after.warnings,[]);});
+test('EOD renders a clean stop and old long-table renderer remains compatible but undiscoverable',()=>{const data=sampleData('c-end-divider',{index:1,section:'E.O.D.',message:'본 발표 종료',contentHint:''});const scene=makeScene({layoutId:'c-end-divider',section:'E.O.D.',headline:'generic headline should not appear',claimType:'추론',data,sources:[]},forest);assert.ok(!scene.nodes.some(n=>n.kind==='text'&&/generic headline|\[추론\]/.test(n.text)));assert.ok(!catalogLayoutIds.some(id=>id.endsWith('-comparison-table')));});

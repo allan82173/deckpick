@@ -77,10 +77,12 @@ export async function exportDeck(deck: Deck, download = true) {
         slide.addImage({ data, x: n.x, y: n.y, w: n.w, h: n.h, sizing: { type: "cover", w: n.w, h: n.h } });
       } else if (n.kind === "line")
         slide.addShape(pptx.ShapeType.line, {
-          x: n.x,
-          y: n.y,
-          w: n.w,
-          h: n.h,
+          x: n.w<0?n.x+n.w:n.x,
+          y: n.h<0?n.y+n.h:n.y,
+          w: Math.abs(n.w),
+          h: Math.abs(n.h),
+          ...(n.w<0?{flipH:true}:{}),
+          ...((n.h<0||n.flipV)?{flipV:true}:{}),
           line: { color: n.fill.slice(1), width: n.strokeWidth ?? 1 },
         });
       else {
@@ -99,7 +101,7 @@ export async function exportDeck(deck: Deck, download = true) {
             w: right ? n.h : n.w,
             h: right ? n.w : n.h,
             rotate: n.rotate ?? 0,
-            fill: { color: n.fill.slice(1) },
+            fill: { color: n.fill.slice(1), ...(n.opacity===undefined?{}:{transparency:Math.round((1-n.opacity)*100)}) },
             line: {
               color: (n.stroke ?? n.fill).slice(1),
               width: n.stroke ? (n.strokeWidth ?? 1) : 0,

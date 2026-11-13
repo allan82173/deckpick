@@ -34,6 +34,8 @@ export type ShapeNode = {
   stroke?: string;
   strokeWidth?: number;
   rotate?: number;
+  opacity?: number;
+  flipV?: boolean;
 };
 export type ImageNode = { kind: "image"; x: number; y: number; w: number; h: number; src: string; alt: string; chart?: NativeChart };
 export type SceneNode = TextNode | ShapeNode | ImageNode;
@@ -238,6 +240,12 @@ export function makeScene(
     );
   };
   box(0, 0, SLIDE.w, SLIDE.h, "#FFFFFF");
+  // Closing dividers are a visual stop, not another analysis page.
+  if (slide.layoutId.endsWith("-end-divider")) {
+    dataSchemas[slide.layoutId].parse(slide.data);
+    drawExpanded(slide,c,{nodes,box,txt,line});
+    return {nodes:applyCanvasEdits(fitTextNodes(nodes,warnings),slide.canvasEdits),warnings:[...new Set(warnings)]};
+  }
   const consulting = slide.layoutId.startsWith("c-");
   if (consulting && !["c-cover", "c-toc"].includes(slide.layoutId)) {
     const label=wrap(deckName,9,2.95).length>1?wrap(deckName,9,2.8)[0]+"…":deckName;
