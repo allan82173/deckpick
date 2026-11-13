@@ -58,10 +58,42 @@ export function localStructuredContent(text:string):Record<string,unknown>[] {
   try{return [{type:"tool_use",name:"return_result",input:extractLocalJson(text)}];}
   catch{return [{type:"text",text:"로컬 응답이 JSON 형식 검증을 통과하지 못했습니다."}];}
 }
-export function codexArgs(dir: string, model: string, search: boolean, images: string[]): string[] {
+export function codexArgs(dir: string, model: string, search: boolean, images: string[],schemaFile?:string): string[] {
   return ["exec", "--ignore-user-config", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "--json", "-o", path.join(dir, "last.txt"), "-C", dir,
     "-c", 'forced_login_method="chatgpt"', "--disable", "shell_tool", "--disable", "unified_exec", "-c", `web_search="${search ? "live" : "disabled"}"`,
-    ...(model !== "default" ? ["-m", model] : []), ...images.flatMap(image => ["-i", image]), "-"];
+    ...(model !== "default" ? ["-m", model] : []), ...(schemaFile?["--output-schema",schemaFile]:[]),...images.flatMap(image => ["-i", image]), "-"];
+}
+/** Strict CLI schemas require optional fields to be nullable; restore omission after parsing. */
+export function codexOutputSchema(value:unknown):Record<string,unknown>|undefined{
+ let supported=true;
+ // Property-name maps and $defs are containers, not schema nodes.
+ const visit=(v:unknown):unknown=>{
+  if(Array.isArray(v))return v.map(visit);if(!v||typeof v!=="object")return v;
+  const node=v as Record<string,unknown>,out:Record<string,unknown>={};
+  for(const [key,item] of Object.entries(node)){
+   if(["$schema","default"].includes(key))continue;
+   if(["properties","$defs","definitions"].includes(key)&&item&&typeof item==="object")out[key]=Object.fromEntries(Object.entries(item).map(([name,schema])=>[name,visit(schema)]));
+   else if(["items","anyOf","oneOf","allOf","additionalProperties"].includes(key))out[key]=visit(item);else out[key]=item;
+  }
+  if(node.type==="object"){
+   if(!node.properties||typeof node.properties!=="object"||node.additionalProperties&&typeof node.additionalProperties==="object"){supported=false;return out;}
+   const required=new Set(Array.isArray(node.required)?node.required:[]),properties=out.properties as Record<string,unknown>;
+   for(const key of Object.keys(properties))if(!required.has(key))properties[key]={anyOf:[properties[key],{type:"null"}]};
+   out.required=Object.keys(properties);out.additionalProperties=false;
+  }else if(!node.type&&!node.anyOf&&!node.oneOf&&!node.$ref&&node.const===undefined&&!node.enum){supported=false;}
+  return out;
+ };
+ const schema=visit(value);return supported&&schema&&typeof schema==="object"?schema as Record<string,unknown>:undefined;
+}
+export function restoreOptionalFields(value:unknown,schema:unknown):unknown{
+ if(!schema||typeof schema!=="object")return value;const shape=schema as Record<string,unknown>;
+ const variants=shape.anyOf??shape.oneOf;
+ if(Array.isArray(variants)&&value!==null){const type=Array.isArray(value)?"array":typeof value;const branch=variants.find(s=>s&&typeof s==="object"&&(s.type===type||s.properties&&type==="object"));if(branch)return restoreOptionalFields(value,branch);}
+ if(Array.isArray(value))return value.map(v=>restoreOptionalFields(v,shape.items));
+ if(!value||typeof value!=="object"||!shape.properties)return value;
+ const props=shape.properties as Record<string,Record<string,unknown>>,required=new Set(Array.isArray(shape.required)?shape.required:[]);
+ const nullable=(s:Record<string,unknown>)=>s.type==="null"||Array.isArray(s.type)&&s.type.includes("null")||Array.isArray(s.anyOf)&&s.anyOf.some((v:Record<string,unknown>)=>v.type==="null");
+ return Object.fromEntries(Object.entries(value).filter(([key,v])=>!(v===null&&props[key]&&!required.has(key)&&!nullable(props[key]))).map(([key,v])=>[key,restoreOptionalFields(v,props[key])]));
 }
 function execute(command: string, args: string[], stdin: string, cwd: string, signal: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -99,11 +131,11 @@ export async function localAgentCall(agent: LocalAgent, model: string, body: Rec
     const tools = Array.isArray(body.tools) ? body.tools as { type?: string; name?: string; input_schema?: unknown }[] : [];
     const search = tools.some(t => (t.type ?? "").startsWith("web_search"));
     const outputFormat = body.output_config as { format?: { schema?: unknown } } | undefined;
-    const schema = outputFormat?.format?.schema ?? tools.find(t => t.name === "return_result")?.input_schema;
+    const schema = outputFormat?.format?.schema ?? (body.text as {format?:{schema?:unknown}}|undefined)?.format?.schema ?? tools.find(t => t.name === "return_result")?.input_schema;
     const searchSchema = { type: "object", properties: { summary: { type: "string", maxLength:GENERATION_CONFIG.generationEfficiency.searchSummaryCharacters }, sources: { type: "array", maxItems:GENERATION_CONFIG.research.sourcesPerQuery, items: { type: "object", properties: { title: { type: "string" }, url: { type: "string" }, snippet: { type: "string" } }, required: ["title", "url", "snippet"], additionalProperties: false } } }, required: ["summary", "sources"], additionalProperties: false };
     const shape = search ? searchSchema : schema;
     const messages = Array.isArray(body.messages) ? body.messages as { role?: string; content?: unknown }[] : [];
-    const prompt = [flatten(body.system), ...messages.map(m => `${m.role}: ${flatten(m.content)}`), shape ? `JSON 값 하나만 반환하세요. 스키마: ${JSON.stringify(shape)}` : "", search ? `실제 검색 도구로 URL 후보만 수집하세요. 최대 ${GENERATION_CONFIG.research.toolCallsPerQuery}회 검색하고 페이지 열기·추가 탐색·사실 검증은 하지 않습니다. 원문은 별도 서버가 확인하므로 중복해서 읽지 마세요. 검색 결과에 없는 URL을 만들지 마세요. summary는 짧은 검색 요약이고 검증된 근거가 아닙니다.` : "도구를 호출하지 말고 전달된 자료만 사용하세요."].join("\n\n");
+    const prompt = [flatten(body.system??body.instructions), ...messages.map(m => `${m.role}: ${flatten(m.content)}`),flatten(body.input), shape ? `JSON 값 하나만 반환하세요. 실행 코드·문자열 연산·설명용 틀을 쓰지 말고 모든 필수 항목을 실제 내용으로 채우세요. 스키마: ${JSON.stringify(shape)}` : "", search ? `실제 검색 도구로 URL 후보만 수집하세요. 최대 ${GENERATION_CONFIG.research.toolCallsPerQuery}회 검색하고 페이지 열기·추가 탐색·사실 검증은 하지 않습니다. 원문은 별도 서버가 확인하므로 중복해서 읽지 마세요. 검색 결과에 없는 URL을 만들지 마세요. summary는 짧은 검색 요약이고 검증된 근거가 아닙니다.` : "도구를 호출하지 말고 전달된 자료만 사용하세요."].join("\n\n");
     // Keep isolated job assets in the project, preserve failure evidence, never expose credentials.
     const jobRoot = path.resolve(process.cwd(), ".cli-jobs");
     const { mkdir } = await import("node:fs/promises"); await mkdir(jobRoot, { recursive: true });
@@ -111,9 +143,11 @@ export async function localAgentCall(agent: LocalAgent, model: string, body: Rec
     jobDir = dir;
     let text = ""; let usage: Record<string, unknown> = {};
     if (agent === "codex") {
+      const nativeSchema=shape?codexOutputSchema(shape):undefined,schemaFile=nativeSchema?path.join(dir,"schema.json"):undefined;
+      if(schemaFile)await writeFile(schemaFile,JSON.stringify(nativeSchema));
       const paths: string[] = [];
       for (const [i, image] of images.entries()) { const file = path.join(dir, `image-${i}.${image.mimeType === "image/png" ? "png" : "webp"}`); await writeFile(file, Buffer.from(image.base64, "base64")); paths.push(file); }
-      const raw = await execute(command, codexArgs(dir, model, search, paths), prompt, dir, signal);
+      const raw = await execute(command, codexArgs(dir, model, search, paths,schemaFile), prompt, dir, signal);
       for (const line of raw.split(/\r?\n/)) { try { const e = JSON.parse(line); if (e.type === "turn.completed" && e.usage) usage = { input_tokens: e.usage.input_tokens, output_tokens: e.usage.output_tokens, cached_input_tokens: e.usage.cached_input_tokens }; } catch { /* ignore non-JSON CLI diagnostics */ } }
       text = await readFile(path.join(dir, "last.txt"), "utf8");
     } else {
@@ -129,7 +163,7 @@ export async function localAgentCall(agent: LocalAgent, model: string, body: Rec
     if (search) {
       const found = extractLocalJson(text) as { summary?: string; sources?: { title: string; url: string; snippet?: string }[] };
       response = { content: [{ type: "text", text: String(found.summary ?? "") }, ...(Array.isArray(found.sources) ? found.sources : []).filter(s => /^https?:\/\//.test(s.url)).map(s => ({ type: "local_search_candidate", title: s.title, url: s.url, cited_text: `로컬 CLI 제안 URL · 원문 검증 전\n${s.snippet ?? ""}` }))], usage };
-    } else response = { content: schema ? localStructuredContent(text) : [{ type: "text", text }], usage };
+    } else response = { content: schema ? (()=>{try{return [{type:"tool_use",name:"return_result",input:restoreOptionalFields(extractLocalJson(text),schema)}];}catch{return localStructuredContent(text);}})() : [{ type: "text", text }], usage };
     await writeFile(path.join(dir, "status.json"), JSON.stringify({ agent, model, search, images: images.length, completed: true, at: new Date().toISOString() }));
     return response;
   } catch (error) {

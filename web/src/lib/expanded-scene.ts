@@ -61,11 +61,31 @@ export function drawExpanded(slide: SlideSpec,c:DesignSystem["colors"],g:G): boo
   const bibliography=S[kind].parse(slide.data);
   if(bibliography.mode==="bibliography"){
    const columns=bibliography.rows.length>6?2:1,gap=.46,w=(W-gap*(columns-1))/columns,per=Math.ceil(bibliography.rows.length/columns);
-   for(let col=0;col<columns;col++){
-    const rows=bibliography.rows.slice(col*per,(col+1)*per),x=X+col*(w+gap),tw=w-.66,heights=rows.map(r=>textHeight(r.material,12,tw)+.40),spare=Math.max(0,H-heights.reduce((a,b)=>a+b,0))/Math.max(1,rows.length);let y=Y;
-    rows.forEach((r,i)=>{const th=textHeight(r.material,12,tw);txt(r.code,x,y+.02,.48,.26,11,c.primary,true);txt(r.material,x+.64,y,tw,th+.02,12,c.darkest,true);const meta=[r.dateLabel,r.url?`[원문 보기](${r.url})`:"원문 URL 없음"].filter(Boolean).join(" · ");txt(meta,x+.64,y+th+.06,tw,.24,10,c.muted);line(x,y+heights[i]+spare-.1,w,c.connector,.7);y+=heights[i]+spare;});
+   // Only the displayed title is shortened. Full metadata stays in slide.data and notes.
+   const compact=(raw:string,size:number,width:number,maximumLines:number)=>{
+    const value=raw.replace(/\s+/g," ").trim();if(richLines(value,size,width).length<=maximumLines)return value;
+    const chars=Array.from(value);let low=0,high=chars.length;
+    while(low<high){const middle=Math.ceil((low+high)/2);if(richLines(chars.slice(0,middle).join("").trimEnd()+"…",size,width).length<=maximumLines)low=middle;else high=middle-1;}
+    return chars.slice(0,low).join("").trimEnd()+"…";
+   };
+   const tw=w-.66,metaSize=10,metaHeight=metaSize*1.25/72;
+   let titleSize=12;
+   const rowHeight=(material:string,size:number)=>textHeight(compact(material,size,tw-.12,2),size,tw)+metaHeight+.07;
+   for(;titleSize>10;titleSize-=.5){
+    if(Array.from({length:columns},(_,col)=>bibliography.rows.slice(col*per,(col+1)*per)).every(rows=>rows.reduce((height,row)=>height+rowHeight(row.material,titleSize),0)<=H))break;
    }
-   conclusion(bibliography.takeaway);break;
+   for(let col=0;col<columns;col++){
+    const rows=bibliography.rows.slice(col*per,(col+1)*per),x=X+col*(w+gap),heights=rows.map(r=>rowHeight(r.material,titleSize)),spare=Math.max(0,H-heights.reduce((a,b)=>a+b,0))/Math.max(1,rows.length);let y=Y;
+    rows.forEach((r,i)=>{
+     const title=compact(r.material,titleSize,tw-.12,2),th=textHeight(title,titleSize,tw),date=r.dateLabel?.match(/\d{4}-\d{2}-\d{2}/)?.[0],dateLabel=date?`${r.dateLabel?.startsWith("발행")?"발행":"확인"} ${date}`:r.dateLabel??"";
+     txt(compact(r.code,10,.48,1),x,y+.01,.48,.20,10,c.primary,true);
+     txt(title,x+.64,y,tw,th+.008,titleSize,c.darkest,true);
+     txt(compact(dateLabel,metaSize,tw-1,1),x+.64,y+th+.025,tw-1,metaHeight+.008,metaSize,c.muted);
+     txt(r.url?`[원문 보기](${r.url})`:"URL 없음",x+w-.82,y+th+.025,.82,metaHeight+.008,metaSize,c.muted,false,"right");
+     line(x,y+heights[i]+spare-.015,w,c.connector,.7);y+=heights[i]+spare;
+    });
+   }
+   conclusion(bibliography.takeaway);return true;
   }
  // 판단할 수 있는 것은 연녹색 칸·주색 굵은 글자(✓), 판단할 수 없는 것은 흰 칸·위험색 글자(✕), 코드는 진한 표식으로 강조한다.
  const d=S[kind].parse(slide.data),widths=[.75,3.1,4.05,4.59],xs=[X,X+.75,X+3.85,X+7.9],rh=3.76/d.rows.length;

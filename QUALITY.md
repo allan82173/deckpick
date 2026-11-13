@@ -11,3 +11,5 @@ The hosted preview supports the prepared synthetic example, editing and PPTX exp
 현재 개선의 전체 덱 품질·시간 절감률은 새로운 실측으로 확인해야 합니다. 오프라인 테스트 통과와 제출 수준 검증은 별개입니다.
 
 Original-source recovery: query results are genuinely interleaved, blocked pages do not consume the successful-page target, and a bounded next-source retry follows real report/document links. The direct document URL and discovery origin are recorded separately. Empty fact extraction can use the remaining research round; download listings alone are not treated as substantive task evidence. A controlled same-input recovery can reuse discovered URLs without repeating the initial searches.
+
+Local structured output uses Codex native `--output-schema` for closed schemas, with optional-field restoration and the existing Zod checks. Dynamic record payloads retain validated JSON fallback. Story layout metadata is normalized without dropping role mappings or registry details, and requested slide count is explicit in the wire schema. Bibliography display measures long titles and keeps full titles/links in the original data and notes. These checks do not establish a new full-deck quality score.
